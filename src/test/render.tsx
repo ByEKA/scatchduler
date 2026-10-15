@@ -4,6 +4,7 @@ import userEvent, { type UserEvent } from '@testing-library/user-event';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { createQueryClient } from '@/app/queryClient';
+import { AuthProvider } from '@/auth/AuthProvider';
 import type { DataLayer } from '@/data';
 import { DataLayerProvider } from '@/data/DataLayerProvider';
 import { ThemeProvider } from '@/hooks/useTheme';
@@ -53,19 +54,21 @@ export function renderWithProviders(
     <ThemeProvider>
       <DataLayerProvider value={dataLayer}>
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter initialEntries={[route]}>
-            <Routes>
-              {path === undefined ? (
-                <Route path="*" element={ui} />
-              ) : (
-                <>
-                  <Route path={path} element={ui} />
-                  <Route path="*" element={null} />
-                </>
-              )}
-            </Routes>
-            <LocationDisplay />
-          </MemoryRouter>
+          <AuthProvider>
+            <MemoryRouter initialEntries={[route]}>
+              <Routes>
+                {path === undefined ? (
+                  <Route path="*" element={ui} />
+                ) : (
+                  <>
+                    <Route path={path} element={ui} />
+                    <Route path="*" element={null} />
+                  </>
+                )}
+              </Routes>
+              <LocationDisplay />
+            </MemoryRouter>
+          </AuthProvider>
         </QueryClientProvider>
       </DataLayerProvider>
     </ThemeProvider>,
