@@ -10,4 +10,9 @@ describe('cn', () => {
     const off = false as boolean;
     expect(cn('a', off && 'b', undefined, null, 'c')).toBe('a c');
   });
+
+  it('keeps custom font sizes next to text colors', () => {
+    expect(cn('text-display', 'text-white')).toBe('text-display text-white');
+    expect(cn('text-sm', 'text-display')).toBe('text-display');
+  });
 });
