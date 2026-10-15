@@ -566,7 +566,7 @@ shadcn variable names are the base; our extra tokens follow. Light values live o
 | `--destructive` | `#f87171` | `#dc2626` | errors, overdue |
 | `--success` | `#4ade80` | `#16a34a` | "ID available" check mark |
 | `--border` | `#2a2a30` | `#e4e4e7` | dividers |
-| `--input` | `#3a3a42` | `#d4d4d8` | input borders, dashed outlines |
+| `--input` | `#71717a` | `#8a8a94` | input borders, dashed outlines (≥ 3 : 1 on card, popover and background; D9) |
 | `--ring` | `#818cf8` | `#6366f1` | focus ring |
 | `--sidebar` / `--sidebar-foreground` | `#0e0e11` / `#a1a1aa` | `#f4f4f5` / `#52525b` | sidebar |
 | `--sidebar-border` | `#2a2a30` | `#e4e4e7` | sidebar edge |
@@ -945,7 +945,7 @@ With `prefers-reduced-motion: reduce`, disable scale, slide and zoom (opacity ch
 - Cards use the stretched-link pattern; the schedules link is separately focusable.
 - Forms: labels bound to inputs, errors through `aria-describedby` + `aria-invalid`, first invalid field focused on submit.
 - Toasts announce through sonner's live region; Undo is keyboard reachable.
-- Contrast: text ≥ 4.5 : 1 on its background in both themes; focus ring and UI boundaries ≥ 3 : 1 (verified in §8).
+- Contrast: text ≥ 4.5 : 1 on its background in both themes; focus ring and UI boundaries (input borders) ≥ 3 : 1 (verified in §8). Dividers (`--border`) are decorative and not held to 3 : 1 (D9).
 - With `(pointer: coarse)`, nav items and icon buttons grow to 40 px tall.
 
 ---
@@ -984,7 +984,7 @@ export const brand = {
 | Mock adapter | Vitest | workspace order and project counts; project sort and `limit`; case-insensitive code availability; `createProject` conflict; `createSchedule` / `importSchedule` bump `updatedAt` and `scheduleCount`; shared rows order; pending task order; `setTaskDone`; reseed on corrupt store and on scenario change; failure injection (rate 1 → reads reject with `network`, writes succeed) |
 | Components | Vitest + Testing Library via `renderWithProviders` with an in-memory repository | PlanBadge variants; SidebarNav active and disabled items; ProjectCard content and links; RecentProjects loading / error / empty / populated; SharedSchedulesTable empty and rows; WorkspacesPanel with and without team workspaces; TodoPanel complete + Undo; WelcomeBanner greeting; UserMenu theme toggle; NewScheduleDialog validation and submit; ImportScheduleDialog file validation; NewProjectWizard per-step validation, async code check, conflict path |
 | End-to-end | Playwright against `vite preview`, `VITE_MOCK_LATENCY_MS=0` | (1) Home shows seed data: greeting, 5 cards + create card, 2 shared rows, 2 workspaces, 3 tasks. (2) Sidebar toggle persists after reload. (3) Keyboard-only workspace switch. (4) Create schedule from the banner → toast → schedule page. (5) Create project through all 4 steps → first in Recent projects. (6) Theme toggle persists after reload. (7) Screenshots at 1440, 1024, 768, 375 saved to `test-results/screens/` for owner review (not diffed). |
-| Contrast | `scripts/check-contrast.mjs` | Reads `:root` and `.dark` token values from `src/index.css` and asserts WCAG ratios for: foreground on background / card / popover; muted-foreground on background / card; subtle-foreground and sidebar-foreground on sidebar; sidebar-accent-foreground on sidebar-accent (composited over sidebar); link on card and background; primary-foreground on primary; warning-foreground on warning-bg (composited over card); destructive on card; banner date text (white 85 %) over `brand-700` with the 30 % `brand-400` highlight. Text pairs ≥ 4.5; ring and success icon vs their surface ≥ 3. It resolves `var(--x)` references and treats `color-mix(in oklab, var(--x) N%, transparent)` as `--x` at N % alpha. |
+| Contrast | `scripts/check-contrast.mjs` | Reads `:root` and `.dark` token values from `src/index.css` and asserts WCAG ratios for: foreground on background / card / popover; muted-foreground on background / card; subtle-foreground and sidebar-foreground on sidebar; sidebar-accent-foreground on sidebar-accent (composited over sidebar); link on card and background; primary-foreground on primary; warning-foreground on warning-bg (composited over card); destructive on card; input on card, popover and background; banner date text (white 85 %) over `brand-700` with the 30 % `brand-400` highlight. Text pairs ≥ 4.5; ring, input borders and success icon vs their surface ≥ 3. It resolves `var(--x)` references and treats `color-mix(in oklab, var(--x) N%, transparent)` as `--x` at N % alpha. |
 | Architecture | ESLint `no-restricted-imports` | Files outside `src/data` (and `src/test`) cannot import `src/data/mock/**` or `src/data/supabase/**` (S4). |
 
 npm scripts:
@@ -1178,6 +1178,7 @@ create view public.shared_with_me with (security_invoker = true) as
 | D6 | One `DialogsProvider` for all creation dialogs | dialogs open from several places and chain into each other |
 | D7 | Native date inputs in the wizard | keeps Phase 1 small; can be swapped for a date picker later |
 | D8 | Sidebar hides fully (no icon rail) on desktop, drawer below 1024 px | matches the analyzed interaction model, simplest to build |
+| D9 | `--input` raised to `#71717a` (dark) / `#8a8a94` (light) so input borders reach 3 : 1 on card, popover and background; the contrast check covers these pairs; field components drop the dark-theme `bg-input/30` fill | §6.12 asks for 3 : 1 UI boundaries; the earlier values measured 1.38–1.61 : 1, and on the lighter fill muted text would drop below 4.5 : 1 (owner decision 2026-10-15) |
 
 ---
 

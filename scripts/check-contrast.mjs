@@ -22,6 +22,9 @@ const TOKEN_PAIRS = [
   ['--warning-foreground', ['--warning-bg', '--card'], TEXT],
   ['--destructive', ['--card'], TEXT],
   ['--ring', ['--card'], NON_TEXT],
+  ['--input', ['--card'], NON_TEXT],
+  ['--input', ['--popover'], NON_TEXT],
+  ['--input', ['--background'], NON_TEXT],
   ['--success', ['--popover'], NON_TEXT],
 ];
 

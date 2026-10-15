@@ -22,7 +22,7 @@
 - Env: `VITE_DATA_SOURCE` (`mock` default; `supabase` throws `Supabase data source is not implemented yet (Phase 2). Set VITE_DATA_SOURCE=mock.`), `VITE_MOCK_SCENARIO` (`default` | `empty`), `VITE_MOCK_LATENCY_MS` (default `400`), `VITE_MOCK_FAIL_RATE` (default `0`).
 - QueryClient: `staleTime: 30_000`, `retry: 1`, `refetchOnWindowFocus: false`; tests use `retry: false`. Recent projects limit: `5`.
 - No third-party logos, illustrations, images or copy; icons come from lucide only.
-- Text contrast ≥ 4.5 : 1; focus ring and success icon ≥ 3 : 1 (`npm run check:contrast`).
+- Text contrast ≥ 4.5 : 1; focus ring, input borders and success icon ≥ 3 : 1 (`npm run check:contrast`).
 - Unit tests run with `TZ=America/Los_Angeles`.
 - One commit per task, Conventional Commits (`feat:`, `fix:`, `test:`, `chore:`, `docs:`).
 - If a CLI behaves differently in the installed version (renamed flag, new prompt), use the closest non-interactive equivalent that produces the same files and note it in the commit body.
@@ -267,6 +267,7 @@ Expected: FAIL — cannot find `./check-contrast.mjs`.
   | `--warning-foreground` | `--warning-bg` over `--card` | 4.5 |
   | `--destructive` | `--card` | 4.5 |
   | `--ring` | `--card` | 3 |
+  | `--input` | `--card`, `--popover`, `--background` | 3 (spec D9) |
   | `--success` | `--popover` | 3 |
   | `rgb(255 255 255 / 0.85)` | `color-mix(in oklab, var(--brand-400) 30%, transparent)` over `--brand-700` | 4.5 (banner date; once, light vars) |
 
@@ -306,7 +307,7 @@ npm pkg set "scripts.check:contrast=node scripts/check-contrast.mjs" "scripts.ch
 - [ ] **Step 8: Run the checks**
 
 Run: `npx vitest run scripts/check-contrast.test.mjs && npm run check:contrast && npm run build`
-Expected: 4 tests pass; `Contrast OK: 31 checks passed`; build succeeds.
+Expected: 4 tests pass; `Contrast OK: 37 checks passed` (31 before spec D9 added the `--input` pairs); build succeeds.
 
 - [ ] **Step 9: Commit**
 
@@ -2849,7 +2850,7 @@ git add -A && git commit -m "test: add end-to-end flows and responsive screensho
 - [ ] **Step 1: Run every automated check**
 
 Run: `npm run check && npm run test:e2e && npm run build`
-Expected: typecheck, lint, all unit tests and `Contrast OK: 31 checks passed`; `12 passed` end-to-end; build succeeds. Record the test counts.
+Expected: typecheck, lint, all unit tests and `Contrast OK: 37 checks passed`; `12 passed` end-to-end; build succeeds. Record the test counts.
 
 - [ ] **Step 2: Verification notes** — run item 7 yourself and record its output; write items 1–6 into `docs/superpowers/plans/2026-10-14-phase1-verification.md` as an unchecked owner checklist (each with a pass/fail box and a note line). They need a person at a browser, so don't start a dev server in the foreground for them:
   1. Keyboard only: focus order matches §6.12; every popover, menu and dialog opens, works and closes with the keyboard; focus returns to its trigger.
