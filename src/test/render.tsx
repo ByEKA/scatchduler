@@ -1,12 +1,21 @@
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { render, type RenderResult } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
+import { useEffect, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { createQueryClient } from '@/app/queryClient';
 import { AuthProvider } from '@/auth/AuthProvider';
+import { Toaster } from '@/components/ui/sonner';
 import type { DataLayer } from '@/data';
 import { DataLayerProvider } from '@/data/DataLayerProvider';
+import { DialogHost } from '@/features/dialogs/DialogHost';
+import {
+  DialogsProvider,
+  useDialogs,
+  type DialogKind,
+  type DialogOptions,
+} from '@/features/dialogs/DialogsProvider';
 import { CurrentContextProvider } from '@/hooks/useCurrentContext';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { createTestDataLayer, type TestDataLayer } from '@/test/fakes';
@@ -36,6 +45,27 @@ function LocationDisplay() {
   );
 }
 
+/** The open dialog's kind, or "none", for tests that check what a click opened or closed. */
+function DialogStateProbe() {
+  const { active } = useDialogs();
+  return (
+    <div hidden data-testid="dialog">
+      {active?.kind ?? 'none'}
+    </div>
+  );
+}
+
+/** Opens a dialog once, on mount. Render it as the `ui` of `renderWithProviders`. */
+export function OpenDialog({ kind, options }: { kind: DialogKind; options?: DialogOptions }): null {
+  const { openDialog } = useDialogs();
+  // The props as they were on mount, so a re-render never opens the dialog again.
+  const [request] = useState(() => ({ kind, options }));
+  useEffect(() => {
+    openDialog(request.kind, request.options);
+  }, [openDialog, request]);
+  return null;
+}
+
 export interface RenderWithProvidersOptions {
   /** The starting URL; `/` by default. */
   route?: string;
@@ -58,19 +88,24 @@ export function renderWithProviders(
           <AuthProvider>
             <MemoryRouter initialEntries={[route]}>
               <CurrentContextProvider>
-                <Routes>
-                  {path === undefined ? (
-                    <Route path="*" element={ui} />
-                  ) : (
-                    <>
-                      <Route path={path} element={ui} />
-                      <Route path="*" element={null} />
-                    </>
-                  )}
-                </Routes>
+                <DialogsProvider>
+                  <Routes>
+                    {path === undefined ? (
+                      <Route path="*" element={ui} />
+                    ) : (
+                      <>
+                        <Route path={path} element={ui} />
+                        <Route path="*" element={null} />
+                      </>
+                    )}
+                  </Routes>
+                  <DialogHost />
+                  <DialogStateProbe />
+                </DialogsProvider>
               </CurrentContextProvider>
               <LocationDisplay />
             </MemoryRouter>
+            <Toaster />
           </AuthProvider>
         </QueryClientProvider>
       </DataLayerProvider>
