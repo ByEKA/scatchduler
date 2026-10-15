@@ -7,6 +7,7 @@ import { createQueryClient } from '@/app/queryClient';
 import { AuthProvider } from '@/auth/AuthProvider';
 import type { DataLayer } from '@/data';
 import { DataLayerProvider } from '@/data/DataLayerProvider';
+import { CurrentContextProvider } from '@/hooks/useCurrentContext';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { createTestDataLayer, type TestDataLayer } from '@/test/fakes';
 
@@ -56,16 +57,18 @@ export function renderWithProviders(
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <MemoryRouter initialEntries={[route]}>
-              <Routes>
-                {path === undefined ? (
-                  <Route path="*" element={ui} />
-                ) : (
-                  <>
-                    <Route path={path} element={ui} />
-                    <Route path="*" element={null} />
-                  </>
-                )}
-              </Routes>
+              <CurrentContextProvider>
+                <Routes>
+                  {path === undefined ? (
+                    <Route path="*" element={ui} />
+                  ) : (
+                    <>
+                      <Route path={path} element={ui} />
+                      <Route path="*" element={null} />
+                    </>
+                  )}
+                </Routes>
+              </CurrentContextProvider>
               <LocationDisplay />
             </MemoryRouter>
           </AuthProvider>
