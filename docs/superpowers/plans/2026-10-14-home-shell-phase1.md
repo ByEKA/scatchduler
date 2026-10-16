@@ -1750,7 +1750,8 @@ git add -A && git commit -m "feat: add app shell with collapsible sidebar and to
   - When `useCurrentContext().status === 'error'` both switchers render a disabled button with text "Unavailable".
   - `PlanBadge`: renders nothing unless `plan === 'trial'`; a `<Link to="/settings/billing">` whose aria-label is `Trial: {label}. Upgrade now.` or, when ended, `Trial ended. Upgrade now.`; shows `compactLabel` below 640 px; refreshes with `useNow()`.
   - `UserMenu` trigger `aria-label="Account menu for {fullName}"`; items and actions from §6.7; Documentation is `<a href={brand.docsUrl} target="_blank" rel="noreferrer">`; the theme item reads "Light mode" in the dark theme and "Dark mode" in the light theme; "Log out" awaits `signOut()` then navigates to `/sign-in`. If the user query failed, the trigger shows a `User` icon and no name, aria-label "Account menu".
-  - Below 640 px (§6.9): the workspace name link shows only a `Building2` icon (the name stays its accessible name), the project label is capped at 120 px, the plan badge shows `compactLabel`, and the account trigger hides the first name. Between 640 and 767 px the workspace name is capped at 120 px.
+  - Below 640 px (§6.9): the workspace name link shows only a `Building2` icon (the name stays its accessible name), the project label is capped at 120 px, the plan badge shows only `compactLabel` (no "TRIAL" label or dot), the account trigger hides the first name, the logo link is hidden and the top bar cluster gaps are 8 px (spec D10).
+  - The "TRIAL" label is at 70 % opacity in the dark theme only (spec D10). Between 640 and 767 px the workspace name is capped at 120 px.
   - All of these size variants are CSS-only (render both forms, toggle with responsive `hidden` / `sm:inline` utilities). Never pick them with `matchMedia` in JavaScript: tests run with `matchMedia` returning `false` and must still find the full labels.
 
 - [ ] **Step 1: Write the failing tests**

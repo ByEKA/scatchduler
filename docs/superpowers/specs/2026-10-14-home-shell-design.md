@@ -645,7 +645,7 @@ Body: `font-sans text-sm text-foreground bg-background antialiased`. Codes (`001
 | Region | Spec |
 |---|---|
 | Page frame | CSS grid, `height: 100dvh`, rows `48px 1fr`; second row columns `auto 1fr`. Only `main` scrolls. |
-| Top bar | height 48; `bg-card`; bottom border 1 px `border`; padding-x 12; flex, `items-center justify-between`; left and right clusters `gap-3` (12). |
+| Top bar | height 48; `bg-card`; bottom border 1 px `border`; padding-x 12; flex, `items-center justify-between`; left and right clusters `gap-3` (12), `gap-2` (8) below 640 px (D10). |
 | Sidebar | width 176 (open) / 0 (closed); `bg-sidebar`; right border 1 px `sidebar-border`; padding 12; scrolls on overflow. `id="app-sidebar"`. |
 | Main | `min-w-0 overflow-y-auto bg-background`, `scrollbar-gutter: stable`; padding top 12, bottom 24, x 12 (< 1024) / 16 (≥ 1024). |
 | Content column | `max-width: 1600px; margin-inline: auto`; vertical stack with 24 between sections; 16 between a section heading and its content. |
@@ -655,10 +655,10 @@ Body: `font-sans text-sm text-foreground bg-background antialiased`. Codes (`001
 | Element | Spec | Behavior |
 |---|---|---|
 | Sidebar toggle | 32×32 ghost icon button, radius 8, `PanelLeft` 18 px, `muted-foreground` → `foreground` on hover | Desktop: toggles sidebar (aria-label "Hide sidebar" / "Show sidebar"). < 1024: opens drawer ("Open navigation"). `aria-expanded`, `aria-controls="app-sidebar"`. |
-| Brand logo | `BrandLogo`, height 24 | Link to `/home`, aria-label "{brand.name} home". |
+| Brand logo | `BrandLogo`, height 24; hidden below 640 px (D10) | Link to `/home`, aria-label "{brand.name} home". |
 | Workspace switcher | Split control, height 28. Left: workspace name, `text-sm font-medium`, padding-x 10, radius `8 0 0 8`, `bg-secondary/80`, hover `bg-accent`, max-width 200 (truncate). Right: 28×28 button, `ChevronsUpDown` 14 px, radius `0 8 8 0`, 1 px left border `border` | Left navigates to `/w/:id/projects`. Right opens the workspace popover (§6.7). |
 | Project switcher | Button height 28, padding-x 10, gap 6, radius 8, `bg-secondary/80`, max-width 320 (truncate), `ChevronDown` 14 px. Label = current project name, or "Select project" in `muted-foreground` | Opens the project popover (§6.7). |
-| Plan badge | Only when `plan === 'trial'`. Pill height 26, padding `4 12`, gap 8, 1 px `warning-border`, `bg-warning-bg`, `text-warning-foreground`. Content: "TRIAL" (`text-2xs` 600 uppercase, `tracking-[0.06em]`, 70 % opacity) · 4 px dot (current color, 50 %) · "{n} days left" (`text-xs` 600) | Link to `/settings/billing`; aria-label "Trial: {n} days left. Upgrade now." Text rules in §6.10. |
+| Plan badge | Only when `plan === 'trial'`. Pill height 26, padding `4 12`, gap 8, 1 px `warning-border`, `bg-warning-bg`, `text-warning-foreground`. Content: "TRIAL" (`text-2xs` 600 uppercase, `tracking-[0.06em]`, 70 % opacity in the dark theme, full opacity in the light theme; D10) · 4 px dot (current color, 50 %) · "{n} days left" (`text-xs` 600) | Link to `/settings/billing`; aria-label "Trial: {n} days left. Upgrade now." Text rules in §6.10. |
 | Account menu trigger | Height 36, padding-x 6, gap 8, radius 8, hover `bg-accent`. Avatar 32 circle (`bg-secondary`, initials `text-xs` 500 `muted-foreground`, or image) + first name `text-sm` 500 + `ChevronDown` 14 px muted | Opens user menu (§6.7). aria-label "Account menu for {full name}". |
 
 ### 6.5 Sidebar
@@ -896,7 +896,7 @@ All banner buttons: height 44, padding-x 20, gap 8, radius 8, `text-base` 600; p
 | 1024–1279 px | Same; banner actions may wrap. |
 | 768–1023 px | Sidebar becomes a left drawer (`Sheet`, 240 wide), closed by default; project grid 2 columns; main padding-x 12. |
 | 640–767 px | Project grid 2 columns; table hides "Shared by"; workspace switcher label max-width 120. |
-| < 640 px | Project grid 1 column; banner padding 20, actions stack full-width, divider hidden; table shows Schedule + Shared only; workspace switcher shows a `Building2` icon + chevron only (name in aria-label); project switcher label max-width 120; plan badge compact "{n}d" (full text kept in aria-label); account trigger hides the first name; To do min-height 240; dialogs use a 16 px viewport margin; wizard step labels hidden (markers only). |
+| < 640 px | Project grid 1 column; banner padding 20, actions stack full-width, divider hidden; table shows Schedule + Shared only; workspace switcher shows a `Building2` icon + chevron only (name in aria-label); brand logo hidden and top bar cluster gaps 8 (D10); project switcher label max-width 120; plan badge shows only the compact "{n}d" / "Ended", without the "TRIAL" label and dot (full text kept in aria-label); account trigger hides the first name; To do min-height 240; dialogs use a 16 px viewport margin; wizard step labels hidden (markers only). |
 
 ### 6.10 Rules, formats and edge cases
 
@@ -1179,6 +1179,7 @@ create view public.shared_with_me with (security_invoker = true) as
 | D7 | Native date inputs in the wizard | keeps Phase 1 small; can be swapped for a date picker later |
 | D8 | Sidebar hides fully (no icon rail) on desktop, drawer below 1024 px | matches the analyzed interaction model, simplest to build |
 | D9 | `--input` raised to `#71717a` (dark) / `#8a8a94` (light) so input borders reach 3 : 1 on card, popover and background; the contrast check covers these pairs; field components drop the dark-theme `bg-input/30` fill | §6.12 asks for 3 : 1 UI boundaries; the earlier values measured 1.38–1.61 : 1, and on the lighter fill muted text would drop below 4.5 : 1 (owner decision 2026-10-15) |
+| D10 | The "TRIAL" label keeps 70 % opacity only in the dark theme; below 640 px the brand logo is hidden, the top bar cluster gaps drop to 8 px and the plan badge shows only "{n}d" / "Ended" | at 70 % the light-theme label measured 2.89 : 1 against the 4.5 : 1 that §6.12 asks of text (4.84 : 1 at full opacity; dark measures 4.85 : 1 at 70 %). With only the earlier §6.9 changes the top bar needed about 445 px at 375 px and its controls overlapped; these changes leave the project label about 75 px (owner decision 2026-10-16) |
 
 ---
 
