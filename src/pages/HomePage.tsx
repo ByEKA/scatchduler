@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { RecentProjects } from '@/features/home/RecentProjects';
 import { SharedSchedulesTable } from '@/features/home/SharedSchedulesTable';
+import { TodoPanel } from '@/features/home/TodoPanel';
 import { WelcomeBanner } from '@/features/home/WelcomeBanner';
 import { WorkspacesPanel } from '@/features/home/WorkspacesPanel';
 
@@ -11,6 +12,7 @@ export function HomePage(): ReactElement {
       <RecentProjects />
       <SharedSchedulesTable />
       <WorkspacesPanel />
+      <TodoPanel />
     </div>
   );
 }

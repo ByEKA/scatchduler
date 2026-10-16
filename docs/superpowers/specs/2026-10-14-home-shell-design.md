@@ -781,7 +781,7 @@ All banner buttons: height 44, padding-x 20, gap 8, radius 8, `text-base` 600; p
 - `<section aria-labelledby="todo-heading">`, `<h2>` "To do", then a panel (radius 10, `bg-card`, ring) with min-height 420 (≥ 1024) / 240 (< 1024).
 - Rows (`usePendingTasks`): height 44, padding-x 16, gap 12, bottom border except the last.
   - shadcn `Checkbox` (aria-label "Mark '{title}' as done") · title `text-sm` (truncate) · due text right-aligned `text-xs`: "Due today", "Due tomorrow", "Due {MMM d}"; past due → `text-destructive` "Overdue · {MMM d}"; no due date → nothing.
-  - Checking a task removes it optimistically and shows a toast "Task completed" with an **Undo** action (`setTaskDone(id, false)`, row returns in place).
+  - Checking a task removes it optimistically and shows a toast "Task completed" with an **Undo** action (`setTaskDone(id, false)`, row returns in place). The toast shows at the click, with the row's removal; if the write fails, the toast goes away, the row returns and the error toast shows. Undo sends its write after the done write has finished (D15).
 - Empty: centered `EmptyState` (`ListChecks`): title "You're all caught up", description "Tasks assigned to you will show up here."
 - Loading: 3 skeleton rows. Error: `SectionError`.
 
@@ -1184,6 +1184,7 @@ create view public.shared_with_me with (security_invoker = true) as
 | D12 | New project wizard: "Create project" stays enabled when the Project ID turns out to be taken after step 1 and sends the user back to step 1 with the error instead of submitting; the photo hint reads "JPG or PNG · up to 5 MB"; a date that isn't `YYYY-MM-DD` gets "Enter a valid date" | the ID can be known taken only after step 1 when the debounced check answers after "Next" or the workspace changes while the dialog is open; a disabled button on step 4 would hide the reason, which sits on step 1, and the redirect matches the spec's conflict-on-submit rule. A native date input accepts a five-digit year, which `parseISO` can't read and the date formatting would later fail on (owner decisions 2026-10-16) |
 | D13 | New project wizard: Project type gets a first option "None" (the empty value); completed stepper buttons are named "{label}, completed" | the type is optional, but once a type was picked it could not be cleared without closing the dialog; the completed state showed only in the decorative check marker (owner decisions 2026-10-16) |
 | D14 | Shared with me table: the row link's `title` lists the schedule name, the project name and "Shared by {full name}"; the truncated project and sharer cells have no `title` | the stretched link covers the whole row, so a `title` on any other cell never showed, and a long project name cut to an ellipsis could not be read with a mouse (owner decision 2026-10-16) |
+| D15 | To do: "Task completed" shows at the click; a failed write dismisses it and shows the error; Undo waits for the done write | the first build showed the toast only after the write and the list refetch (about 800 ms with the mock), while the row left at once; waiting for the done write keeps the two writes in order (owner decision 2026-10-16) |
 
 ---
 
