@@ -655,7 +655,7 @@ Body: `font-sans text-sm text-foreground bg-background antialiased`. Codes (`001
 | Element | Spec | Behavior |
 |---|---|---|
 | Sidebar toggle | 32×32 ghost icon button, radius 8, `PanelLeft` 18 px, `muted-foreground` → `foreground` on hover | Desktop: toggles sidebar (aria-label "Hide sidebar" / "Show sidebar"). < 1024: opens drawer ("Open navigation"). `aria-expanded`, `aria-controls="app-sidebar"`. |
-| Brand logo | `BrandLogo`, height 24; hidden below 640 px (D10) | Link to `/home`, aria-label "{brand.name} home". |
+| Brand logo | `BrandLogo`, height 24; hidden below 768 px (D10) | Link to `/home`, aria-label "{brand.name} home". |
 | Workspace switcher | Split control, height 28. Left: workspace name, `text-sm font-medium`, padding-x 10, radius `8 0 0 8`, `bg-secondary/80`, hover `bg-accent`, max-width 200 (truncate). Right: 28×28 button, `ChevronsUpDown` 14 px, radius `0 8 8 0`, 1 px left border `border` | Left navigates to `/w/:id/projects`. Right opens the workspace popover (§6.7). |
 | Project switcher | Button height 28, padding-x 10, gap 6, radius 8, `bg-secondary/80`, max-width 320 (truncate), `ChevronDown` 14 px. Label = current project name, or "Select project" in `muted-foreground` | Opens the project popover (§6.7). |
 | Plan badge | Only when `plan === 'trial'`. Pill height 26, padding `4 12`, gap 8, 1 px `warning-border`, `bg-warning-bg`, `text-warning-foreground`. Content: "TRIAL" (`text-2xs` 600 uppercase, `tracking-[0.06em]`, 70 % opacity in the dark theme, full opacity in the light theme; D10) · 4 px dot (current color, 50 %) · "{n} days left" (`text-xs` 600) | Link to `/settings/billing`; aria-label "Trial: {n} days left. Upgrade now." Text rules in §6.10. |
@@ -895,8 +895,8 @@ All banner buttons: height 44, padding-x 20, gap 8, radius 8, `text-base` 600; p
 | ≥ 1280 px | Layout as specified. |
 | 1024–1279 px | Same; banner actions may wrap. |
 | 768–1023 px | Sidebar becomes a left drawer (`Sheet`, 240 wide), closed by default; project grid 2 columns; main padding-x 12. |
-| 640–767 px | Project grid 2 columns; table hides "Shared by"; workspace switcher label max-width 120. |
-| < 640 px | Project grid 1 column; banner padding 20, actions stack full-width, divider hidden; table shows Schedule + Shared only; workspace switcher shows a `Building2` icon + chevron only (name in aria-label); brand logo hidden and top bar cluster gaps 8 (D10); project switcher label max-width 120; plan badge shows only the compact "{n}d" / "Ended", without the "TRIAL" label and dot (full text kept in aria-label); account trigger hides the first name; To do min-height 240; dialogs use a 16 px viewport margin; wizard step labels hidden (markers only). |
+| 640–767 px | Project grid 2 columns; table hides "Shared by"; workspace switcher label max-width 120; brand logo hidden (D10). |
+| < 640 px | Project grid 1 column; banner padding 20, actions stack full-width, divider hidden; table shows Schedule + Shared only; workspace switcher shows a `Building2` icon + chevron only (name in aria-label); brand logo hidden; top bar cluster gaps 8 (D10); project switcher label max-width 120; plan badge shows only the compact "{n}d" / "Ended", without the "TRIAL" label and dot (full text kept in aria-label); account trigger hides the first name; To do min-height 240; dialogs use a 16 px viewport margin; wizard step labels hidden (markers only). |
 
 ### 6.10 Rules, formats and edge cases
 
@@ -1179,7 +1179,7 @@ create view public.shared_with_me with (security_invoker = true) as
 | D7 | Native date inputs in the wizard | keeps Phase 1 small; can be swapped for a date picker later |
 | D8 | Sidebar hides fully (no icon rail) on desktop, drawer below 1024 px | matches the analyzed interaction model, simplest to build |
 | D9 | `--input` raised to `#71717a` (dark) / `#8a8a94` (light) so input borders reach 3 : 1 on card, popover and background; the contrast check covers these pairs; field components drop the dark-theme `bg-input/30` fill | §6.12 asks for 3 : 1 UI boundaries; the earlier values measured 1.38–1.61 : 1, and on the lighter fill muted text would drop below 4.5 : 1 (owner decision 2026-10-15) |
-| D10 | The "TRIAL" label keeps 70 % opacity only in the dark theme; below 640 px the brand logo is hidden, the top bar cluster gaps drop to 8 px and the plan badge shows only "{n}d" / "Ended" | at 70 % the light-theme label measured 2.89 : 1 against the 4.5 : 1 that §6.12 asks of text (4.84 : 1 at full opacity; dark measures 4.85 : 1 at 70 %). With only the earlier §6.9 changes the top bar needed about 445 px at 375 px and its controls overlapped; these changes leave the project label about 75 px (owner decision 2026-10-16) |
+| D10 | The "TRIAL" label keeps 70 % opacity only in the dark theme; below 768 px the brand logo is hidden; below 640 px the top bar cluster gaps drop to 8 px and the plan badge shows only "{n}d" / "Ended" | at 70 % the light-theme label measured 2.89 : 1 against the 4.5 : 1 that §6.12 asks of text (4.84 : 1 at full opacity; dark measures 4.85 : 1 at 70 %). With only the earlier §6.9 changes the top bar needed about 445 px at 375 px and its controls overlapped; these changes leave the project label about 75 px. With the logo back at 640 px, the full badge and the first name left the workspace name 22 px and the project label 61 px, so the logo stays hidden up to 767 px (owner decisions 2026-10-16) |
 
 ---
 

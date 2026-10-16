@@ -39,7 +39,7 @@ export function TopBar(): ReactElement {
           to="/home"
           aria-label={`${brand.name} home`}
           // Hidden below 640 px with CSS only (spec §6.9, D10).
-          className="shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-sm:hidden"
+          className="shrink-0 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring max-md:hidden"
         >
           <BrandLogo />
         </Link>
