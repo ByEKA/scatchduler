@@ -752,7 +752,7 @@ All banner buttons: height 44, padding-x 20, gap 8, radius 8, `text-base` 600; p
 - `<section aria-labelledby="shared-heading">`, `<h2>` "Shared with me", then a panel: radius 10, `bg-card`, ring 1 px `--ring-subtle`, `overflow-hidden`.
 - Real `<table>` with `table-layout: fixed`. Columns: Schedule 38 %, Shared by 24 %, Shared 19 %, Status date 19 %.
 - Header row: height 40, `bg-muted/50`, bottom border; cells `text-2xs` 500 uppercase, `tracking-[0.04em]`, `muted-foreground`; first cell padding-left 20, last cell padding-right 28, others padding-x 6.
-- Body rows: height 56; bottom border except the last; hover `bg-accent/40`; whole row clickable through a stretched link on the schedule name → `/w/:workspaceId/p/:projectId/schedule?scheduleId=:scheduleId`.
+- Body rows: height 56; bottom border except the last; hover `bg-accent/40`; whole row clickable through a stretched link on the schedule name → `/w/:workspaceId/p/:projectId/schedule?scheduleId=:scheduleId`. The link covers every cell, so its `title` holds the schedule name, the project name and "Shared by {full name}" on separate lines, and the truncated cells carry no `title` of their own (D14).
 
 | Column | Content |
 |---|---|
@@ -910,7 +910,7 @@ All banner buttons: height 44, padding-x 20, gap 8, radius 8, `text-base` 600; p
 | Trial days | `trialStatus(endsAt, now)` → `{ daysLeft, ended, label, compactLabel }` with `daysLeft = max(0, ceil((endsAt − now) / 1 day))` and `ended = endsAt ≤ now`; label: > 1 → "{n} days left", = 1 → "1 day left", ended → "Trial ended"; compact: "{n}d" / "Ended". Timestamps are offset by exact milliseconds, never calendar days, so a daylight-saving change can't add an hour. |
 | Project cover | `coverFor(id)`: 32-bit FNV-1a hash of the id → base hue `225 + hash % 50` (indigo–violet), second hue `(base + 30 + (hash >>> 8) % 60) % 360`, angle `(hash >>> 16) % 360`; returns `background-image: linear-gradient({angle}deg, hsl({base} 45% 34%), hsl({second} 40% 20%))` layered under a 20 px blueprint grid (`rgb(255 255 255 / 0.07)` 1 px lines). Same id → same cover. |
 | File size | `fileSize(bytes)` → "512 B", "1.2 KB", "3.4 MB" (1 decimal above 1 KB) |
-| Long text | truncate with ellipsis; full text in `title` (cards, table) or Tooltip (switchers) |
+| Long text | truncate with ellipsis; full text in `title` (cards, table; in the shared table on the row link, D14) or Tooltip (switchers) |
 | Many projects | Home shows the 5 most recent; switchers list all with search and scroll |
 | Missing values | status date "—"; avatar → initials; cover → generated |
 | Slow network | skeletons sized like final content (no layout shift) |
@@ -1183,6 +1183,7 @@ create view public.shared_with_me with (security_invoker = true) as
 | D11 | Schedule dialogs: the project picker lists the current workspace's projects and drops the workspace-name column; "Create a new project" on a changed form asks "Discard changes?" before the new project dialog replaces it; `FileDropzone` reports its error through `aria-describedby` only | the default-project rule and the no-project notice already scope the picker to one workspace, so every option showed the same workspace name; replacing a changed dialog without asking lost the typed name and, in Import, the chosen file; ARIA 1.2 doesn't support `aria-invalid` on role `button` and jsx-a11y rejects it (owner decisions 2026-10-16) |
 | D12 | New project wizard: "Create project" stays enabled when the Project ID turns out to be taken after step 1 and sends the user back to step 1 with the error instead of submitting; the photo hint reads "JPG or PNG · up to 5 MB"; a date that isn't `YYYY-MM-DD` gets "Enter a valid date" | the ID can be known taken only after step 1 when the debounced check answers after "Next" or the workspace changes while the dialog is open; a disabled button on step 4 would hide the reason, which sits on step 1, and the redirect matches the spec's conflict-on-submit rule. A native date input accepts a five-digit year, which `parseISO` can't read and the date formatting would later fail on (owner decisions 2026-10-16) |
 | D13 | New project wizard: Project type gets a first option "None" (the empty value); completed stepper buttons are named "{label}, completed" | the type is optional, but once a type was picked it could not be cleared without closing the dialog; the completed state showed only in the decorative check marker (owner decisions 2026-10-16) |
+| D14 | Shared with me table: the row link's `title` lists the schedule name, the project name and "Shared by {full name}"; the truncated project and sharer cells have no `title` | the stretched link covers the whole row, so a `title` on any other cell never showed, and a long project name cut to an ellipsis could not be read with a mouse (owner decision 2026-10-16) |
 
 ---
 

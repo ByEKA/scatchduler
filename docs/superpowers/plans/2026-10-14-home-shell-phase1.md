@@ -2503,7 +2503,7 @@ git add -A && git commit -m "feat: add welcome banner and recent projects to Hom
 - Produces: `SharedSchedulesTable()` (skeleton rows `data-testid="shared-row-skeleton"`), `WorkspacesPanel()` (skeleton rows `data-testid="workspace-row-skeleton"`).
 - Pins:
   - Heading ids `shared-heading` and `workspaces-heading`.
-  - Table: real `<table>` with `table-layout: fixed`; header cells hold the text "Schedule", "Shared by", "Shared", "Status date" (uppercase via CSS); "Shared by" hidden below 768 px and "Status date" below 640 px with responsive `hidden … :table-cell` utilities; the schedule-name link carries `truncate` and `title`; the empty state sits in one full-width row.
+  - Table: real `<table>` with `table-layout: fixed`; header cells hold the text "Schedule", "Shared by", "Shared", "Status date" (uppercase via CSS); "Shared by" hidden below 768 px and "Status date" below 640 px with responsive `hidden … :table-cell` utilities; the schedule-name link carries `truncate` and `title` (the schedule name, the project name and "Shared by {full name}" on separate lines; spec D14); the empty state sits in one full-width row.
   - Workspace rows are `<button>`s; the current one has `aria-current="true"`; the team empty block and the "New team workspace" link-button follow §6.6.
 
 - [ ] **Step 1: Write the failing tests**
@@ -2552,7 +2552,7 @@ describe('SharedSchedulesTable', () => {
     renderWithProviders(<SharedSchedulesTable />, { dataLayer });
     const link = await screen.findByRole('link', { name: long });
     expect(link).toHaveClass('truncate');
-    expect(link).toHaveAttribute('title', long);
+    expect(link).toHaveAttribute('title', `${long}\n${row!.projectName}\nShared by ${row!.sharedBy.firstName} ${row!.sharedBy.lastName}`); // spec D14
   });
 });
 ```

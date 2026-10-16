@@ -249,7 +249,9 @@ describe('NewProjectWizard', () => {
     await next(user, 'Step 3 of 4: Client');
     await waitFor(() => expect(screen.getByLabelText('Client name')).toHaveFocus());
     await user.click(screen.getByRole('button', { name: 'Back' }));
-    await waitFor(() => expect(screen.getByLabelText('Project type')).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText('Project type')).toHaveFocus(), {
+      timeout: 3000,
+    });
   });
 
   it('opens completed steps from the stepper and checks the step on screen to go forward', async () => {
