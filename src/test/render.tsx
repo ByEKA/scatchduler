@@ -7,6 +7,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { createQueryClient } from '@/app/queryClient';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import type { DataLayer } from '@/data';
 import { DataLayerProvider } from '@/data/DataLayerProvider';
 import { DialogHost } from '@/features/dialogs/DialogHost';
@@ -17,6 +18,7 @@ import {
   type DialogOptions,
 } from '@/features/dialogs/DialogsProvider';
 import { CurrentContextProvider } from '@/hooks/useCurrentContext';
+import { SidebarStateProvider } from '@/hooks/useSidebarState';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { createTestDataLayer, type TestDataLayer } from '@/test/fakes';
 
@@ -86,26 +88,30 @@ export function renderWithProviders(
       <DataLayerProvider value={dataLayer}>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <MemoryRouter initialEntries={[route]}>
-              <CurrentContextProvider>
-                <DialogsProvider>
-                  <Routes>
-                    {path === undefined ? (
-                      <Route path="*" element={ui} />
-                    ) : (
-                      <>
-                        <Route path={path} element={ui} />
-                        <Route path="*" element={null} />
-                      </>
-                    )}
-                  </Routes>
-                  <DialogHost />
-                  <DialogStateProbe />
-                </DialogsProvider>
-              </CurrentContextProvider>
-              <LocationDisplay />
-            </MemoryRouter>
-            <Toaster />
+            <TooltipProvider>
+              <MemoryRouter initialEntries={[route]}>
+                <CurrentContextProvider>
+                  <SidebarStateProvider>
+                    <DialogsProvider>
+                      <Routes>
+                        {path === undefined ? (
+                          <Route path="*" element={ui} />
+                        ) : (
+                          <>
+                            <Route path={path} element={ui} />
+                            <Route path="*" element={null} />
+                          </>
+                        )}
+                      </Routes>
+                      <DialogHost />
+                      <DialogStateProbe />
+                    </DialogsProvider>
+                  </SidebarStateProvider>
+                </CurrentContextProvider>
+                <LocationDisplay />
+              </MemoryRouter>
+              <Toaster />
+            </TooltipProvider>
           </AuthProvider>
         </QueryClientProvider>
       </DataLayerProvider>

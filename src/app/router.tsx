@@ -1,6 +1,7 @@
-import { Navigate, Outlet } from 'react-router';
+import { Navigate } from 'react-router';
 import type { RouteObject } from 'react-router';
 import { RequireAuth } from '@/auth/RequireAuth';
+import { AppShell } from '@/components/layout/AppShell';
 import { HomePage } from '@/pages/HomePage';
 import { SignInPage } from '@/pages/SignInPage';
 
@@ -11,7 +12,7 @@ export const appRoutes: RouteObject[] = [
     path: '/',
     element: (
       <RequireAuth>
-        <Outlet />
+        <AppShell />
       </RequireAuth>
     ),
     children: [

@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { toast } from 'sonner';
 import { afterEach, vi } from 'vitest';
+import { resetViewport } from '@/test/viewport';
 
 afterEach(() => {
   cleanup();
@@ -10,19 +11,12 @@ afterEach(() => {
   toast.dismiss();
   localStorage.clear();
   document.documentElement.className = '';
+  resetViewport();
 });
 
-// Stubs for browser APIs that jsdom does not implement.
-window.matchMedia = (query: string): MediaQueryList => ({
-  matches: false,
-  media: query,
-  onchange: null,
-  addListener: () => {},
-  removeListener: () => {},
-  addEventListener: () => {},
-  removeEventListener: () => {},
-  dispatchEvent: () => false,
-});
+// Stubs for browser APIs that jsdom does not implement. matchMedia matches no query until a test
+// calls mockViewport.
+resetViewport();
 
 globalThis.ResizeObserver = class ResizeObserver {
   observe() {}
