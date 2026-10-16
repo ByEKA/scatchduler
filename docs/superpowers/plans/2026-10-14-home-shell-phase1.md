@@ -2729,12 +2729,13 @@ export default defineConfig({
   testDir: 'e2e',
   fullyParallel: true,
   reporter: [['list'], ['html', { open: 'never' }]],
-  use: { baseURL: 'http://localhost:4173', trace: 'retain-on-failure' },
+  use: { baseURL: 'http://localhost:4174', trace: 'retain-on-failure' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } }],
   webServer: {
-    command: 'npm run build -- --mode e2e && npm run preview -- --port 4173 --strictPort',
-    url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
+    // Own port and build folder, never an existing server (owner decision 2026-10-17).
+    command: 'npm run build -- --mode e2e --outDir dist-e2e && npm run preview -- --outDir dist-e2e --port 4174 --strictPort',
+    url: 'http://localhost:4174',
+    reuseExistingServer: false,
     timeout: 180_000,
   },
 });
