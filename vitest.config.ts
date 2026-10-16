@@ -13,6 +13,8 @@ export default mergeConfig(
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
       restoreMocks: true,
+      // The longest user-event tests take 2-4 s in a full run and have hit the 5 s default.
+      testTimeout: 10_000,
     },
   }),
 );
