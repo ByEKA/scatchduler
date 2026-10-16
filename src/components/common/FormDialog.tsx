@@ -1,7 +1,7 @@
 import { Loader2, XIcon } from 'lucide-react';
 import { AlertDialog as AlertDialogPrimitive, Dialog as DialogPrimitive } from 'radix-ui';
 import { createContext, useContext, useRef, useState } from 'react';
-import type { FormEvent, ReactElement, ReactNode } from 'react';
+import type { FormEvent, KeyboardEvent, ReactElement, ReactNode } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -89,7 +89,10 @@ function focusIsLost(): boolean {
 
 export interface FormDialogProps {
   title: string;
-  description: string;
+  /** Muted text under the title; the dialog is described by it. */
+  description?: string;
+  /** Shown under the title and description, outside the scrolling body (the wizard's stepper). */
+  header?: ReactNode;
   /** sm 440 px, md 520 px, lg 560 px, xl 640 px. */
   width: 'sm' | 'md' | 'lg' | 'xl';
   isDirty: boolean;
@@ -105,6 +108,8 @@ export interface FormDialogProps {
   footer?: (helpers: { requestClose: () => void }) => ReactNode;
   /** Radix's open auto-focus event; call `event.preventDefault()` before focusing a field yourself. */
   onOpenAutoFocus?: (event: Event) => void;
+  /** Sees every keydown in the form, footer included, before the focused control does. */
+  onKeyDownCapture?: (event: KeyboardEvent<HTMLFormElement>) => void;
 }
 
 /**
@@ -114,6 +119,7 @@ export interface FormDialogProps {
 export function FormDialog({
   title,
   description,
+  header,
   width,
   isDirty,
   isPending,
@@ -125,6 +131,7 @@ export function FormDialog({
   submitDisabled = false,
   footer,
   onOpenAutoFocus,
+  onKeyDownCapture,
 }: FormDialogProps): ReactElement {
   const { open, opener, onExitComplete } = useContext(PresenceContext);
   // Set while "Discard changes?" is open. `leaveFor` is the action a control asked to leave for;
@@ -204,9 +211,15 @@ export function FormDialog({
           >
             <div className="flex shrink-0 flex-col gap-1 pr-8">
               <DialogTitle className="text-md font-semibold">{title}</DialogTitle>
-              <DialogDescription>{description}</DialogDescription>
+              {description !== undefined && <DialogDescription>{description}</DialogDescription>}
+              {header}
             </div>
-            <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col gap-5">
+            <form
+              noValidate
+              onSubmit={handleSubmit}
+              onKeyDownCapture={onKeyDownCapture}
+              className="flex min-h-0 flex-1 flex-col gap-5"
+            >
               {/* The negative margins give focus rings room inside the scroll container. */}
               <div className="-mx-6 -my-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-1">
                 <LeaveFormContext value={leave}>{children}</LeaveFormContext>

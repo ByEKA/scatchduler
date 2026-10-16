@@ -5,6 +5,7 @@ import {
   useDialogHostState,
   type DialogEntry,
 } from '@/features/dialogs/DialogsProvider';
+import { NewProjectWizard } from '@/features/projects/NewProjectWizard';
 import { ImportScheduleDialog } from '@/features/schedules/ImportScheduleDialog';
 import { NewScheduleDialog } from '@/features/schedules/NewScheduleDialog';
 import { NewTeamWorkspaceDialog } from '@/features/workspaces/NewTeamWorkspaceDialog';
@@ -15,6 +16,8 @@ function renderDialog(entry: DialogEntry): ReactElement | null {
       return <NewScheduleDialog projectId={entry.options.projectId} />;
     case 'importSchedule':
       return <ImportScheduleDialog projectId={entry.options.projectId} />;
+    case 'newProject':
+      return <NewProjectWizard />;
     case 'newTeamWorkspace':
       return <NewTeamWorkspaceDialog />;
     default:

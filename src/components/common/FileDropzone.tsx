@@ -22,8 +22,47 @@ export interface FileDropzoneProps {
   icon?: LucideIcon;
   /** Set while the form saves: the drop area, drops and "Remove file" do nothing. */
   disabled?: boolean;
+  /**
+   * Shows a 96×64 preview of a chosen image in the file chip. A file outside `accept` or over
+   * `maxBytes` gets none: the form rejects it, and decoding a large image only to show it small
+   * costs memory.
+   */
+  thumbnail?: boolean;
   /** The drop area button, so a form can focus the field when its value is invalid. */
   ref?: Ref<HTMLButtonElement>;
+}
+
+/** The image through an object URL, which reads the file without copying it; decorative. */
+function ImageThumbnail({ file }: { file: File }): ReactElement {
+  // A ref callback with cleanup points the image at each new file and frees the URL it replaced.
+  const showFile = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (image === null) return;
+      const url = URL.createObjectURL(file);
+      image.src = url;
+      return () => URL.revokeObjectURL(url);
+    },
+    [file],
+  );
+  return (
+    <img
+      ref={showFile}
+      alt=""
+      className="h-16 w-24 shrink-0 rounded-sm bg-background object-cover"
+    />
+  );
+}
+
+/** True when an `accept` entry (an extension, a MIME type or `type/*`) names the file, in any case. */
+function isAccepted(file: File, accept: string[]): boolean {
+  const name = file.name.toLowerCase();
+  const type = file.type.toLowerCase();
+  return accept.some((entry) => {
+    const pattern = entry.trim().toLowerCase();
+    if (pattern.startsWith('.')) return name.endsWith(pattern);
+    if (pattern.endsWith('/*')) return type.startsWith(pattern.slice(0, -1));
+    return type === pattern;
+  });
 }
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T | null): void {
@@ -38,6 +77,7 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null): void {
 export function FileDropzone({
   label,
   accept,
+  maxBytes,
   hint,
   value,
   onChange,
@@ -45,6 +85,7 @@ export function FileDropzone({
   height = 140,
   icon: Icon = FileUp,
   disabled = false,
+  thumbnail = false,
   ref,
 }: FileDropzoneProps): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -132,7 +173,16 @@ export function FileDropzone({
         onChange={handleInputChange}
       />
       {value && (
-        <div className="flex min-w-0 items-center gap-2 rounded-md bg-muted py-1 pr-1 pl-2.5">
+        <div
+          className={cn(
+            'flex min-w-0 items-center gap-2 rounded-md bg-muted py-1 pr-1 pl-2.5',
+            thumbnail && 'gap-3 pl-1',
+          )}
+        >
+          {thumbnail &&
+            value.type.startsWith('image/') &&
+            isAccepted(value, accept) &&
+            value.size <= maxBytes && <ImageThumbnail file={value} />}
           <span className="min-w-0 flex-1 truncate text-sm" title={value.name}>
             {value.name}
           </span>
