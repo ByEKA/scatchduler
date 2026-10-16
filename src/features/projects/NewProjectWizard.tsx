@@ -159,7 +159,7 @@ export function NewProjectWizard(): ReactElement {
   // Counts step changes, so a "Next" whose validation finishes after another move is dropped.
   const navigationRef = useRef(0);
   // The field to focus once the step that holds it has rendered.
-  const focusAfterRenderRef = useRef<FieldName | null>(null);
+  const focusAfterRenderRef = useRef<{ step: number; name: FieldName } | null>(null);
 
   // The workspace the dialog checks the ID against and creates the project in. After a change of
   // workspace (Back or Forward while the dialog is open) both follow the new one. The fields need
@@ -174,10 +174,12 @@ export function NewProjectWizard(): ReactElement {
   const codeCheck = codeCheckFor(code, checkedCode, availability);
 
   useEffect(() => {
-    const name = focusAfterRenderRef.current;
-    if (name === null) return;
+    const pending = focusAfterRenderRef.current;
+    // A click can run between an earlier render's commit and its effects. That effect still sees
+    // the old step, where the field's ref is a detached element, so it waits for the new step.
+    if (pending === null || pending.step !== step) return;
     focusAfterRenderRef.current = null;
-    setFocus(name);
+    setFocus(pending.name);
   });
 
   // When the form replaces the error after Retry, its step's first field takes focus. On open the
@@ -202,7 +204,7 @@ export function NewProjectWizard(): ReactElement {
       setFocus(focus);
       return;
     }
-    focusAfterRenderRef.current = focus;
+    focusAfterRenderRef.current = { step: index, name: focus };
     setStep(index);
   }
 

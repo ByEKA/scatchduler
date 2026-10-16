@@ -2,7 +2,7 @@
 
 Project memory for Claude Code. Read it at the start of every session.
 
-**Status:** Phase 1 in progress — follow the plan task by task.
+**Status:** Phase 1 complete; `v0.1.0` is tagged after the owner reviews the screenshots and `docs/superpowers/plans/2026-10-14-phase1-verification.md`. Next: Phase 2, following its approved spec and plan (listed below).
 
 ## What this is
 
