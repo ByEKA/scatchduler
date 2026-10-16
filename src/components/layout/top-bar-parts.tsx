@@ -2,7 +2,10 @@ import { useState } from 'react';
 import type { ReactElement, ReactNode, RefObject } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-/** Keyboard focus for the top bar controls: a 2 px outline in the full-strength ring color. */
+/**
+ * Keyboard focus for the top bar controls, also used by Home's ProjectCard schedules link and
+ * CreateProjectCard: a 2 px outline in the full-strength ring color.
+ */
 export const FOCUS_OUTLINE_CLASSES =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring';
 

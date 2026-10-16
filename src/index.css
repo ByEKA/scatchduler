@@ -150,6 +150,9 @@
   --shadow-popover: var(--popover-shadow);
 
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Skeleton pulse (spec 6.11): 1.5 s loop, ease-in-out; Tailwind's default is 2 s. */
+  --animate-pulse: pulse 1.5s ease-in-out infinite;
 }
 
 /* Welcome banner background, the same in both themes (spec 6.6). The highlight stays at 30 % so
