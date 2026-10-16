@@ -91,7 +91,11 @@ export function renderWithProviders(
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <TooltipProvider>
-              <MemoryRouter initialEntries={[route]}>
+              {/* Without useTransitions={false}, MemoryRouter wraps location updates in
+                  startTransition. A navigation that follows an awaited save then renders after
+                  the toast, which sonner flushes at once, so the URL still reads the old page
+                  when the toast shows. */}
+              <MemoryRouter initialEntries={[route]} useTransitions={false}>
                 <CurrentContextProvider>
                   <SidebarStateProvider>
                     <DialogsProvider>

@@ -1,7 +1,7 @@
 import { FileUp, XIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useId, useRef, useState } from 'react';
-import type { ChangeEvent, DragEvent, ReactElement } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
+import type { ChangeEvent, DragEvent, ReactElement, Ref } from 'react';
 import { Button } from '@/components/ui/button';
 import { fileSize } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,15 @@ export interface FileDropzoneProps {
   /** Height of the drop area in px; 140 by default. */
   height?: number;
   icon?: LucideIcon;
+  /** Set while the form saves: the drop area, drops and "Remove file" do nothing. */
+  disabled?: boolean;
+  /** The drop area button, so a form can focus the field when its value is invalid. */
+  ref?: Ref<HTMLButtonElement>;
+}
+
+function assignRef<T>(ref: Ref<T> | undefined, value: T | null): void {
+  if (typeof ref === 'function') ref(value);
+  else if (ref) ref.current = value;
 }
 
 /**
@@ -35,9 +44,18 @@ export function FileDropzone({
   error,
   height = 140,
   icon: Icon = FileUp,
+  disabled = false,
+  ref,
 }: FileDropzoneProps): ReactElement {
   const inputRef = useRef<HTMLInputElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const setButtonRef = useCallback(
+    (node: HTMLButtonElement | null) => {
+      buttonRef.current = node;
+      assignRef(ref, node);
+    },
+    [ref],
+  );
   const [dragOver, setDragOver] = useState(false);
   const hintId = useId();
   const errorId = useId();
@@ -45,7 +63,7 @@ export function FileDropzone({
   function handleDragOver(event: DragEvent<HTMLButtonElement>): void {
     // Without preventDefault the browser opens the file instead of firing `drop`.
     event.preventDefault();
-    setDragOver(true);
+    if (!disabled) setDragOver(true);
   }
 
   function handleDragLeave(event: DragEvent<HTMLButtonElement>): void {
@@ -57,8 +75,10 @@ export function FileDropzone({
   }
 
   function handleDrop(event: DragEvent<HTMLButtonElement>): void {
+    // Still prevented while disabled, or the browser would open the dropped file.
     event.preventDefault();
     setDragOver(false);
+    if (disabled) return;
     const file = Array.from(event.dataTransfer.files)[0];
     if (file) onChange(file);
   }
@@ -80,17 +100,18 @@ export function FileDropzone({
     <div className="flex flex-col gap-1.5">
       <span className="text-xs font-semibold">{label}</span>
       <button
-        ref={buttonRef}
+        ref={setButtonRef}
         type="button"
         aria-label={label}
         aria-describedby={error ? `${hintId} ${errorId}` : hintId}
+        disabled={disabled}
         onClick={() => inputRef.current?.click()}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         style={{ height }}
         className={cn(
-          'flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-input px-4 text-center transition-colors outline-none hover:bg-accent/40 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring',
+          'flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-input px-4 text-center transition-colors outline-none hover:bg-accent/40 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
           dragOver && 'border-brand-400 bg-brand-500/5',
           error && 'border-destructive',
         )}
@@ -121,6 +142,7 @@ export function FileDropzone({
             variant="ghost"
             size="icon-xs"
             aria-label="Remove file"
+            disabled={disabled}
             onClick={removeFile}
           >
             <XIcon aria-hidden="true" />

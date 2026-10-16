@@ -164,4 +164,19 @@ describe('useCurrentContext', () => {
     );
     expect(localStorage.getItem(`ui.lastProjectId.${personal.id}`)).toBe(harbor.id);
   });
+
+  it('passes on the error of the list that failed to load', async () => {
+    const offline = new RepositoryError('network', 'offline');
+    function ErrorProbe() {
+      const { status, error } = useCurrentContext();
+      return (
+        <p data-testid="error">{`${status}|${error === offline ? 'offline' : String(error)}`}</p>
+      );
+    }
+    const dataLayer = createTestDataLayer({
+      overrides: { listProjects: () => Promise.reject(offline) },
+    });
+    renderWithProviders(<ErrorProbe />, { route: '/home', path: '/home', dataLayer });
+    await waitFor(() => expect(screen.getByTestId('error')).toHaveTextContent('error|offline'));
+  });
 });

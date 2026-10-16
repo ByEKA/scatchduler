@@ -13,11 +13,8 @@ import type { ReactElement } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth/AuthProvider';
-import {
-  FOCUS_OUTLINE_CLASSES,
-  MENU_ITEM_FOCUS_CLASSES,
-  POPOVER_SHELL_CLASSES,
-} from '@/components/layout/top-bar-parts';
+import { POPOVER_SHELL_CLASSES } from '@/components/common/popover-classes';
+import { FOCUS_OUTLINE_CLASSES, MENU_ITEM_FOCUS_CLASSES } from '@/components/layout/top-bar-parts';
 import {
   DropdownMenu,
   DropdownMenuItem,

@@ -3,11 +3,10 @@ import { Check, ChevronDown, Plus } from 'lucide-react';
 import { Popover as PopoverPrimitive } from 'radix-ui';
 import { useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import { OPTION_CLASSES, POPOVER_SHELL_CLASSES } from '@/components/common/popover-classes';
 import {
   FOCUS_OUTLINE_CLASSES,
   NameTooltip,
-  OPTION_CLASSES,
-  POPOVER_SHELL_CLASSES,
   UnavailableSwitcher,
 } from '@/components/layout/top-bar-parts';
 import {

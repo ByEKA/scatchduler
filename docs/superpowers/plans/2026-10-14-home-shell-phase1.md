@@ -2001,7 +2001,7 @@ git add -A && git commit -m "feat: complete the route table with placeholder and
   ```
 - Pins:
   - Names: trimmed; empty → "Enter a schedule name"; over 80 → "Use 80 characters or fewer". Project empty → "Choose a project". File: missing → "Choose a file to import"; extension checked case-insensitively → "Use a .xer, .xml or .csv file"; over `MAX_SCHEDULE_BYTES` → "File must be 20 MB or smaller".
-  - Labels: "Name", "Project", "Schedule file". The combobox trigger is labelled "Project" and shows code chip + name; options show code, name and workspace name.
+  - Labels: "Name", "Project", "Schedule file". The combobox trigger is labelled "Project" and shows code chip + name; options show code and name and come from the current workspace (spec D11). "Create a new project" on a changed form asks "Discard changes?" first (spec D11).
   - New schedule: width `md`; default name "New schedule", focused and selected on open with `setFocus('name', { shouldSelect: true })` (Task 10 pins — no `autoFocus`); submit "Create schedule" / "Creating…"; success → `toast.success('Schedule created')`, close, navigate `/w/:workspaceId/p/:projectId/schedule?scheduleId=:id`.
   - Import: width `lg`; dropzone copy from §6.7; choosing a file fills an empty Name with `scheduleNameFromFile`; submit "Import" / "Importing…"; success → `toast.success('Schedule imported')`, close, navigate to the new schedule page.
   - Both: project default = `options.projectId` → current project → first project; failure → `toast.error(errorMessage(error))`, dialog stays open with its values; a ref guard makes repeated submits while pending a no-op; with no projects, the form is replaced by "Create a project first." and a primary "Create project" → `openDialog('newProject')`.

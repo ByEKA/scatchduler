@@ -16,6 +16,8 @@ import { readKey, writeKey } from '@/lib/storage';
 
 export interface CurrentContextValue {
   status: 'loading' | 'ready' | 'error';
+  /** While status is 'error': the error of the list that never loaded. Otherwise null. */
+  error: unknown;
   workspaces: WorkspaceSummary[];
   workspace: WorkspaceSummary | null;
   /** Projects of the current workspace, updatedAt descending. */
@@ -116,8 +118,11 @@ export function CurrentContextProvider({ children }: { children: ReactNode }): R
   const projectsFailed =
     workspaceId !== undefined && projectsQuery.isError && projectsQuery.data === undefined;
   let status: CurrentContextValue['status'] = 'ready';
-  if (workspacesFailed || projectsFailed) status = 'error';
-  else if (workspacesQuery.isPending || (workspaceId !== undefined && projectsQuery.isPending)) {
+  let error: unknown = null;
+  if (workspacesFailed || projectsFailed) {
+    status = 'error';
+    error = workspacesFailed ? workspacesQuery.error : projectsQuery.error;
+  } else if (workspacesQuery.isPending || (workspaceId !== undefined && projectsQuery.isPending)) {
     status = 'loading';
   }
 
@@ -165,6 +170,7 @@ export function CurrentContextProvider({ children }: { children: ReactNode }): R
   const value = useMemo(
     () => ({
       status,
+      error,
       workspaces,
       workspace,
       projects,
@@ -173,7 +179,7 @@ export function CurrentContextProvider({ children }: { children: ReactNode }): R
       setProject,
       retry,
     }),
-    [status, workspaces, workspace, projects, project, setWorkspace, setProject, retry],
+    [status, error, workspaces, workspace, projects, project, setWorkspace, setProject, retry],
   );
 
   return <CurrentContext value={value}>{children}</CurrentContext>;

@@ -826,16 +826,16 @@ All banner buttons: height 44, padding-x 20, gap 8, radius 8, `text-base` 600; p
 | Overlay | `bg-black/60 backdrop-blur-[2px]` |
 | Content | `bg-popover`, 1 px border, radius 14, padding 24; width: New schedule 520, Import 560, New project 640, New team workspace 440; `max-width: calc(100vw - 32px)`; `max-height: calc(100dvh - 48px)` with a scrolling body |
 | Header | title `text-md` 600; description `text-sm` muted; 28×28 close button top-right (aria-label "Close") |
-| Fields | label `text-xs` 600 with 6 gap to the control; controls height 36; fields 16 apart; error `text-xs text-destructive` under the field via `aria-describedby`, plus `aria-invalid`. In this spec a `*` after a label means "required": the label text itself has no `*` — the marker is a sibling `aria-hidden` span and the control gets `aria-required="true"`. Forms use `noValidate`; zod owns validation. No `autoFocus` attributes: the first field is focused on open. |
+| Fields | label `text-xs` 600 with 6 gap to the control; controls height 36; fields 16 apart; error `text-xs text-destructive` under the field via `aria-describedby`, plus `aria-invalid` (not on `FileDropzone`, a button, where ARIA doesn't support it: its error is linked through `aria-describedby` only; D11). In this spec a `*` after a label means "required": the label text itself has no `*` — the marker is a sibling `aria-hidden` span and the control gets `aria-required="true"`. Forms use `noValidate`; zod owns validation. No `autoFocus` attributes: the first field is focused on open. |
 | Footer | right-aligned, gap 8: "Cancel" (secondary) + primary. The primary stays enabled so an invalid submit can show its errors; it is disabled only while pending (spinner + "Creating…" / "Importing…") or while the Project ID is known to be taken. A second click while pending never submits twice. |
-| Closing | Escape, overlay click or Cancel. If the form is dirty, confirm with an AlertDialog "Discard changes?" ("Keep editing" / "Discard") |
+| Closing | Escape, overlay click or Cancel; a control that replaces the dialog ("Create a new project") leaves it the same way. If the form is dirty, confirm with an AlertDialog "Discard changes?" ("Keep editing" / "Discard"); "Discard" then closes the dialog or opens the other one (D11) |
 | Submit | on invalid submit, focus the first invalid field |
 
 **New schedule dialog**
 
 - Title "New schedule"; description "Name the schedule and choose its project."
 - Name (focused on open, default "New schedule" preselected).
-- Project combobox (Popover + Command): items show code chip, name and workspace name (`text-xs` muted). Default: `options.projectId` → current project → first project of the workspace.
+- Project combobox (Popover + Command) over the current workspace's projects: items show code chip and name (D11). Default: `options.projectId` → current project → first project of the workspace.
 - Link-button "+ Create a new project" → `openDialog('newProject')`.
 - Workspace without projects: replace the form with an inline notice "Create a project first." + primary "Create project" → `openDialog('newProject')`.
 - Submit "Create schedule" → `useCreateSchedule` → toast "Schedule created" → close → navigate to `/w/:wid/p/:pid/schedule?scheduleId=:id`.
@@ -943,7 +943,7 @@ With `prefers-reduced-motion: reduce`, disable scale, slide and zoom (opacity ch
 - Every icon-only control has an `aria-label`. Popovers, menus and dialogs use Radix behavior (roving focus, Escape, focus return).
 - Active nav item: `aria-current="page"`.
 - Cards use the stretched-link pattern; the schedules link is separately focusable.
-- Forms: labels bound to inputs, errors through `aria-describedby` + `aria-invalid`, first invalid field focused on submit.
+- Forms: labels bound to inputs, errors through `aria-describedby` + `aria-invalid` (`aria-describedby` only on `FileDropzone`; D11), first invalid field focused on submit.
 - Toasts announce through sonner's live region; Undo is keyboard reachable.
 - Contrast: text ≥ 4.5 : 1 on its background in both themes; focus ring and UI boundaries (input borders) ≥ 3 : 1 (verified in §8). Dividers (`--border`) are decorative and not held to 3 : 1 (D9).
 - With `(pointer: coarse)`, nav items and icon buttons grow to 40 px tall.
@@ -1180,6 +1180,7 @@ create view public.shared_with_me with (security_invoker = true) as
 | D8 | Sidebar hides fully (no icon rail) on desktop, drawer below 1024 px | matches the analyzed interaction model, simplest to build |
 | D9 | `--input` raised to `#71717a` (dark) / `#8a8a94` (light) so input borders reach 3 : 1 on card, popover and background; the contrast check covers these pairs; field components drop the dark-theme `bg-input/30` fill | §6.12 asks for 3 : 1 UI boundaries; the earlier values measured 1.38–1.61 : 1, and on the lighter fill muted text would drop below 4.5 : 1 (owner decision 2026-10-15) |
 | D10 | The "TRIAL" label keeps 70 % opacity only in the dark theme; below 768 px the brand logo is hidden; below 640 px the top bar cluster gaps drop to 8 px and the plan badge shows only "{n}d" / "Ended" | at 70 % the light-theme label measured 2.89 : 1 against the 4.5 : 1 that §6.12 asks of text (4.84 : 1 at full opacity; dark measures 4.85 : 1 at 70 %). With only the earlier §6.9 changes the top bar needed about 445 px at 375 px and its controls overlapped; these changes leave the project label about 75 px. With the logo back at 640 px, the full badge and the first name left the workspace name 22 px and the project label 61 px, so the logo stays hidden up to 767 px (owner decisions 2026-10-16) |
+| D11 | Schedule dialogs: the project picker lists the current workspace's projects and drops the workspace-name column; "Create a new project" on a changed form asks "Discard changes?" before the new project dialog replaces it; `FileDropzone` reports its error through `aria-describedby` only | the default-project rule and the no-project notice already scope the picker to one workspace, so every option showed the same workspace name; replacing a changed dialog without asking lost the typed name and, in Import, the chosen file; ARIA 1.2 doesn't support `aria-invalid` on role `button` and jsx-a11y rejects it (owner decisions 2026-10-16) |
 
 ---
 

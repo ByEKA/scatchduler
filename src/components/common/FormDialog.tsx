@@ -63,6 +63,18 @@ export function FormDialogPresence({
   return <PresenceContext value={{ open, opener, onExitComplete }}>{children}</PresenceContext>;
 }
 
+// Runs an action that leaves the form, such as a link that replaces the dialog with another one.
+const LeaveFormContext = createContext<(action: () => void) => void>((action) => action());
+
+/**
+ * For controls inside a FormDialog that leave it: the returned function runs `action` at once on a
+ * pristine form, after "Discard" on a changed one, and not at all while saving (spec §6.7).
+ * Outside a FormDialog it runs `action` at once.
+ */
+export function useLeaveForm(): (action: () => void) => void {
+  return useContext(LeaveFormContext);
+}
+
 function focusIfConnected(element: Element | null): void {
   if (element instanceof HTMLElement && element.isConnected && element !== document.body) {
     element.focus();
@@ -115,25 +127,31 @@ export function FormDialog({
   onOpenAutoFocus,
 }: FormDialogProps): ReactElement {
   const { open, opener, onExitComplete } = useContext(PresenceContext);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Set while "Discard changes?" is open. `leaveFor` is the action a control asked to leave for;
+  // without one, "Discard" closes the dialog.
+  const [confirm, setConfirm] = useState<{ leaveFor?: () => void } | null>(null);
   // Radix returns focus to a DialogTrigger, and these dialogs open without one: DialogHost passes
   // the opener, and the dialog remembers what had focus before the confirmation opened.
   const beforeConfirmRef = useRef<Element | null>(null);
-
-  function requestClose(): void {
+  function leave(action?: () => void): void {
     // While saving, the dialog stays open, so a failed save keeps the form and its values
     // (spec §6.10).
     if (!open || isPending) return;
     if (!isDirty) {
-      onClose();
+      (action ?? onClose)();
       return;
     }
-    setConfirmOpen(true);
+    setConfirm({ leaveFor: action });
+  }
+
+  function requestClose(): void {
+    leave();
   }
 
   function discard(): void {
-    setConfirmOpen(false);
-    onClose();
+    const next = confirm?.leaveFor ?? onClose;
+    setConfirm(null);
+    next();
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -191,7 +209,7 @@ export function FormDialog({
             <form noValidate onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col gap-5">
               {/* The negative margins give focus rings room inside the scroll container. */}
               <div className="-mx-6 -my-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-1">
-                {children}
+                <LeaveFormContext value={leave}>{children}</LeaveFormContext>
               </div>
               <div className="flex shrink-0 items-center justify-end gap-2">
                 {footer ? (
@@ -229,7 +247,12 @@ export function FormDialog({
           </DialogPrimitive.Content>
         </DialogPortal>
       </Dialog>
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog
+        open={confirm !== null}
+        onOpenChange={(next) => {
+          if (!next) setConfirm(null);
+        }}
+      >
         <AlertDialogPortal>
           <AlertDialogOverlay className={OVERLAY_CLASSES} />
           {/* data-size and the group class keep the header and footer layout of the ui component's
