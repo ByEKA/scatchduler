@@ -6,6 +6,7 @@ import {
   fileSize,
   greetingDate,
   initials,
+  isNotFoundError,
   pluralize,
   relativeTime,
   shortDate,
@@ -80,5 +81,11 @@ describe('format', () => {
     expect(errorMessage(new RepositoryError('not_found', 'Project not found'))).toBe(
       'Something went wrong. Please try again.',
     );
+  });
+
+  it('recognizes not-found errors from the data layer only', () => {
+    expect(isNotFoundError(new RepositoryError('not_found', 'Project not found'))).toBe(true);
+    expect(isNotFoundError(new RepositoryError('network', 'offline'))).toBe(false);
+    expect(isNotFoundError(new Error('not_found'))).toBe(false);
   });
 });

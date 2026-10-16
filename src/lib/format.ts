@@ -93,3 +93,8 @@ export function errorMessage(error: unknown): string {
   }
   return 'Something went wrong. Please try again.';
 }
+
+/** True when the data layer said the requested workspace or project isn't there. */
+export function isNotFoundError(error: unknown): boolean {
+  return error instanceof RepositoryError && error.code === 'not_found';
+}

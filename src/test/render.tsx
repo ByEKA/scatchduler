@@ -3,8 +3,10 @@ import { render, type RenderResult } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { useEffect, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { createMemoryRouter, MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import { RouterProvider } from 'react-router/dom';
 import { createQueryClient } from '@/app/queryClient';
+import { appRoutes } from '@/app/router';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -118,4 +120,37 @@ export function renderWithProviders(
     </ThemeProvider>,
   );
   return { ...result, user, dataLayer, queryClient };
+}
+
+/**
+ * The whole app at `route`: the real route table in a memory router, under the providers of
+ * `App` (spec §4.3) with a test QueryClient.
+ */
+export function renderApp(
+  route: string,
+  options: { dataLayer?: TestDataLayer } = {},
+): RenderResult & {
+  user: UserEvent;
+  dataLayer: TestDataLayer;
+  router: ReturnType<typeof createMemoryRouter>;
+} {
+  const { dataLayer = createTestDataLayer() } = options;
+  const queryClient = createQueryClient({ test: true });
+  const router = createMemoryRouter(appRoutes, { initialEntries: [route] });
+  const user = userEvent.setup({ applyAccept: false });
+  const result = render(
+    <ThemeProvider>
+      <DataLayerProvider value={dataLayer}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <TooltipProvider>
+              <RouterProvider router={router} />
+              <Toaster />
+            </TooltipProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </DataLayerProvider>
+    </ThemeProvider>,
+  );
+  return { ...result, user, dataLayer, router };
 }
