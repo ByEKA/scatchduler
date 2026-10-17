@@ -5,3 +5,4 @@ package-lock.json
 src/components/ui
 docs
 *.md
+.claude

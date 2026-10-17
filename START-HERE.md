@@ -55,7 +55,7 @@ After each task, give me a two-line status. Stop and ask me if the spec seems wr
 
 ## Next: Phase 2
 
-The Phase 2 spec and plan are ready. Start them once Phase 1 is merged and tagged.
+The Phase 2 spec and plan are ready. Start them once Phase 1 is merged and tagged. Phase 1 is tagged `v0.1.0`; `docs/HANDOFF.md` has the current state, the working rules and the Phase 2 kickoff prompt.
 
 You'll also need:
 - Docker Desktop (or another Docker engine) running, for the local Supabase stack;

@@ -2,7 +2,7 @@
 
 Project memory for Claude Code. Read it at the start of every session.
 
-**Status:** Phase 1 complete (`v0.1.0`; checks in `docs/superpowers/plans/2026-10-14-phase1-verification.md`). Next: Phase 2, following its approved spec and plan (listed below); its local stack needs Docker.
+**Status:** Phase 1 complete (`v0.1.0`; checks in `docs/superpowers/plans/2026-10-14-phase1-verification.md`). Next: Phase 2, following its approved spec and plan (listed below); its local stack needs Docker. Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
 
 ## What this is
 

@@ -8,6 +8,7 @@ import tseslint from 'typescript-eslint';
 
 export default defineConfig([
   globalIgnores([
+    '.claude',
     'dist',
     'dist-e2e',
     'coverage',
