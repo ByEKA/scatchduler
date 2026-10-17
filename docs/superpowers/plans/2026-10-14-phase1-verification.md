@@ -4,7 +4,7 @@
 |---|---|
 | **Date** | 2026-10-17 |
 | **Checked at** | `c9ead39` (Task 19) plus the Task 20 commit, whose only code change is the wizard focus fix below |
-| **Status** | Automated checks pass. Items 1–6 and 8 wait for the owner; `v0.1.0` is tagged after that review. |
+| **Status** | All checks pass. On 2026-10-17 the owner asked Claude to run items 1–6 and 8 in a browser instead; all passed (notes below). `v0.1.0` is tagged on the owner's go-ahead. |
 | **Spec** | `docs/superpowers/specs/2026-10-14-home-shell-design.md` (§2.2 success criteria, §6 layout, §6.12 accessibility) |
 
 ## Automated checks
@@ -28,41 +28,41 @@ For S3 the e2e run has four create flows: a schedule from the banner, an importe
 
 | # | Covered by | State |
 |---|---|---|
-| S1 | component tests for all five Home sections; owner item 2 | tests pass; item 2 open |
-| S2 | e2e keyboard-only workspace switch; owner item 1 | e2e passes; item 1 open |
+| S1 | component tests for all five Home sections; owner item 2 | pass |
+| S2 | e2e keyboard-only workspace switch; owner item 1 | pass |
 | S3 | the four e2e create flows and the hook test above | pass |
 | S4 | ESLint `no-restricted-imports`; item 7 below | pass |
 | S5 | `npm run check` and `npm run test:e2e` | pass |
-| S6 | the four screenshots; owner item 8 | item 8 open |
+| S6 | the four screenshots; owner item 8 | pass |
 
 ## Owner checklist
 
-Items 1–6 need a person at a browser. Run `npm run dev`, or `npm run build` and `npm run preview`, in your own terminal. After editing `.env.local`, restart the dev server; for preview, run `npm run build` again, because the build reads the `VITE_*` values.
+Items 1–6 need a browser. On 2026-10-17, at the Task 20 commit, Claude ran them against `npm run dev` on port 5173 in Playwright's Chromium (1440 × 900 unless noted), with `.env.local` set per item and removed afterwards; the notes say what was measured. To repeat them yourself, run `npm run dev`, or `npm run build` and `npm run preview`, in your own terminal. After editing `.env.local`, restart the dev server; for preview, run `npm run build` again, because the build reads the `VITE_*` values.
 
 1. Keyboard only: focus order matches §6.12 (skip link → sidebar toggle → logo → workspace name → workspace chevron → project switcher → plan badge → account menu → sidebar nav → main content); every popover, menu and dialog opens, works and closes with the keyboard; focus returns to its trigger.
-   - [ ] Pass
+   - [x] Pass
    - [ ] Fail
-   - Note:
+   - Note: Tab from the top of /home reached: Skip to content, Hide sidebar, AppName home, My workspace, Switch workspace, Switch project, Trial: 9 days left. Upgrade now., Account menu for Deniz Kaya, then Home, Library, Assets, Projects, Files, Dashboard, Schedule and New schedule, the order in §6.12. The workspace and project popovers, the account menu and the New schedule, Import schedule, New project and New team workspace dialogs each opened with Enter on a focused trigger, closed with Escape, and returned focus to their trigger; every trigger had a visible focus indicator.
 2. `.env.local` with `VITE_MOCK_SCENARIO=empty`, then `VITE_MOCK_FAIL_RATE=1`: every empty and error state of §6.6 appears, and Retry recovers after removing the fail rate.
-   - [ ] Pass
+   - [x] Pass
    - [ ] Fail
-   - Note:
+   - Note: `VITE_MOCK_SCENARIO=empty`: Recent projects showed only the Create new project card, Shared with me "Nothing shared yet" with How sharing works, Workspaces My workspace (0 projects) and "No team workspaces yet", To do "You're all caught up"; the project nav items were disabled and the project switcher read "Select project". `VITE_MOCK_FAIL_RATE=1`: all four data sections showed "Can't reach the server. Check your connection and try again." with Retry, the greeting read "Hello", both switchers read "Unavailable", the plan badge was hidden and the account trigger showed the user icon. Changing `.env.local` restarts Vite and reloads the page, so Retry could not be tried in the same session; each section's Retry recovering is covered by its component tests.
 3. Light theme: every screen is readable; no hard-coded dark colors.
-   - [ ] Pass
+   - [x] Pass
    - [ ] Fail
-   - Note:
+   - Note: Light mode from the account menu, then a reload: the banner, cards, table, Workspaces panel and To do read clearly, with no dark leftovers. A screenshot taken right after the switch showed the Create new project card grey and one table divider dark; those were the 150 ms colour transitions in progress, and after the reload the card was `bg-card/40` over the page and the dividers matched.
 4. DevTools → Rendering → `prefers-reduced-motion: reduce`: no zoom or slide animations remain.
-   - [ ] Pass
+   - [x] Pass
    - [ ] Fail
-   - Note:
+   - Note: With reduced motion emulated, the New schedule dialog and its overlay, the project popover, the account menu and the 800 px navigation drawer all ran their animations in 0.01 ms (1e-05 s). The account menu measured 800 ms after opening had no transform left and its full width of 220 px, with and without reduced motion.
 5. 375 px: drawer navigation, stacked banner buttons, two table columns, compact plan badge.
-   - [ ] Pass
+   - [x] Pass
    - [ ] Fail
-   - Note:
+   - Note: At 375 × 800: no horizontal scroll (scrollWidth 375); the plan badge read "9d"; New schedule, Import schedule and New project were stacked at x 32, each 296 px wide; the Shared with me table showed only Schedule and Shared; Open navigation opened a 240 px drawer with focus on Home, and choosing Library went to /library and closed the drawer.
 6. `VITE_DATA_SOURCE=supabase`: the startup screen shows "Supabase data source is not implemented yet (Phase 2). Set VITE_DATA_SOURCE=mock."
-   - [ ] Pass
+   - [x] Pass
    - [ ] Fail
-   - Note:
+   - Note: With `VITE_DATA_SOURCE=supabase` the page showed exactly "Supabase data source is not implemented yet (Phase 2). Set VITE_DATA_SOURCE=mock." `src/main.tsx` also logs the error with `console.error`, by design.
 7. `grep -rn "data/mock" src --include=*.ts --include=*.tsx` lists only files under `src/data` and `src/test`.
    - [x] Pass
    - [ ] Fail
@@ -93,9 +93,9 @@ Items 1–6 need a person at a browser. Run `npm run dev`, or `npm run build` an
      ```
 
 8. Screenshots (S6): compare `test-results/screens/home-1440.png`, `home-1024.png`, `home-768.png` and `home-375.png` with spec §6. Each one is sized to the full height of the Home page. `test-results/` is git-ignored, so `npm run test:e2e` writes a fresh set.
-   - [ ] Pass
+   - [x] Pass
    - [ ] Fail
-   - Note:
+   - Note: home-1440: sidebar open, three card columns, four table columns, the To do panel at least 420 px tall. home-1024: the same layout in less width. home-768: navigation drawer, two card columns, all four table columns (Shared by hides only below 768 px), both switcher labels truncated (open item 19). home-375: logo hidden, compact badge and account trigger, one card column, stacked banner buttons, two table columns. No overlapping or clipped controls in any of them.
 
 ## Open items for the owner
 
