@@ -1,0 +1,1 @@
+-- Intentionally empty: scripts/seed-local.ts creates auth users and data.

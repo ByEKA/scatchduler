@@ -2,22 +2,23 @@
 
 Project memory for Claude Code. Read it at the start of every session.
 
-**Status:** Phase 1 complete (`v0.1.0`; checks in `docs/superpowers/plans/2026-10-14-phase1-verification.md`). Next: Phase 2, following its approved spec and plan (listed below); its local stack needs Docker. Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
+**Status:** Phase 2 in progress — follow the Phase 2 plan task by task. (Phase 1 is complete.) Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
 
 ## What this is
 
 A construction-scheduling web app (our own product, first used as a lab tool). Phase 1 builds the signed-in app shell and the Home screen on mock data; Phase 2 moves the data layer to Supabase.
 
-Sources of truth — read both before writing code:
+Sources of truth — read them before writing code. The Phase 2 spec and plan come first; the Phase 1 spec and plan hold for everything Phase 2 leaves unchanged.
 
-- Spec: `docs/superpowers/specs/2026-10-14-home-shell-design.md`
-- Plan: `docs/superpowers/plans/2026-10-14-home-shell-phase1.md`
+- Phase 2 spec: `docs/superpowers/specs/2026-10-14-phase2-supabase-design.md`
+- Phase 2 plan: `docs/superpowers/plans/2026-10-15-phase2-supabase.md` (assumption checks and results: `docs/superpowers/plans/2026-10-15-phase2-verification.md`)
+- Phase 1 spec: `docs/superpowers/specs/2026-10-14-home-shell-design.md`
+- Phase 1 plan: `docs/superpowers/plans/2026-10-14-home-shell-phase1.md`
 
-Product context for later phases (read when designing them; nothing in these is in Phase 1's scope):
+Product context for later phases (read when designing them):
 
 - `docs/product/app-map.md` — every module of the full product, the domain model, the scheduling-engine rules and how modules depend on each other
 - `docs/product/roadmap.md` — phases P2–P7 and the improvement options
-- `docs/superpowers/specs/2026-10-14-phase2-supabase-design.md` and `docs/superpowers/plans/2026-10-15-phase2-supabase.md` — the approved Phase 2 (Supabase) design and its plan; start them only after Phase 1 is merged
 
 If code and spec disagree, the spec wins. The plan's exact names, labels and copy strings (as pinned in its tests) count as part of the spec. If the spec looks wrong, or a task's tests can't pass without changing it, stop and ask the owner; never change the spec silently.
 
@@ -36,8 +37,17 @@ React 19 · Vite · TypeScript (strict) · Tailwind CSS v4 (CSS-first; tokens in
 | `npm run test:e2e` | Playwright end-to-end tests + screenshots |
 | `npm run check:contrast` | WCAG contrast check over the design tokens |
 | `npm run check` | typecheck + lint + tests + contrast |
+| `npm run db:start` · `npm run db:stop` | start / stop the local Supabase stack (Docker must be running) |
+| `npm run db:reset` | rebuild the local database from the migrations (Task 15 adds the seed, `scripts/seed-local.ts`) |
+| `npm run db:env` | write `.env.supabase.local` (local API URL and publishable key) from `supabase status` |
+| `npm run db:types` | regenerate `src/data/supabase/database.types.ts` (added in Task 9) |
+| `npm run dev:supabase` | dev server on the local stack, Vite mode `supabase` (added in Task 16) |
+| `npm run test:db` | pgTAP database tests (added in Task 9) |
+| `npm run test:integration` | integration tests against the local stack (`integration/**/*.itest.ts`) |
+| `npm run test:e2e:supabase` | Playwright end-to-end tests on the local stack (added in Task 17) |
+| `npm run check:secrets` | fails if `dist/` contains a secret key (added in Task 18) |
 
-A task is done only when `npm run check` passes; once Task 19 has added `npm run test:e2e`, it must pass too for changes to UI flows. Never leave `npm run dev` running in the foreground of an agent session; visual checks are for the owner.
+A task is done only when `npm run check` passes; `npm run test:e2e` must pass too for changes to UI flows, and Phase 2 tasks also run `test:db` / `test:integration` where the plan's Global Constraints ask for them. Never leave `npm run dev` running in the foreground of an agent session; visual checks are for the owner.
 
 ## Architecture rules
 
@@ -71,6 +81,7 @@ A task is done only when `npm run check` passes; once Task 19 has added `npm run
 - Every icon-only control has an `aria-label`; focus stays visible; everything works with the keyboard.
 - Base text is 13 px (`text-sm`); the full type scale is in spec §6.2.
 - IP: no third-party logos, illustrations, screenshots, images or copy. Icons come from lucide only. Brand placeholders live in `src/config/brand.ts` and the `--brand-*` tokens.
+  - Exception: The Google mark is loaded only from the owner's file (`src/assets/third-party/google-g.svg`); never draw or embed it.
 
 ## Tests
 
@@ -82,6 +93,11 @@ A task is done only when `npm run check` passes; once Task 19 has added `npm run
 ## Mock data
 
 `VITE_DATA_SOURCE=mock` (the only value implemented in Phase 1), `VITE_MOCK_SCENARIO=default|empty`, `VITE_MOCK_LATENCY_MS` (default `400`), `VITE_MOCK_FAIL_RATE` (`0`–`1`). Put local overrides in `.env.local` (git-ignored). In development, `window.__resetMockDb()` reseeds the store.
+
+## Supabase (Phase 2)
+
+- Never put the Supabase secret key in a `VITE_*` variable, a committed file or a test fixture. Local tooling reads the keys at runtime from `supabase status` (`integration/local-stack.ts`); `.env.supabase.local` holds only the URL and the publishable key.
+- SQL: follow the Phase 2 plan's Global Constraints.
 
 ## Git
 
