@@ -42,9 +42,13 @@ The per-task runner is `.claude/workflows/plan-task.js` (Claude Code Workflow to
   "spec": "docs/superpowers/specs/2026-10-14-phase2-supabase-design.md",
   "headLines": "13-84",
   "rulesLines": "13-58",
+  "tableLines": "59-81",
+  "root": "C:\\Users\\EkA\\Desktop\\scatchduler",
   "notes": "Context for this task: what earlier commits changed, the expected test counts, owner decisions that affect it."
 }
 ```
+
+`root` is the repo folder on the computer running the workflow; without it the script uses the first computer's `C:\scatchdule\scheduler-app`. `tableLines` points at the plan's task table (Phase 1's default is 51–74).
 
 `startAt: "spec"` or `"quality"` with `resumeCommit` reruns only the reviews of a task that is already committed.
 

@@ -1,7 +1,7 @@
 export const meta = {
   name: 'plan-task',
   description: 'Run one plan task: TDD implementer, then spec and quality review with fix loops',
-  whenToUse: 'Executing one task of a docs/superpowers/plans plan. args: task, title, lines, commit, notes; for Phase 2 also plan, spec, headLines, rulesLines (see docs/HANDOFF.md)',
+  whenToUse: 'Executing one task of a docs/superpowers/plans plan. args: task, title, lines, commit, notes, root; for Phase 2 also plan, spec, headLines, rulesLines, tableLines (see docs/HANDOFF.md)',
   phases: [
     { title: 'Implement', detail: 'fresh implementer: failing test, code, checks, commit' },
     { title: 'Spec review', detail: 'independent check against the plan task and the spec' },
@@ -15,10 +15,14 @@ const PLAN = t.plan ?? 'docs/superpowers/plans/2026-10-14-home-shell-phase1.md'
 const SPEC = t.spec ?? 'docs/superpowers/specs/2026-10-14-home-shell-design.md'
 const HEAD_LINES = t.headLines ?? '13-74'
 const RULES_LINES = t.rulesLines ?? '13-49'
+const TABLE_LINES = t.tableLines ?? '51-74'
+// The repo folder differs per computer; pass it as `root` (a Windows path). The default is the first computer's.
+const ROOT = t.root ?? 'C:\\scatchdule\\scheduler-app'
+const BASH_ROOT = ROOT.replace(/^([A-Za-z]):[\\/]?/, (_, drive) => `/${drive.toLowerCase()}/`).replace(/\\/g, '/')
 const TRAILER = 'Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>'
 
-const CONTEXT = `Project root: C:\\scatchdule\\scheduler-app (Git Bash path: /c/scatchdule/scheduler-app). Windows 11. Use the Bash tool (Git Bash) for the plan's shell commands; they are written for bash. Node 24, npm 11. Give the Bash tool a long timeout (600000 ms) for npm install, npx shadcn, playwright install and e2e runs.
-Sources of truth: CLAUDE.md (project rules), the spec ${SPEC} and the plan ${PLAN}. The plan's Global Constraints, Review Focus and "Files beyond the spec's folder tree" (plan lines ${RULES_LINES}) apply to every task; the task table (plan lines 51-74) shows which later task delivers what. If code and spec disagree, the spec wins; names, labels and copy strings pinned in the plan's tests count as spec.
+const CONTEXT = `Project root: ${ROOT} (Git Bash path: ${BASH_ROOT}). Windows 11. Use the Bash tool (Git Bash) for the plan's shell commands; they are written for bash. Node 24, npm 11. Give the Bash tool a long timeout (600000 ms) for npm install, npx shadcn, playwright install and e2e runs.
+Sources of truth: CLAUDE.md (project rules), the spec ${SPEC} and the plan ${PLAN}. The plan's Global Constraints, Review Focus and "Files beyond the spec's folder tree" (plan lines ${RULES_LINES}) apply to every task; the task table (plan lines ${TABLE_LINES}) shows which later task delivers what. If code and spec disagree, the spec wins; names, labels and copy strings pinned in the plan's tests count as spec.
 Never start \`npm run dev\` or any server in the foreground, and leave no server running when you finish.
 Git: the repo has a local user.name/user.email; don't change git config. Commit messages: the plan's exact subject line; a plain-text body (no Markdown) only when there is something to record; the last line is exactly "${TRAILER}" after a blank line. Write multi-line messages with a bash heredoc or \`git commit -F <file>\`. System-level core.autocrlf=true makes git print "LF will be replaced by CRLF" warnings; they are harmless.${t.notes ? `\n\nController notes for this task (apply to implementers and reviewers):\n${t.notes}` : ''}`
 
