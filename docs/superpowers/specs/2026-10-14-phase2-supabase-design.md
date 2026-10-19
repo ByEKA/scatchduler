@@ -399,7 +399,7 @@ removeMember(input: { workspaceId: ID; userId: ID }): Promise<void>;
 updateProfile(input: { firstName: string; lastName: string }): Promise<User>;
 ```
 
-Ordering rules shared by both adapters (`src/data/sort.ts`): names compare by `toLowerCase()` in code-point order; team workspaces by name then `createdAt`; any list ordered by a timestamp breaks ties by `id`. The Supabase adapter sorts the small name-ordered lists (workspaces, members) in TypeScript with these comparators; timestamp orders run in SQL.
+Ordering rules shared by both adapters (`src/data/sort.ts`): names compare in Turkish alphabetical order, ignoring case (`Intl.Collator('tr', { sensitivity: 'accent' })`, D21); team workspaces by name then `createdAt`; any list ordered by a timestamp breaks ties by `id`. The Supabase adapter sorts the small name-ordered lists (workspaces, members) in TypeScript with these comparators; timestamp orders run in SQL.
 
 ### 6.3 Hooks and query keys
 
@@ -510,7 +510,7 @@ The path check compares the first segment as text (`… in (select id::text from
 
 ### 8.1 Client
 
-`createSupabaseClient({ url, publishableKey })` → `createClient<Database>(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: false, autoRefreshToken: true, persistSession: true, storage } })`, where `storage` wraps `readKey` / `writeKey` / `removeKey` from `src/lib/storage.ts` over `getBrowserStorage() ?? createMemoryStorage()` — with storage blocked, the session lasts for the page's lifetime instead of vanishing on every call (Phase 1 Review Focus 4). One client per data layer; the repository and the auth service share it.
+`createSupabaseClient({ url, publishableKey })` → `createClient<Database>(url, key, { auth: { flowType: 'pkce', detectSessionInUrl: false, autoRefreshToken: true, persistSession: true, storage } })`, where `storage` wraps `readKey` / `writeKey` / `removeKey` from `src/lib/storage.ts` over `getBrowserStorage() ?? createMemoryStorage()` — with storage blocked, the session lasts for the page's lifetime instead of vanishing on every call (Phase 1 Review Focus 4). One client per data layer; the repository and the auth service share it. Its `global.fetch` aborts any request that hasn't answered within 60 seconds and keeps the caller's own abort signal (D18); a timed-out request surfaces as `network` (§8.4).
 
 ### 8.2 Method mapping
 
@@ -633,3 +633,13 @@ These depend on current Supabase and Cloudflare behavior. P2 Task 1 checks each 
 D1–D16 in §3, plus: invitations are workspace-level only (project-level sharing is P7); trial length 14 days; owners can't change their own role or remove themselves in the UI (another owner can); the "added" path sends no email in P2; email links stay valid for 24 hours; no account-deletion UI (handled on request through the runbook).
 
 Verification pass (2026-10-15, after approval, before execution): the SQL design and the plan's pgTAP tests were run on PostgreSQL 16 with a stand-in for Supabase's roles and schemas. Two clarifications came out of it, neither changing the design: function `EXECUTE` is revoked per function (§6.7), and V1(e) covers PKCE password-reset links (§11).
+
+Decisions taken during execution:
+
+| # | Decision | Reason |
+|---|---|---|
+| D17 | Home's Workspaces panel keeps its Phase 1 reading of the Phase 1 spec §6.10 row "Workspaces fail to load": `SectionError` only when the workspace list fails to load; when only the project list fails, the workspace rows stay. Task 6 keeps this when it changes the rows | The rows and their project counts come from the workspace summaries, so they stay correct without the project list (Phase 1 open item 22; owner decision 2026-10-18) |
+| D18 | The Supabase client aborts any request that hasn't answered within 60 seconds (§8.1); the abort surfaces as `network` (§8.4) | Dialogs can't close while a save is pending, so a request that never answers would hold one open (Phase 1 open item 6); 60 s leaves room for 20 MB imports on a slow connection (owner decision 2026-10-18) |
+| D19 | `package.json` declares `"license": "UNLICENSED"` and `"private": true` | The product is proprietary and the repository is private (Phase 1 open item 1; owner decision 2026-10-18) |
+| D20 | The default branch is renamed `master` → `main` before CI is added, as §4.1 and §10 assume | Cloudflare Pages deploys `main` and branch protection guards it (owner decision 2026-10-18) |
+| D21 | Names (workspaces, members) sort in Turkish alphabetical order, ignoring case: `compareText` is `Intl.Collator('tr', { sensitivity: 'accent' }).compare` (§6.2). This replaces the code-point order this spec first named and Phase 1's English collation | The first users are Turkish; in code-point order every name that starts with Ç, Ğ, İ, Ö, Ş or Ü sorts after Z. Both adapters sort names in TypeScript with the same fixed-locale collator, so the order stays the same everywhere (owner decision 2026-10-19) |

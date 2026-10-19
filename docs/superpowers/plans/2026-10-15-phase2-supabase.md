@@ -337,17 +337,17 @@ git add -A && git commit -m "chore: add the local Supabase stack, auth settings 
 
 ### Task 2: Contract suite and shared ordering
 
-**Spec:** §6.2 (ordering rules), §9 (repository contract); Phase 1 spec §5.2.
+**Spec:** §6.2 (ordering rules, D21), §9 (repository contract); Phase 1 spec §5.2.
 
 **Files:**
 - Create: `src/data/sort.ts`, `src/test/contract/repository.contract.ts`, `src/test/contract/mock.contract.test.ts`
-- Modify: `src/data/mock/MockRepository.ts` (use the comparators)
+- Modify: `src/data/mock/MockRepository.ts` (use the comparators), `src/data/mock/MockRepository.test.ts` (Phase 1's test "sorts team workspaces by English collation whatever the machine locale" becomes "sorts team workspaces in Turkish alphabetical order whatever the machine locale" and expects `My workspace`, `Czech crew`, `Çanakkale crew`, `Site Operations`; P2 spec D21)
 - Test: `src/data/sort.test.ts`
 
 **Interfaces:**
 - Produces (`src/data/sort.ts`):
   ```ts
-  export function compareText(a: string, b: string): number;             // toLowerCase(), then code-point order
+  export function compareText(a: string, b: string): number;             // Turkish alphabetical order, ignoring case: Intl.Collator('tr', { sensitivity: 'accent' }) (P2 spec D21)
   export function compareWorkspaces(a: Workspace, b: Workspace): number; // personal first, then name, createdAt, id
   export function newestFirst<T extends { id: ID }>(timestamp: (item: T) => string): (a: T, b: T) => number; // desc, ties by id asc
   ```
@@ -382,8 +382,9 @@ import { describe, expect, it } from 'vitest';
 import { compareText, compareWorkspaces, newestFirst } from '@/data/sort';
 
 describe('sort', () => {
-  it('compares text case-insensitively in code-point order', () => {
-    expect(['Zeta', 'şantiye', 'alpha', 'Beta'].sort(compareText)).toEqual(['alpha', 'Beta', 'Zeta', 'şantiye']);
+  it('compares text case-insensitively in Turkish alphabetical order', () => {
+    expect(['Zeta', 'şantiye', 'alpha', 'Beta'].sort(compareText)).toEqual(['alpha', 'Beta', 'şantiye', 'Zeta']);
+    expect(['Zeynep', 'Ömer', 'Çağla', 'Czech', 'İlker', 'Ilgaz'].sort(compareText)).toEqual(['Czech', 'Çağla', 'Ilgaz', 'İlker', 'Ömer', 'Zeynep']);
     expect(compareText('Crew', 'crew')).toBe(0);
   });
 
@@ -1377,6 +1378,7 @@ git add -A && git commit -m "feat: add reset, invite-acceptance and Google callb
   - **`WorkspacesPanel`:** each row becomes `<div className="flex items-center">` holding the existing row `<button>` (`flex-1`).
     - Team rows add a ghost icon button: `UserCog`, 32×32, aria-label "Members of {name}", which calls `openDialog('workspaceMembers', { workspaceId })`.
     - Personal rows add an `aria-hidden` 32 px spacer.
+    - The panel's error states stay as Phase 1 built them (P2 spec D17): `SectionError` only when the workspace list fails to load; when only the project list fails, the rows stay.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2646,7 +2648,7 @@ git add -A && git commit -m "feat: add the invitations Edge Function"
 
 ### Task 14: Supabase adapter foundations
 
-**Spec:** §8.1, §8.2 (mapping notes), §8.4, D5, D10.
+**Spec:** §8.1, §8.2 (mapping notes), §8.4, D5, D10, D18.
 
 **Files:**
 - Create: `src/data/supabase/client.ts`, `src/data/supabase/mappers.ts`, `src/data/supabase/errors.ts`, `src/data/supabase/signed-urls.ts`
@@ -2660,6 +2662,9 @@ git add -A && git commit -m "feat: add the invitations Edge Function"
   export function createStorageAdapter(storage: StorageLike | null): { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void };
   //   wraps readKey / writeKey / removeKey over `storage ?? createMemoryStorage()`
   export function createSupabaseClient(config: { url: string; publishableKey: string; storage: StorageLike | null }): AppSupabaseClient; // options from P2 spec §8.1
+  export const REQUEST_TIMEOUT_MS = 60_000; // P2 spec D18
+  export function withRequestTimeout(fetchImpl: typeof fetch, timeoutMs: number): typeof fetch;
+  //   rejects a request that hasn't answered after timeoutMs with a DOMException named 'TimeoutError'; the caller's own signal still aborts it; the timer is cleared once the request settles
   // mappers.ts (row types come from database.types.ts)
   export function toIso(value: string): ISODateTime;
   export function mapUser(row): User;  export function mapSubscription(row): Subscription;
@@ -2684,15 +2689,23 @@ git add -A && git commit -m "feat: add the invitations Edge Function"
   - Postgres errors are recognized by `code`, auth errors by `code` / `status` / `name`, storage errors by `status` or `statusCode`.
   - `TypeError` and `AuthRetryableFetchError` map to `network`.
   - PostgREST `PGRST301` (expired JWT) and any HTTP 401 map to `unauthorized`, which triggers the session-expiry handling from Task 4.
+  - Transport failures map to `network` (§8.4 "`fetch` failure, timeout"): a `TypeError`, an error named `TimeoutError` or `AbortError`, and PostgREST's transport failure. supabase-js 2.118 doesn't throw that one: it returns an error object with `code: ''` and status 0 whose message starts with the fetch error's name (for example `TypeError: Failed to fetch` or `TimeoutError: …`).
+- `createSupabaseClient` passes `global: { fetch: withRequestTimeout(fetch, REQUEST_TIMEOUT_MS) }`, so every PostgREST, Auth, Storage and Functions request is bounded (P2 spec D18). Build the timeout from `setTimeout` and an `AbortController` (fake timers may not drive `AbortSignal.timeout`), forward the caller's signal, and call the base `fetch` as a plain function: called as a method of another object it throws "Illegal invocation" in browsers.
 
 - [ ] **Step 1: Write the failing tests**
 
 `src/data/supabase/client.test.ts`:
 
 ```ts
-import { expect, it } from 'vitest';
-import { createStorageAdapter } from '@/data/supabase/client';
+import { expect, it, vi } from 'vitest';
+import { createStorageAdapter, REQUEST_TIMEOUT_MS, withRequestTimeout } from '@/data/supabase/client';
 import { createMemoryStorage } from '@/lib/storage';
+
+// Never answers; like the real fetch, it rejects with the signal's reason once the signal aborts.
+const hangingFetch: typeof fetch = (_input, init) =>
+  new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(init?.signal?.reason));
+  });
 
 it('keeps the session in memory when browser storage is blocked', () => {
   const storage = createStorageAdapter(null);
@@ -2706,6 +2719,29 @@ it('writes through to browser storage when it exists', () => {
   const memory = createMemoryStorage();
   createStorageAdapter(memory).setItem('k', 'v');
   expect(memory.getItem('k')).toBe('v');
+});
+
+it('aborts a request that has not answered after 60 seconds', async () => {
+  expect(REQUEST_TIMEOUT_MS).toBe(60_000);
+  vi.useFakeTimers();
+  try {
+    let settled = false;
+    const request = withRequestTimeout(hangingFetch, REQUEST_TIMEOUT_MS)('https://example.test/rest/v1/projects');
+    request.catch(() => undefined).finally(() => { settled = true; });
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(request).rejects.toMatchObject({ name: 'TimeoutError' });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('still lets the caller abort a request', async () => {
+  const controller = new AbortController();
+  const request = withRequestTimeout(hangingFetch, REQUEST_TIMEOUT_MS)('https://example.test/rest/v1/projects', { signal: controller.signal });
+  controller.abort(new DOMException('Cancelled', 'AbortError'));
+  await expect(request).rejects.toMatchObject({ name: 'AbortError' });
 });
 ```
 
@@ -2781,6 +2817,8 @@ describe('toRepositoryError', () => {
     [{ name: 'StorageApiError', message: 'denied', status: 403 }, 'forbidden', expect.any(String)],
     [{ name: 'StorageApiError', message: 'too big', statusCode: '413' }, 'validation', 'This file is too large.'],
     [new TypeError('Failed to fetch'), 'network', expect.any(String)],
+    [new DOMException('The request timed out.', 'TimeoutError'), 'network', expect.any(String)],
+    [{ message: 'TypeError: Failed to fetch', details: '', hint: '', code: '' }, 'network', expect.any(String)],
     [new Error('???'), 'unknown', expect.any(String)],
   ])('maps %o', (error, code, message) => {
     expect(toRepositoryError(error)).toMatchObject({ code, message });
@@ -3182,7 +3220,7 @@ git add -A && git commit -m "test: add end-to-end flows on the local Supabase st
 
 **Files:**
 - Create: `public/_headers`, `public/theme-init.js`, `scripts/check-secrets.mjs`, `scripts/check-secrets.test.mjs`, `scripts/headers.test.mjs`, `.github/workflows/ci.yml`, `docs/runbooks/production.md`
-- Modify: `index.html` (the inline theme script becomes `<script src="/theme-init.js"></script>` in the same place), `package.json` (`check:secrets` = `node scripts/check-secrets.mjs`), `eslint.config.js` (a block for `public/**/*.js`)
+- Modify: `index.html` (the inline theme script becomes `<script src="/theme-init.js"></script>` in the same place), `package.json` (`check:secrets` = `node scripts/check-secrets.mjs`; `"license": "UNLICENSED"` and `"private": true`, P2 spec D19), `eslint.config.js` (a block for `public/**/*.js`)
 
 **Interfaces:**
 - `public/theme-init.js`: Phase 1's inline theme function, moved with the same `try` / `catch` behavior. One change: `catch (e) {` becomes `catch {`, because ESLint 9's `no-unused-vars` reports the unused `e` once the code is in a linted file.
@@ -3203,7 +3241,7 @@ git add -A && git commit -m "test: add end-to-end flows on the local Supabase st
   - to find JWTs, it matches `/eyJ[\w-]+\.(eyJ[\w-]+)\.[\w-]*/g` and base64url-decodes the payload;
   - run directly, it reads every `.js`, `.css`, `.html`, `.json` and `.map` file under `dist/` and takes `secretValue` from `process.env.SUPABASE_SECRET_KEY`;
   - it prints the findings and exits 1, or prints `No secrets found in dist/`.
-- `.github/workflows/ci.yml` — two jobs on `push` to `main` and on `pull_request` (use the current major versions of the actions if newer ones exist):
+- `.github/workflows/ci.yml` — two jobs on `push` to `main` (the default branch, P2 spec D20) and on `pull_request` (use the current major versions of the actions if newer ones exist):
 
 ```yaml
 name: CI

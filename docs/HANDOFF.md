@@ -1,14 +1,15 @@
 # Handoff: continuing on another computer
 
-Written 2026-10-18. Phase 1 is done and tagged `v0.1.0`; Phase 2 (Supabase) has not started.
+Written 2026-10-18 and updated on 2026-10-19 on the second computer. Phase 1 is done and tagged `v0.1.0`; Phase 2 (Supabase) is in progress.
 
 ## Where things stand
 
-- `master` holds Phase 1: 20 plan tasks, one commit each, plus fix and docs commits. `v0.1.0` is the commit `docs: record the phase 1 browser checks`.
+- The default branch is `main` (renamed from `master` on 2026-10-19, P2 spec D20). It holds Phase 1: 20 plan tasks, one commit each, plus fix and docs commits. `v0.1.0` is the commit `docs: record the phase 1 browser checks`.
 - Checks at that commit: `npm run check` passes (257 unit tests, `Contrast OK: 37 checks passed`, lint 0 errors and 13 react-refresh warnings), `npm run test:e2e` gives `12 passed`, and `npm run build` succeeds.
 - The owner's decisions made during Phase 1 are rows D9–D15 of the spec's decisions log (`docs/superpowers/specs/2026-10-14-home-shell-design.md`, §10). One more, on 2026-10-17: e2e builds into `dist-e2e` and serves it on port 4174, and never reuses a running server (`playwright.config.ts`).
 - The browser checklist and 25 open items are in `docs/superpowers/plans/2026-10-14-phase1-verification.md`.
-- Phase 2 is blocked on Docker, which `supabase start` needs. The first computer had none.
+- Phase 2 continues on the second computer (Windows 11, Docker Desktop 29 with the WSL 2 engine, the repo at `C:\Users\EkA\Desktop\scatchduler`). Each finished plan task is one commit, so `git log` shows how far it got. Task 1's assumption checks all passed (`docs/superpowers/plans/2026-10-15-phase2-verification.md`).
+- The owner's Phase 2 decisions are rows D17–D21 of the P2 spec's decisions log (§13), each pinned in the plan task it affects.
 
 ## Setting up the new computer
 
@@ -54,16 +55,16 @@ The per-task runner is `.claude/workflows/plan-task.js` (Claude Code Workflow to
 
 | Task | Plan lines | Task | Plan lines |
 |---|---|---|---|
-| 1 | 85–337 | 11 | 2078–2288 |
-| 2 | 338–523 | 12 | 2289–2390 |
-| 3 | 524–754 | 13 | 2391–2646 |
-| 4 | 755–1071 | 14 | 2647–2840 |
-| 5 | 1072–1323 | 15 | 2841–2926 |
-| 6 | 1324–1535 | 16 | 2927–3082 |
-| 7 | 1536–1623 | 17 | 3083–3178 |
-| 8 | 1624–1758 | 18 | 3179–3328 |
-| 9 | 1759–1957 | 19 | 3329–3380 |
-| 10 | 1958–2077 | | |
+| 1 | 85–337 | 11 | 2080–2290 |
+| 2 | 338–524 | 12 | 2291–2392 |
+| 3 | 525–755 | 13 | 2393–2648 |
+| 4 | 756–1072 | 14 | 2649–2878 |
+| 5 | 1073–1324 | 15 | 2879–2964 |
+| 6 | 1325–1537 | 16 | 2965–3120 |
+| 7 | 1538–1625 | 17 | 3121–3216 |
+| 8 | 1626–1760 | 18 | 3217–3366 |
+| 9 | 1761–1959 | 19 | 3367–3418 |
+| 10 | 1960–2079 | | |
 
 The commit subject of each task is in its last step (`git commit -m "…"`).
 
@@ -82,14 +83,15 @@ From the verification notes, checked against the code on 2026-10-17. Numbers are
 
 | When | Item | What to do |
 |---|---|---|
-| Before Task 1 | 25 | Install Docker (above). |
+| Before Task 1 | 25 | Done: Docker Desktop runs on the second computer. |
+| Task 2 | — | Names sort in Turkish alphabetical order (P2 spec D21); Phase 1's English-collation test in `MockRepository.test.ts` changes with it. |
 | Task 3 | 7 | When Task 3 edits `seed.ts`, keep T-01's `createdAt` after its workspace's, so Task 15's local seed doesn't inherit the inversion. |
 | Task 4 | 3, 4 | Task 4 rewrites `SignInPage`; P2 spec §5.4 already returns to `state.from` or `/home`. Check that the new button reads "Signing in…" while pending. |
-| Task 6 | 9, 22 | Give the Role selects the ring-outline highlight (as in `AttributesStep.tsx`). Owner confirms the WorkspacesPanel error reading before Task 6 changes its rows. |
+| Task 6 | 9, 22 | Give the Role selects the ring-outline highlight (as in `AttributesStep.tsx`). The owner confirmed the WorkspacesPanel error reading (P2 spec D17). |
 | Task 8 | 2 | Task 8's cover shrinking (long edge 1600 px, JPEG 0.85) should bring mock covers under the `localStorage` quota; check it. |
-| Before Task 14 | 6 | Owner decides whether the Supabase client gets a request timeout, so a save that never answers can't hold a dialog open. |
+| Task 14 | 6 | Requests time out after 60 s (P2 spec D18, pinned in Task 14). |
 | Task 17 | 26 | Give `playwright.supabase.config.ts` its own port and build folder and `reuseExistingServer: false`, as Phase 1's e2e config has. |
-| Before Task 18 | 1, 27 | Owner picks the licence (`package.json` says ISC) and whether `master` becomes `main` before the first push and CI. |
+| Task 18 | 1, 27 | `"license": "UNLICENSED"` and `"private": true` (P2 spec D19). `master` becomes `main` (D20); the owner renames it on GitHub before CI is pushed. |
 | Task 18 | 8, 15 | Make `check-contrast.mjs`'s main-module guard compare real paths and reuse it in `check-secrets.mjs`; add a favicon the owner approves. |
 | Later | 11–14, 18–21, 23, 24 | Cosmetic or later-phase items; the verification notes list each one. |
 
@@ -97,9 +99,9 @@ The Phase 2 plan was written before the Phase 1 decisions D9–D15. Each task's 
 
 ## Owner tasks
 
-- Before Phase 2: install Docker.
-- During Phase 2: the decisions in the table above.
-- After Task 19, the plan's owner checklist (plan lines 3354–3361): the Google "G" mark file, the production runbook end to end, Google sign-in for invited and uninvited accounts, Cloudflare Pages deep links and headers, an invite accepted from a university inbox, the KVKK cross-border transfer check and privacy notice, and the Supabase plan limits.
+- Before Phase 2: install Docker (done on the second computer).
+- During Phase 2: the decisions in the table above are taken (P2 spec D17–D21). Still to do: rename `master` to `main` on GitHub (Settings → General → Default branch) before CI is pushed.
+- After Task 19, the plan's owner checklist (plan lines 3392–3399): the Google "G" mark file, the production runbook end to end, Google sign-in for invited and uninvited accounts, Cloudflare Pages deep links and headers, an invite accepted from a university inbox, the KVKK cross-border transfer check and privacy notice, and the Supabase plan limits.
 - Billing stays a placeholder (`/settings/billing`); the owner chose to leave it for now.
 
 ## Left on the first computer
