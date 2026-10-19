@@ -4,7 +4,7 @@
 // seed's.
 import { describe, expect, it } from 'vitest';
 import type { DataRepository } from '@/data/repository';
-import type { ID, ISODateTime } from '@/data/types';
+import type { ID, ISODateTime, Role } from '@/data/types';
 import { makeNewProjectInput } from '@/test/fakes';
 
 /** The seed scenario a fixture starts from (Phase 1 spec §5.6). */
@@ -17,20 +17,27 @@ export interface ContractUser {
   lastName: string;
 }
 
-/** What a test asks of its fixture; `scenario` is `'default'` when left out. */
+/**
+ * What a test asks of its fixture. `scenario` is `'default'` when left out; `teamRole` is the
+ * current user's role in Site Operations, `'owner'` when left out (P2 spec §6.4).
+ */
 export interface FixtureOptions {
   scenario?: ContractScenario;
+  teamRole?: Role;
 }
 
 /**
  * A repository signed in as the seed's current user (Deniz Kaya) over fresh seed data, plus the
- * IDs and values that seed generated. `mert`, `elif` and `team` are `null` in the empty scenario.
+ * IDs and values that seed generated. `mert`, `elif`, `team` and `pendingInvitationEmail` are
+ * `null` in the empty scenario.
  */
 export interface RepositoryFixture {
   repository: DataRepository;
   users: { current: ContractUser; mert: ContractUser | null; elif: ContractUser | null };
   workspaces: { personal: ID; team: ID | null };
   projectIds: Record<string, ID>; // by code: '001'…'006', 'T-01'
+  /** The email of the seed's pending invitation to Site Operations. */
+  pendingInvitationEmail: string | null;
   trialEndsAt: ISODateTime;
 }
 
@@ -64,6 +71,18 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         ['My workspace', 'personal', 6],
         ['alpha crew', 'team', 0],
         ['Site Operations', 'team', 1],
+      ]);
+    });
+
+    it('orders team workspaces in Turkish alphabetical order', async () => {
+      const f = await makeFixture();
+      await f.repository.createTeamWorkspace({ name: 'Çanakkale crew' });
+      await f.repository.createTeamWorkspace({ name: 'Czech crew' });
+      expect((await f.repository.listWorkspaces()).map((w) => w.name)).toEqual([
+        'My workspace',
+        'Czech crew',
+        'Çanakkale crew',
+        'Site Operations',
       ]);
     });
 
@@ -182,6 +201,11 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
       expect(await f.repository.listPendingTasks()).toHaveLength(2);
       await f.repository.setTaskDone(tasks[0]!.id, false);
       expect(await f.repository.listPendingTasks()).toHaveLength(3);
+      expect((await f.repository.listPendingTasks()).map((t) => t.title)).toEqual([
+        'Update status date for Riverside Office Tower',
+        'Import revised baseline from contractor',
+        'Review look-ahead schedule',
+      ]);
       for (const id of unknownIds()) {
         await expect(f.repository.setTaskDone(id, true)).rejects.toMatchObject({
           code: 'not_found',
@@ -195,6 +219,201 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
       expect((await f.repository.listWorkspaces()).map((w) => w.kind)).toEqual(['personal']);
       expect(await f.repository.listSharedWithMe()).toEqual([]);
       expect(await f.repository.listPendingTasks()).toEqual([]);
+    });
+
+    describe('members and invitations', () => {
+      it('reports my role per workspace', async () => {
+        const f = await makeFixture({ teamRole: 'viewer' });
+        expect((await f.repository.listWorkspaces()).map((w) => [w.name, w.myRole])).toEqual([
+          ['My workspace', 'owner'],
+          ['Site Operations', 'viewer'],
+        ]);
+      });
+
+      it('lists members owners first, then by name', async () => {
+        const f = await makeFixture();
+        expect(
+          (await f.repository.listMembers(f.workspaces.team!)).map((m) => [
+            `${m.firstName} ${m.lastName}`,
+            m.role,
+          ]),
+        ).toEqual([
+          ['Deniz Kaya', 'owner'],
+          ['Mert Demir', 'owner'],
+          ['Elif Arslan', 'viewer'],
+        ]);
+      });
+
+      it('shows pending invitations to owners only', async () => {
+        const owner = await makeFixture();
+        expect(
+          (await owner.repository.listInvitations(owner.workspaces.team!)).map((i) => [
+            i.email,
+            i.role,
+          ]),
+        ).toEqual([[owner.pendingInvitationEmail, 'editor']]);
+        const viewer = await makeFixture({ teamRole: 'viewer' });
+        expect(await viewer.repository.listInvitations(viewer.workspaces.team!)).toEqual([]);
+      });
+
+      it('invites a new email once, however it is typed', async () => {
+        const f = await makeFixture();
+        const email = `new.person.${crypto.randomUUID().slice(0, 8)}@example.com`;
+        await expect(
+          f.repository.inviteMember({
+            workspaceId: f.workspaces.team!,
+            email: `  ${email.toUpperCase()} `,
+            role: 'editor',
+          }),
+        ).resolves.toEqual({ status: 'invited' });
+        await expect(
+          f.repository.inviteMember({ workspaceId: f.workspaces.team!, email, role: 'viewer' }),
+        ).resolves.toEqual({ status: 'invited' });
+        expect(
+          (await f.repository.listInvitations(f.workspaces.team!))
+            .filter((i) => i.email === email)
+            .map((i) => i.role),
+        ).toEqual(['viewer']);
+      });
+
+      it('adds an existing account directly and refuses current members', async () => {
+        const f = await makeFixture();
+        const crew = await f.repository.createTeamWorkspace({ name: 'Field crew' });
+        await expect(
+          f.repository.inviteMember({
+            workspaceId: crew.id,
+            email: f.users.mert!.email,
+            role: 'editor',
+          }),
+        ).resolves.toEqual({ status: 'added' });
+        expect((await f.repository.listMembers(crew.id)).map((m) => m.email)).toContain(
+          f.users.mert!.email,
+        );
+        const elif = f.users.elif!.email;
+        await expect(
+          f.repository.inviteMember({
+            workspaceId: f.workspaces.team!,
+            email: ` ${elif.toUpperCase()}`,
+            role: 'editor',
+          }),
+        ).rejects.toMatchObject({ code: 'conflict', message: `${elif} is already a member.` });
+      });
+
+      it('refuses personal workspaces, bad input and non-owners', async () => {
+        const f = await makeFixture();
+        await expect(
+          f.repository.inviteMember({
+            workspaceId: f.workspaces.personal,
+            email: 'someone@example.com',
+            role: 'editor',
+          }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Invite people to a team workspace.',
+        });
+        await expect(
+          f.repository.inviteMember({
+            workspaceId: f.workspaces.team!,
+            email: 'not an email',
+            role: 'editor',
+          }),
+        ).rejects.toMatchObject({ code: 'validation', message: 'Check the email and role.' });
+        const editor = await makeFixture({ teamRole: 'editor' });
+        await expect(
+          editor.repository.inviteMember({
+            workspaceId: editor.workspaces.team!,
+            email: 'someone@example.com',
+            role: 'viewer',
+          }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+      });
+
+      it('revokes pending invitations', async () => {
+        const f = await makeFixture();
+        const [invitation] = await f.repository.listInvitations(f.workspaces.team!);
+        await f.repository.revokeInvitation(invitation!.id);
+        expect(await f.repository.listInvitations(f.workspaces.team!)).toEqual([]);
+      });
+
+      it('changes roles and removes members but always keeps an owner', async () => {
+        const f = await makeFixture();
+        const team = f.workspaces.team!;
+        await f.repository.updateMemberRole({
+          workspaceId: team,
+          userId: f.users.elif!.id,
+          role: 'editor',
+        });
+        await f.repository.updateMemberRole({
+          workspaceId: team,
+          userId: f.users.mert!.id,
+          role: 'viewer',
+        });
+        const lastOwner = { code: 'validation', message: 'A workspace needs at least one owner.' };
+        await expect(
+          f.repository.updateMemberRole({
+            workspaceId: team,
+            userId: f.users.current.id,
+            role: 'editor',
+          }),
+        ).rejects.toMatchObject(lastOwner);
+        await expect(
+          f.repository.removeMember({ workspaceId: team, userId: f.users.current.id }),
+        ).rejects.toMatchObject(lastOwner);
+        await f.repository.removeMember({ workspaceId: team, userId: f.users.elif!.id });
+        await expect(
+          f.repository.removeMember({ workspaceId: team, userId: f.users.elif!.id }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'This person is no longer a member.',
+        });
+        expect((await f.repository.listMembers(team)).map((m) => [m.email, m.role])).toEqual([
+          [f.users.current.email, 'owner'],
+          [f.users.mert!.email, 'viewer'],
+        ]);
+      });
+
+      it('lets only owners manage members', async () => {
+        const f = await makeFixture({ teamRole: 'editor' });
+        await expect(
+          f.repository.updateMemberRole({
+            workspaceId: f.workspaces.team!,
+            userId: f.users.elif!.id,
+            role: 'editor',
+          }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        await expect(
+          f.repository.removeMember({ workspaceId: f.workspaces.team!, userId: f.users.elif!.id }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+      });
+
+      it('keeps viewers from creating projects and schedules', async () => {
+        const f = await makeFixture({ teamRole: 'viewer' });
+        const tunnel = f.projectIds['T-01']!;
+        await expect(
+          f.repository.createProject(makeNewProjectInput(f.workspaces.team!, { code: 'V-1' })),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        await expect(
+          f.repository.createSchedule({ projectId: tunnel, name: 'Nope' }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        await expect(
+          f.repository.importSchedule({
+            projectId: tunnel,
+            name: 'Nope',
+            file: new File(['x'], 'x.xer'),
+          }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+      });
+
+      it('updates my name', async () => {
+        const f = await makeFixture();
+        await expect(
+          f.repository.updateProfile({ firstName: ' Ada ', lastName: 'Lovelace' }),
+        ).resolves.toMatchObject({ firstName: 'Ada', lastName: 'Lovelace' });
+        expect(await f.repository.getCurrentUser()).toMatchObject({
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+        });
+      });
     });
   });
 }

@@ -1,7 +1,8 @@
 // Ordering rules shared by both adapters (P2 spec §6.2), so a list comes back in the same order
 // whichever adapter serves it. The Supabase adapter sorts the name-ordered lists with these
 // comparators and runs the timestamp orders in SQL by the same rules.
-import type { ID, Workspace } from '@/data/types';
+import type { ID, Role, Workspace, WorkspaceMember } from '@/data/types';
+import { fullName } from '@/lib/format';
 
 /**
  * Turkish alphabetical order (Ç after C, Ğ after G, İ after I, Ö after O, Ş after S, Ü after U),
@@ -32,6 +33,23 @@ export function compareWorkspaces(a: Workspace, b: Workspace): number {
     compareText(a.name, b.name) ||
     Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
     compareIds(a.id, b.id)
+  );
+}
+
+/** The order roles come in member lists. */
+const ROLE_ORDER: Record<Role, number> = { owner: 0, editor: 1, viewer: 2 };
+
+/** The name a member list shows: the full name, or the email when the name is empty. */
+function memberName(member: WorkspaceMember): string {
+  return fullName(member) || member.email;
+}
+
+/** Owners first, then editors, then viewers; within a role by name, then by email. */
+export function compareMembers(a: WorkspaceMember, b: WorkspaceMember): number {
+  return (
+    ROLE_ORDER[a.role] - ROLE_ORDER[b.role] ||
+    compareText(memberName(a), memberName(b)) ||
+    compareText(a.email, b.email)
   );
 }
 

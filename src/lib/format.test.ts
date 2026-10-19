@@ -54,13 +54,28 @@ describe('format', () => {
     expect(dueLabel('2026-10-10', now)).toEqual({ text: 'Overdue · Oct 10', overdue: true });
   });
 
-  it('maps errors to user-facing copy', () => {
-    expect(errorMessage(new RepositoryError('network', 'x'))).toBe(
+  it('maps error codes to copy', () => {
+    expect(
+      errorMessage(new RepositoryError('validation', 'A workspace needs at least one owner.')),
+    ).toBe('A workspace needs at least one owner.');
+    expect(
+      errorMessage(new RepositoryError('conflict', 'x@example.com is already a member.')),
+    ).toBe('x@example.com is already a member.');
+    expect(errorMessage(new RepositoryError('forbidden', 'raw'))).toBe(
+      "You don't have permission to do that.",
+    );
+    expect(errorMessage(new RepositoryError('unauthorized', 'raw'))).toBe(
+      'Your session expired. Please sign in again.',
+    );
+    expect(errorMessage(new RepositoryError('rate_limited', 'raw'))).toBe(
+      'Too many attempts. Wait a minute and try again.',
+    );
+    expect(errorMessage(new RepositoryError('network', 'raw'))).toBe(
       "Can't reach the server. Check your connection and try again.",
     );
-    expect(
-      errorMessage(new RepositoryError('conflict', 'This ID is already used in this workspace')),
-    ).toBe('This ID is already used in this workspace');
+    expect(errorMessage(new RepositoryError('not_found', 'raw'))).toBe(
+      'Something went wrong. Please try again.',
+    );
     expect(errorMessage(new Error('boom'))).toBe('Something went wrong. Please try again.');
   });
 

@@ -1,6 +1,6 @@
 import { RepositoryError } from '@/data/errors';
 import { withLatency, type LatencyOptions } from '@/data/mock/latency';
-import type { MockDb } from '@/data/mock/seed';
+import type { MockDb, MockInvitation, MockMember } from '@/data/mock/seed';
 import type { MockStore } from '@/data/mock/store';
 import type {
   DataRepository,
@@ -9,12 +9,14 @@ import type {
   NewScheduleInput,
   NewTeamWorkspaceInput,
 } from '@/data/repository';
-import { compareIds, compareWorkspaces, newestFirst } from '@/data/sort';
+import { compareIds, compareMembers, compareWorkspaces, newestFirst } from '@/data/sort';
 import type {
   ID,
   ISODateTime,
+  InviteResult,
   Project,
   ProjectSummary,
+  Role,
   Schedule,
   ScheduleSource,
   SharedScheduleRow,
@@ -22,6 +24,8 @@ import type {
   Task,
   User,
   Workspace,
+  WorkspaceInvitation,
+  WorkspaceMember,
   WorkspaceSummary,
 } from '@/data/types';
 
@@ -95,7 +99,55 @@ function comparePendingTasks(a: Task, b: Task): number {
   return time(a.createdAt) - time(b.createdAt) || compareIds(a.id, b.id);
 }
 
-/** `DataRepository` over the mock store (spec §5.6). */
+// Roles and members (P2 spec §6.4). The database enforces the same rules (RLS, the member
+// functions and the invitations Edge Function); the checks below run in the order those use.
+
+/** Role levels as the database compares them (P2 spec §6.6: owner 3 · editor 2 · viewer 1). */
+const ROLE_LEVEL: Record<Role, number> = { owner: 3, editor: 2, viewer: 1 };
+
+const NO_PERMISSION = "You don't have permission to do that.";
+
+/** An invitable email after trimming and lowercasing; the Edge Function checks the same shape. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** The form emails are stored and matched in. `toLowerCase`, not the locale-aware version. */
+const emailKey = (email: string): string => email.trim().toLowerCase();
+
+const isRole = (value: unknown): value is Role =>
+  typeof value === 'string' && Object.hasOwn(ROLE_LEVEL, value);
+
+const isPending = (invitation: MockInvitation): boolean =>
+  invitation.acceptedAt === null && invitation.revokedAt === null;
+
+/** The user's role in the workspace, or `null` when they aren't a member of it. */
+function roleOf(db: MockDb, workspaceId: ID, userId: ID): Role | null {
+  return db.members.find((m) => m.workspaceId === workspaceId && m.userId === userId)?.role ?? null;
+}
+
+/** True when the current user has `minRole` or a higher role in the workspace. */
+function hasRole(db: MockDb, workspaceId: ID, minRole: Role): boolean {
+  const role = roleOf(db, workspaceId, db.currentUserId);
+  return role !== null && ROLE_LEVEL[role] >= ROLE_LEVEL[minRole];
+}
+
+/** The membership an owner is about to change or remove; rejects as the member functions do. */
+function memberToChange(db: MockDb, workspaceId: ID, userId: ID): MockMember {
+  if (!hasRole(db, workspaceId, 'owner')) {
+    throw new RepositoryError('forbidden', 'Only workspace owners can change members.');
+  }
+  const member = db.members.find((m) => m.workspaceId === workspaceId && m.userId === userId);
+  if (!member) throw new RepositoryError('validation', 'This person is no longer a member.');
+  return member;
+}
+
+/** Run after a member change, inside the same write: throwing there drops the change. */
+function assertOwnerRemains(db: MockDb, workspaceId: ID): void {
+  if (!db.members.some((m) => m.workspaceId === workspaceId && m.role === 'owner')) {
+    throw new RepositoryError('validation', 'A workspace needs at least one owner.');
+  }
+}
+
+/** `DataRepository` over the mock store (spec §5.6, P2 spec §6.4), signed in as `currentUserId`. */
 export class MockRepository implements DataRepository {
   private readonly store: MockStore;
   private readonly latencyMs: number;
@@ -127,23 +179,36 @@ export class MockRepository implements DataRepository {
   listWorkspaces(): Promise<WorkspaceSummary[]> {
     return this.run('read', () => {
       const db = this.store.read();
-      return [...db.workspaces].sort(compareWorkspaces).map((workspace) => ({
-        ...workspace,
-        projectCount: db.projects.filter((p) => p.workspaceId === workspace.id).length,
-      }));
+      // Only the workspaces the current user is a member of, each with their role in it.
+      return db.workspaces
+        .flatMap((workspace): WorkspaceSummary[] => {
+          const myRole = roleOf(db, workspace.id, db.currentUserId);
+          if (myRole === null) return [];
+          const projectCount = db.projects.filter((p) => p.workspaceId === workspace.id).length;
+          return [{ ...workspace, projectCount, myRole }];
+        })
+        .sort(compareWorkspaces);
     });
   }
 
   createTeamWorkspace(input: NewTeamWorkspaceInput): Promise<Workspace> {
     return this.run('write', () =>
       this.commit((db) => {
+        const timestamp = this.now().toISOString();
         const workspace: Workspace = {
           id: crypto.randomUUID(),
           name: input.name.trim(),
           kind: 'team',
-          createdAt: this.now().toISOString(),
+          createdAt: timestamp,
         };
         db.workspaces.push(workspace);
+        // The creator owns it; without the membership it would never be listed.
+        db.members.push({
+          workspaceId: workspace.id,
+          userId: db.currentUserId,
+          role: 'owner',
+          joinedAt: timestamp,
+        });
         return workspace;
       }),
     );
@@ -170,14 +235,17 @@ export class MockRepository implements DataRepository {
 
   createProject(input: NewProjectInput): Promise<Project> {
     return this.run('write', async () => {
-      // The image is read first. The ID check and the insert below then run in one synchronous
-      // write, so two overlapping calls with the same ID cannot both pass the check.
+      // The image is read first. The checks (workspace, role, then ID) and the insert below run in
+      // one synchronous write, so two overlapping calls with the same ID cannot both pass.
       const coverImageUrl = input.coverImage ? await readAsDataUrl(input.coverImage) : null;
       const timestamp = this.now().toISOString();
       return this.commit((db) => {
         const code = input.code.trim();
         if (!db.workspaces.some((w) => w.id === input.workspaceId)) {
           throw new RepositoryError('not_found', 'Workspace not found');
+        }
+        if (!hasRole(db, input.workspaceId, 'editor')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
         }
         const key = codeKey(code);
         if (
@@ -283,6 +351,158 @@ export class MockRepository implements DataRepository {
     );
   }
 
+  listMembers(workspaceId: ID): Promise<WorkspaceMember[]> {
+    return this.run('read', () => {
+      const db = this.store.read();
+      if (roleOf(db, workspaceId, db.currentUserId) === null) return [];
+      return db.members
+        .filter((member) => member.workspaceId === workspaceId)
+        .flatMap((member): WorkspaceMember[] => {
+          const user = db.users.find((u) => u.id === member.userId);
+          if (!user) return [];
+          return [
+            {
+              userId: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              role: member.role,
+              joinedAt: member.joinedAt,
+            },
+          ];
+        })
+        .sort(compareMembers);
+    });
+  }
+
+  listInvitations(workspaceId: ID): Promise<WorkspaceInvitation[]> {
+    return this.run('read', () => {
+      const db = this.store.read();
+      if (!hasRole(db, workspaceId, 'owner')) return [];
+      return db.invitations
+        .filter((invitation) => invitation.workspaceId === workspaceId && isPending(invitation))
+        .sort(newestFirst((invitation) => invitation.invitedAt))
+        .map((invitation) => ({
+          id: invitation.id,
+          workspaceId: invitation.workspaceId,
+          email: invitation.email,
+          role: invitation.role,
+          invitedAt: invitation.invitedAt,
+        }));
+    });
+  }
+
+  /**
+   * The steps of the invitations Edge Function (P2 spec §5.7) in its order. An email that belongs
+   * to a seed user adds that user at once; any other email gets a pending invitation, and inviting
+   * it again refreshes that one invitation instead of adding a second.
+   */
+  inviteMember(input: { workspaceId: ID; email: string; role: Role }): Promise<InviteResult> {
+    return this.run('write', () =>
+      this.commit((db): InviteResult => {
+        const email = emailKey(input.email);
+        if (!EMAIL_PATTERN.test(email) || !isRole(input.role)) {
+          throw new RepositoryError('validation', 'Check the email and role.');
+        }
+        // An unknown workspace has no owners, so it fails here too.
+        if (!hasRole(db, input.workspaceId, 'owner')) {
+          throw new RepositoryError('forbidden', 'Only workspace owners can invite people.');
+        }
+        const workspace = db.workspaces.find((w) => w.id === input.workspaceId);
+        if (workspace?.kind !== 'team') {
+          throw new RepositoryError('validation', 'Invite people to a team workspace.');
+        }
+        const timestamp = this.now().toISOString();
+        const invitation = (acceptedAt: ISODateTime | null): MockInvitation => ({
+          id: crypto.randomUUID(),
+          workspaceId: workspace.id,
+          email,
+          role: input.role,
+          invitedById: db.currentUserId,
+          invitedAt: timestamp,
+          acceptedAt,
+          revokedAt: null,
+        });
+
+        const account = db.users.find((user) => emailKey(user.email) === email);
+        if (account) {
+          if (roleOf(db, workspace.id, account.id) !== null) {
+            throw new RepositoryError('conflict', `${email} is already a member.`);
+          }
+          db.members.push({
+            workspaceId: workspace.id,
+            userId: account.id,
+            role: input.role,
+            joinedAt: timestamp,
+          });
+          // An already-accepted invitation records who added the member.
+          db.invitations.push(invitation(timestamp));
+          return { status: 'added' };
+        }
+
+        const pending = db.invitations.find(
+          (i) => i.workspaceId === workspace.id && i.email === email && isPending(i),
+        );
+        if (pending) {
+          pending.role = input.role;
+          pending.invitedAt = timestamp;
+          pending.invitedById = db.currentUserId;
+        } else {
+          db.invitations.push(invitation(null));
+        }
+        return { status: 'invited' };
+      }),
+    );
+  }
+
+  revokeInvitation(invitationId: ID): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        const invitation = db.invitations.find((i) => i.id === invitationId);
+        // A missing or settled invitation gets the same answer as a caller who isn't an owner.
+        if (
+          !invitation ||
+          !isPending(invitation) ||
+          !hasRole(db, invitation.workspaceId, 'owner')
+        ) {
+          throw new RepositoryError('forbidden', 'Only workspace owners can revoke invitations.');
+        }
+        invitation.revokedAt = this.now().toISOString();
+      });
+    });
+  }
+
+  updateMemberRole(input: { workspaceId: ID; userId: ID; role: Role }): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        memberToChange(db, input.workspaceId, input.userId).role = input.role;
+        assertOwnerRemains(db, input.workspaceId);
+      });
+    });
+  }
+
+  removeMember(input: { workspaceId: ID; userId: ID }): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        const member = memberToChange(db, input.workspaceId, input.userId);
+        db.members = db.members.filter((m) => m !== member);
+        assertOwnerRemains(db, input.workspaceId);
+      });
+    });
+  }
+
+  updateProfile(input: { firstName: string; lastName: string }): Promise<User> {
+    return this.run('write', () =>
+      this.commit((db) => {
+        const user = db.users.find((u) => u.id === db.currentUserId);
+        if (!user) throw new RepositoryError('not_found', 'User not found');
+        user.firstName = input.firstName.trim();
+        user.lastName = input.lastName.trim();
+        return user;
+      }),
+    );
+  }
+
   /**
    * Every public method runs its body through here: it waits `latencyMs`, may fail a read with a
    * simulated network error, and turns any other error into a `RepositoryError` (spec §5.4).
@@ -315,7 +535,10 @@ export class MockRepository implements DataRepository {
     return result;
   }
 
-  /** Both schedule methods: copies the project's status date and sets its `updatedAt` to now. */
+  /**
+   * Both schedule methods: an editor or owner of the project's workspace adds the schedule; it
+   * copies the project's status date and sets the project's `updatedAt` to now.
+   */
   private addSchedule(
     projectId: ID,
     name: string,
@@ -326,6 +549,9 @@ export class MockRepository implements DataRepository {
     return this.commit((db) => {
       const project = db.projects.find((p) => p.id === projectId);
       if (!project) throw new RepositoryError('not_found', 'Project not found');
+      if (!hasRole(db, project.workspaceId, 'editor')) {
+        throw new RepositoryError('forbidden', NO_PERMISSION);
+      }
       const schedule: Schedule = {
         id: crypto.randomUUID(),
         projectId,

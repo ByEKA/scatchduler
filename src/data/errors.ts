@@ -1,5 +1,12 @@
 export type RepositoryErrorCode =
-  'not_found' | 'conflict' | 'validation' | 'unauthorized' | 'network' | 'unknown';
+  | 'not_found'
+  | 'conflict'
+  | 'validation'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'rate_limited'
+  | 'network'
+  | 'unknown';
 
 export class RepositoryError extends Error {
   readonly code: RepositoryErrorCode;

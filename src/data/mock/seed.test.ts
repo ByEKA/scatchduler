@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { seed } from '@/data/mock/seed';
+import { seed, type MockDb } from '@/data/mock/seed';
 
 const now = new Date('2026-10-14T10:00:00.000Z');
 
@@ -44,5 +44,38 @@ describe('seed', () => {
     expect(db.users).toHaveLength(1);
     expect(db.workspaces.map((w) => w.kind)).toEqual(['personal']);
     expect([db.projects, db.schedules, db.shares, db.tasks]).toEqual([[], [], [], []]);
+  });
+
+  it('seeds members, roles and a pending invitation', () => {
+    const db = seed('default', now);
+    const team = db.workspaces.find((w) => w.kind === 'team')!;
+    const roleOf = (d: MockDb, email: string) => {
+      const teamId = d.workspaces.find((w) => w.kind === 'team')!.id;
+      return d.members.find(
+        (m) => m.workspaceId === teamId && m.userId === d.users.find((u) => u.email === email)!.id,
+      )?.role;
+    };
+    expect(
+      ['deniz.kaya@example.com', 'mert.demir@example.com', 'elif.arslan@example.com'].map((e) =>
+        roleOf(db, e),
+      ),
+    ).toEqual(['owner', 'owner', 'viewer']);
+    expect(db.invitations).toEqual([
+      expect.objectContaining({
+        workspaceId: team.id,
+        email: 'site.planner@example.com',
+        role: 'editor',
+        invitedAt: '2026-10-12T10:00:00.000Z',
+        acceptedAt: null,
+        revokedAt: null,
+      }),
+    ]);
+    expect(roleOf(seed('default', now, { teamRole: 'viewer' }), 'deniz.kaya@example.com')).toBe(
+      'viewer',
+    );
+    expect(seed('empty', now)).toMatchObject({
+      invitations: [],
+      members: [expect.objectContaining({ role: 'owner' })],
+    });
   });
 });

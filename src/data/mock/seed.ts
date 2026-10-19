@@ -5,6 +5,7 @@ import type {
   ISODate,
   ISODateTime,
   Project,
+  Role,
   Schedule,
   Subscription,
   Task,
@@ -24,24 +25,62 @@ export interface MockShare {
   sharedAt: ISODateTime;
 }
 
-/** The whole mock database, stored as one JSON document (spec §5.6). */
+/** One user's role in one workspace (P2 spec §6.4). */
+export interface MockMember {
+  workspaceId: ID;
+  userId: ID;
+  role: Role;
+  joinedAt: ISODateTime;
+}
+
+/**
+ * An invitation to a workspace (P2 spec §5.7). It is pending while `acceptedAt` and `revokedAt`
+ * are both `null`; `email` is stored trimmed and lowercased.
+ */
+export interface MockInvitation {
+  id: ID;
+  workspaceId: ID;
+  email: string;
+  role: Role;
+  invitedById: ID | null;
+  invitedAt: ISODateTime;
+  acceptedAt: ISODateTime | null;
+  revokedAt: ISODateTime | null;
+}
+
+/** The whole mock database, stored as one JSON document (spec §5.6, P2 spec §6.4). */
 export interface MockDb {
-  version: 1;
+  version: 2;
   scenario: Scenario;
+  /** The current user's seeded role in Site Operations; a different requested role reseeds. */
+  teamRole: Role;
   seededAt: ISODateTime;
   currentUserId: ID;
   session: Session | null;
   users: User[];
   subscription: Subscription;
   workspaces: Workspace[];
+  members: MockMember[];
+  invitations: MockInvitation[];
   projects: Project[];
   schedules: Schedule[];
   shares: MockShare[];
   tasks: Task[];
 }
 
+export interface SeedOptions {
+  /** The current user's role in Site Operations; `'owner'` by default (`VITE_MOCK_TEAM_ROLE`). */
+  teamRole?: Role;
+}
+
 const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
+
+/** How long before the seed time each workspace was created. */
+const WORKSPACE_AGE_MS: Record<WorkspaceKind, number> = {
+  personal: 90 * DAY_MS,
+  team: 30 * DAY_MS,
+};
 
 interface SeedProject {
   code: string;
@@ -128,8 +167,13 @@ function findOrThrow<T>(items: T[], match: (item: T) => boolean, label: string):
   return item;
 }
 
-/** A new database for `scenario`; all times and dates count back or forward from `now`. */
-export function seed(scenario: Scenario, now: Date): MockDb {
+/**
+ * A new database for `scenario`; all times and dates count back or forward from `now`. The
+ * current user (Deniz) gets `options.teamRole` in Site Operations, which also has an owner of its
+ * own (Mert), so it keeps an owner whatever Deniz's role is.
+ */
+export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): MockDb {
+  const teamRole = options.teamRole ?? 'owner';
   // Timestamps move by exact milliseconds. addDays / subDays keep the wall-clock time instead, so
   // across a daylight-saving change "9 days left" would read 10 and "1 day ago" "23 hours ago".
   const msAgo = (ms: number): ISODateTime => new Date(now.getTime() - ms).toISOString();
@@ -138,10 +182,11 @@ export function seed(scenario: Scenario, now: Date): MockDb {
   const daysAfter = (days: number): ISODate => format(addDays(now, days), 'yyyy-MM-dd');
 
   const deniz = makeUser('Deniz', 'Kaya', 'deniz.kaya@example.com');
-  const personal = makeWorkspace('My workspace', 'personal', msAgo(90 * DAY_MS));
+  const personal = makeWorkspace('My workspace', 'personal', msAgo(WORKSPACE_AGE_MS.personal));
   const db: MockDb = {
-    version: 1,
+    version: 2,
     scenario,
+    teamRole,
     seededAt: now.toISOString(),
     currentUserId: deniz.id,
     session: { userId: deniz.id },
@@ -151,6 +196,10 @@ export function seed(scenario: Scenario, now: Date): MockDb {
       trialEndsAt: new Date(now.getTime() + 9 * DAY_MS).toISOString(),
     },
     workspaces: [personal],
+    members: [
+      { workspaceId: personal.id, userId: deniz.id, role: 'owner', joinedAt: personal.createdAt },
+    ],
+    invitations: [],
     projects: [],
     schedules: [],
     shares: [],
@@ -160,9 +209,24 @@ export function seed(scenario: Scenario, now: Date): MockDb {
 
   const mert = makeUser('Mert', 'Demir', 'mert.demir@example.com');
   const elif = makeUser('Elif', 'Arslan', 'elif.arslan@example.com');
-  const team = makeWorkspace('Site Operations', 'team', msAgo(30 * DAY_MS));
+  const team = makeWorkspace('Site Operations', 'team', msAgo(WORKSPACE_AGE_MS.team));
   db.users.push(mert, elif);
   db.workspaces.push(team);
+  db.members.push(
+    { workspaceId: team.id, userId: deniz.id, role: teamRole, joinedAt: msAgo(30 * DAY_MS) },
+    { workspaceId: team.id, userId: mert.id, role: 'owner', joinedAt: msAgo(20 * DAY_MS) },
+    { workspaceId: team.id, userId: elif.id, role: 'viewer', joinedAt: msAgo(10 * DAY_MS) },
+  );
+  db.invitations.push({
+    id: crypto.randomUUID(),
+    workspaceId: team.id,
+    email: 'site.planner@example.com',
+    role: 'editor',
+    invitedById: deniz.id,
+    invitedAt: msAgo(2 * DAY_MS),
+    acceptedAt: null,
+    revokedAt: null,
+  });
 
   for (const row of DEFAULT_PROJECTS) {
     const updatedAt = msAgo(row.updatedMsAgo);
@@ -178,7 +242,8 @@ export function seed(scenario: Scenario, now: Date): MockDb {
       attributes: { projectType: null, startDate: null, plannedFinishDate: null },
       client: { name: null, contactName: null, contactEmail: null },
       location: { address: null, city: null, country: null },
-      createdAt: msAgo(row.updatedMsAgo + 30 * DAY_MS),
+      // Created 30 days before its last update, but never before its workspace.
+      createdAt: msAgo(Math.min(row.updatedMsAgo + 30 * DAY_MS, WORKSPACE_AGE_MS[row.workspace])),
       updatedAt,
     };
     db.projects.push(project);

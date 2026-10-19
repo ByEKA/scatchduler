@@ -163,6 +163,30 @@ describe('MockRepository', () => {
     ]);
   });
 
+  it('breaks equal timestamps by id whatever the stored order', async () => {
+    store.write((db) => {
+      const [first, second] = db.shares;
+      second!.sharedAt = first!.sharedAt;
+      db.shares.reverse();
+      const pending = db.tasks.filter((t) => !t.done);
+      for (const task of pending) {
+        task.dueDate = pending[0]!.dueDate;
+        task.createdAt = pending[0]!.createdAt;
+      }
+      db.tasks.reverse();
+      const mine = db.projects.filter((p) => p.workspaceId === db.workspaces[0]!.id);
+      for (const p of mine) p.updatedAt = mine[0]!.updatedAt;
+      db.projects.reverse();
+    });
+    const sortedIds = (ids: string[]) => [...ids].sort();
+    const shares = (await repo.listSharedWithMe()).map((r) => r.shareId);
+    expect(shares).toEqual(sortedIds(shares));
+    const tasks = (await repo.listPendingTasks()).map((t) => t.id);
+    expect(tasks).toEqual(sortedIds(tasks));
+    const projects = (await repo.listProjects(personalId())).map((p) => p.id);
+    expect(projects).toEqual(sortedIds(projects));
+  });
+
   it('sorts team workspaces in Turkish alphabetical order whatever the machine locale', async () => {
     await repo.createTeamWorkspace({ name: 'Czech crew' });
     await repo.createTeamWorkspace({ name: 'Çanakkale crew' });

@@ -26,9 +26,31 @@ export interface Workspace {
   createdAt: ISODateTime;
 }
 
+export type Role = 'owner' | 'editor' | 'viewer';
+
 export interface WorkspaceSummary extends Workspace {
   projectCount: number;
+  myRole: Role;
 }
+
+export interface WorkspaceMember {
+  userId: ID;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: Role;
+  joinedAt: ISODateTime;
+}
+
+export interface WorkspaceInvitation {
+  id: ID;
+  workspaceId: ID;
+  email: string;
+  role: Role;
+  invitedAt: ISODateTime;
+}
+
+export type InviteResult = { status: 'added' | 'invited' };
 
 export type ProjectType = 'building' | 'infrastructure' | 'industrial' | 'residential' | 'other';
 

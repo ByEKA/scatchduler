@@ -4,7 +4,7 @@ import { MockRepository } from '@/data/mock/MockRepository';
 import type { Scenario } from '@/data/mock/seed';
 import { createMockStore, type MockStore } from '@/data/mock/store';
 import type { DataRepository, NewProjectInput } from '@/data/repository';
-import type { ID } from '@/data/types';
+import type { ID, Role } from '@/data/types';
 import { createMemoryStorage } from '@/lib/storage';
 
 /** A valid `NewProjectInput`: code `'900'`, name `'Test project'`, every optional value `null`. */
@@ -33,6 +33,8 @@ export interface TestDataLayer extends DataLayer {
 
 export interface TestDataLayerOptions {
   scenario?: Scenario;
+  /** The seed user's role in Site Operations; `'owner'` by default. */
+  teamRole?: Role;
   /** Share of reads that fail. Every random draw is 0, so any value above 0 fails every read. */
   failRate?: number;
   /** Seed time; `new Date()` by default. */
@@ -43,8 +45,19 @@ export interface TestDataLayerOptions {
 
 /** The mock data layer over in-memory storage, with no latency; signed in as the seed user. */
 export function createTestDataLayer(options: TestDataLayerOptions = {}): TestDataLayer {
-  const { scenario = 'default', failRate = 0, now = new Date(), overrides = {} } = options;
-  const store = createMockStore({ storage: createMemoryStorage(), scenario, now: () => now });
+  const {
+    scenario = 'default',
+    teamRole,
+    failRate = 0,
+    now = new Date(),
+    overrides = {},
+  } = options;
+  const store = createMockStore({
+    storage: createMemoryStorage(),
+    scenario,
+    teamRole,
+    now: () => now,
+  });
   const repository = new MockRepository({ store, latencyMs: 0, failRate, random: () => 0 });
   Object.assign(repository, overrides);
   return { repository, auth: new MockAuthService({ store, latencyMs: 0 }), store };

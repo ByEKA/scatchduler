@@ -6,6 +6,7 @@ import { MockRepository } from '@/data/mock/MockRepository';
 import type { Scenario } from '@/data/mock/seed';
 import { createMockStore } from '@/data/mock/store';
 import type { DataRepository } from '@/data/repository';
+import type { Role } from '@/data/types';
 import { getBrowserStorage, type StorageLike } from '@/lib/storage';
 
 export interface DataLayer {
@@ -16,6 +17,7 @@ export interface DataLayer {
 export interface DataLayerEnv {
   VITE_DATA_SOURCE?: string;
   VITE_MOCK_SCENARIO?: string;
+  VITE_MOCK_TEAM_ROLE?: string;
   VITE_MOCK_LATENCY_MS?: string;
   VITE_MOCK_FAIL_RATE?: string;
 }
@@ -33,6 +35,12 @@ function scenarioFrom(env: DataLayerEnv): Scenario {
   const value = envValue(env.VITE_MOCK_SCENARIO) ?? 'default';
   if (value === 'default' || value === 'empty') return value;
   throw new Error(`Unknown VITE_MOCK_SCENARIO "${value}". Use default or empty.`);
+}
+
+/** The demo user's role in Site Operations (P2 spec §4.2); any other value means `owner`. */
+function teamRoleFrom(env: DataLayerEnv): Role {
+  const value = envValue(env.VITE_MOCK_TEAM_ROLE);
+  return value === 'editor' || value === 'viewer' ? value : 'owner';
 }
 
 function numberFrom(
@@ -71,6 +79,7 @@ export function createDataLayer(
   }
 
   const scenario = scenarioFrom(env);
+  const teamRole = teamRoleFrom(env);
   const latencyMs = numberFrom(
     'VITE_MOCK_LATENCY_MS',
     env.VITE_MOCK_LATENCY_MS,
@@ -86,7 +95,7 @@ export function createDataLayer(
     'Use a number from 0 to 1.',
   );
 
-  const store = createMockStore({ storage, scenario });
+  const store = createMockStore({ storage, scenario, teamRole });
   if (import.meta.env.DEV && typeof window !== 'undefined') {
     window.__resetMockDb = () => {
       store.reset();

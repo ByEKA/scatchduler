@@ -1,17 +1,21 @@
 import type {
   ID,
   ISODate,
+  InviteResult,
   Project,
   ProjectAttributes,
   ProjectClient,
   ProjectLocation,
   ProjectSummary,
+  Role,
   Schedule,
   SharedScheduleRow,
   Subscription,
   Task,
   User,
   Workspace,
+  WorkspaceInvitation,
+  WorkspaceMember,
   WorkspaceSummary,
 } from './types';
 
@@ -69,4 +73,16 @@ export interface DataRepository {
   /** Tasks with done === false: dueDate ascending (nulls last), then createdAt ascending. */
   listPendingTasks(): Promise<Task[]>;
   setTaskDone(taskId: ID, done: boolean): Promise<Task>;
+
+  /** Owners first, then editors, then viewers; by name within a role (shared comparator). */
+  listMembers(workspaceId: ID): Promise<WorkspaceMember[]>;
+  /** Pending invitations, newest first; an empty list for non-owners. */
+  listInvitations(workspaceId: ID): Promise<WorkspaceInvitation[]>;
+  /** Rejects 'forbidden' (not an owner), 'validation' (personal workspace), 'conflict' (already a member). */
+  inviteMember(input: { workspaceId: ID; email: string; role: Role }): Promise<InviteResult>;
+  revokeInvitation(invitationId: ID): Promise<void>;
+  /** Both reject 'validation' with "A workspace needs at least one owner." when no owner would remain. */
+  updateMemberRole(input: { workspaceId: ID; userId: ID; role: Role }): Promise<void>;
+  removeMember(input: { workspaceId: ID; userId: ID }): Promise<void>;
+  updateProfile(input: { firstName: string; lastName: string }): Promise<User>;
 }

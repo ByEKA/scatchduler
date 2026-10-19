@@ -83,13 +83,28 @@ export function dueLabel(
   return { text: `Due ${day}`, overdue: false };
 }
 
-/** User-facing copy for an error from the data layer (spec §5.4). */
+/**
+ * User-facing copy for an error from the data layer (P2 spec §6.1). Adapters put only user-facing
+ * copy in `conflict` and `validation` messages, so those are shown as they are.
+ */
 export function errorMessage(error: unknown): string {
   if (error instanceof RepositoryError) {
-    if (error.code === 'network') {
-      return "Can't reach the server. Check your connection and try again.";
+    switch (error.code) {
+      case 'network':
+        return "Can't reach the server. Check your connection and try again.";
+      case 'conflict':
+      case 'validation':
+        return error.message;
+      case 'forbidden':
+        return "You don't have permission to do that.";
+      case 'unauthorized':
+        return 'Your session expired. Please sign in again.';
+      case 'rate_limited':
+        return 'Too many attempts. Wait a minute and try again.';
+      case 'not_found':
+      case 'unknown':
+        break;
     }
-    if (error.code === 'conflict') return error.message;
   }
   return 'Something went wrong. Please try again.';
 }

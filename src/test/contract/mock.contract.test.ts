@@ -6,8 +6,8 @@ import {
 import { createTestDataLayer } from '@/test/fakes';
 
 /** A fixture over a new in-memory mock store; the seed's users are found by their emails. */
-const makeMockFixture: MakeRepositoryFixture = async ({ scenario = 'default' } = {}) => {
-  const { repository, store } = createTestDataLayer({ scenario });
+const makeMockFixture: MakeRepositoryFixture = async ({ scenario = 'default', teamRole } = {}) => {
+  const { repository, store } = createTestDataLayer({ scenario, teamRole });
   const db = store.read();
   const user = (email: string): ContractUser | null => {
     const found = db.users.find((u) => u.email === email);
@@ -35,6 +35,8 @@ const makeMockFixture: MakeRepositoryFixture = async ({ scenario = 'default' } =
       team: db.workspaces.find((w) => w.kind === 'team')?.id ?? null,
     },
     projectIds: Object.fromEntries(db.projects.map((p) => [p.code, p.id])),
+    pendingInvitationEmail:
+      db.invitations.find((i) => i.acceptedAt === null && i.revokedAt === null)?.email ?? null,
     trialEndsAt,
   };
 };

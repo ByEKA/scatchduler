@@ -22,7 +22,7 @@ describe('mock store', () => {
     const store = createMockStore({ storage, scenario: 'default', now });
     expect(store.read().projects).toHaveLength(7);
     expect(JSON.parse(storage.getItem(MOCK_DB_KEY)!)).toMatchObject({
-      version: 1,
+      version: 2,
       scenario: 'default',
     });
   });
@@ -78,7 +78,7 @@ describe('mock store', () => {
 
   it('reseeds data of another version with one warning that names the key', () => {
     const storage = createMemoryStorage();
-    storage.setItem(MOCK_DB_KEY, JSON.stringify({ version: 2, projects: [] }));
+    storage.setItem(MOCK_DB_KEY, JSON.stringify({ version: 1, projects: [] }));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(createMockStore({ storage, scenario: 'default', now }).read().projects).toHaveLength(7);
     expect(warn).toHaveBeenCalledTimes(1);
@@ -93,5 +93,16 @@ describe('mock store', () => {
     });
     expect(store.reset().tasks).toHaveLength(3);
     expect(createMockStore({ storage, scenario: 'default', now }).read().tasks).toHaveLength(3);
+  });
+
+  it('writes version 2 and reseeds when the team role changes', () => {
+    const storage = createMemoryStorage();
+    expect(createMockStore({ storage, scenario: 'default' }).read()).toMatchObject({
+      version: 2,
+      teamRole: 'owner',
+    });
+    expect(
+      createMockStore({ storage, scenario: 'default', teamRole: 'viewer' }).read().teamRole,
+    ).toBe('viewer');
   });
 });
