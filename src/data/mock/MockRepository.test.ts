@@ -163,13 +163,13 @@ describe('MockRepository', () => {
     ]);
   });
 
-  it('sorts team workspaces by English collation whatever the machine locale', async () => {
+  it('sorts team workspaces in Turkish alphabetical order whatever the machine locale', async () => {
     await repo.createTeamWorkspace({ name: 'Czech crew' });
     await repo.createTeamWorkspace({ name: 'Çanakkale crew' });
     expect((await repo.listWorkspaces()).map((w) => w.name)).toEqual([
       'My workspace',
-      'Çanakkale crew',
       'Czech crew',
+      'Çanakkale crew',
       'Site Operations',
     ]);
   });

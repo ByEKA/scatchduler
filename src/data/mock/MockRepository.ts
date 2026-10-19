@@ -9,6 +9,7 @@ import type {
   NewScheduleInput,
   NewTeamWorkspaceInput,
 } from '@/data/repository';
+import { compareIds, compareWorkspaces, newestFirst } from '@/data/sort';
 import type {
   ID,
   ISODateTime,
@@ -72,18 +73,18 @@ function readAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
-/** The workspace's projects, latest `updatedAt` first, with their schedule counts. */
+/** The workspace's projects, latest `updatedAt` first (ties by id), with their schedule counts. */
 function projectSummaries(db: MockDb, workspaceId: ID): ProjectSummary[] {
   return db.projects
     .filter((project) => project.workspaceId === workspaceId)
-    .sort((a, b) => time(b.updatedAt) - time(a.updatedAt))
+    .sort(newestFirst((project) => project.updatedAt))
     .map((project) => ({
       ...project,
       scheduleCount: db.schedules.filter((schedule) => schedule.projectId === project.id).length,
     }));
 }
 
-/** Due date ascending with undated tasks last, then oldest first. */
+/** Due date ascending with undated tasks last, then oldest first, then by id. */
 function comparePendingTasks(a: Task, b: Task): number {
   if (a.dueDate !== b.dueDate) {
     if (a.dueDate === null) return 1;
@@ -91,7 +92,7 @@ function comparePendingTasks(a: Task, b: Task): number {
     // 'YYYY-MM-DD' strings sort in calendar order, so date-only values are never parsed here.
     return a.dueDate < b.dueDate ? -1 : 1;
   }
-  return time(a.createdAt) - time(b.createdAt);
+  return time(a.createdAt) - time(b.createdAt) || compareIds(a.id, b.id);
 }
 
 /** `DataRepository` over the mock store (spec §5.6). */
@@ -126,12 +127,7 @@ export class MockRepository implements DataRepository {
   listWorkspaces(): Promise<WorkspaceSummary[]> {
     return this.run('read', () => {
       const db = this.store.read();
-      const personal = db.workspaces.filter((w) => w.kind === 'personal');
-      // With no locale given, localeCompare follows the browser's language.
-      const teams = db.workspaces
-        .filter((w) => w.kind === 'team')
-        .sort((a, b) => a.name.localeCompare(b.name, 'en'));
-      return [...personal, ...teams].map((workspace) => ({
+      return [...db.workspaces].sort(compareWorkspaces).map((workspace) => ({
         ...workspace,
         projectCount: db.projects.filter((p) => p.workspaceId === workspace.id).length,
       }));
@@ -234,10 +230,12 @@ export class MockRepository implements DataRepository {
   listSharedWithMe(): Promise<SharedScheduleRow[]> {
     return this.run('read', () => {
       const db = this.store.read();
-      // Like the inner joins of the Phase 2 view: a share whose schedule, project or sharer is
-      // gone yields no row.
+      // Sorted before the join: `newestFirst` breaks ties by `id`, which a row carries as
+      // `shareId`. Like the inner joins of the Phase 2 view, a share whose schedule, project or
+      // sharer is gone yields no row.
       return db.shares
         .filter((share) => share.sharedWithId === db.currentUserId)
+        .sort(newestFirst((share) => share.sharedAt))
         .flatMap((share): SharedScheduleRow[] => {
           const schedule = db.schedules.find((s) => s.id === share.scheduleId);
           const project = db.projects.find((p) => p.id === schedule?.projectId);
@@ -261,8 +259,7 @@ export class MockRepository implements DataRepository {
               sharedAt: share.sharedAt,
             },
           ];
-        })
-        .sort((a, b) => time(b.sharedAt) - time(a.sharedAt));
+        });
     });
   }
 
