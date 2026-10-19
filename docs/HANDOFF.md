@@ -9,7 +9,7 @@ Written 2026-10-18 and updated on 2026-10-19 on the second computer. Phase 1 is 
 - The owner's decisions made during Phase 1 are rows D9–D15 of the spec's decisions log (`docs/superpowers/specs/2026-10-14-home-shell-design.md`, §10). One more, on 2026-10-17: e2e builds into `dist-e2e` and serves it on port 4174, and never reuses a running server (`playwright.config.ts`).
 - The browser checklist and 25 open items are in `docs/superpowers/plans/2026-10-14-phase1-verification.md`.
 - Phase 2 continues on the second computer (Windows 11, Docker Desktop 29 with the WSL 2 engine, the repo at `C:\Users\EkA\Desktop\scatchduler`). Each finished plan task is one commit, so `git log` shows how far it got. Task 1's assumption checks all passed (`docs/superpowers/plans/2026-10-15-phase2-verification.md`).
-- The owner's Phase 2 decisions are rows D17–D21 of the P2 spec's decisions log (§13), each pinned in the plan task it affects.
+- The owner's Phase 2 decisions are rows D17–D22 of the P2 spec's decisions log (§13), each pinned in the plan task it affects.
 
 ## Setting up the new computer
 
@@ -55,16 +55,16 @@ The per-task runner is `.claude/workflows/plan-task.js` (Claude Code Workflow to
 
 | Task | Plan lines | Task | Plan lines |
 |---|---|---|---|
-| 1 | 85–337 | 11 | 2080–2290 |
-| 2 | 338–524 | 12 | 2291–2392 |
-| 3 | 525–755 | 13 | 2393–2648 |
-| 4 | 756–1072 | 14 | 2649–2878 |
-| 5 | 1073–1324 | 15 | 2879–2964 |
-| 6 | 1325–1537 | 16 | 2965–3120 |
-| 7 | 1538–1625 | 17 | 3121–3216 |
-| 8 | 1626–1760 | 18 | 3217–3366 |
-| 9 | 1761–1959 | 19 | 3367–3418 |
-| 10 | 1960–2079 | | |
+| 1 | 85–337 | 11 | 2136–2346 |
+| 2 | 338–524 | 12 | 2347–2448 |
+| 3 | 525–811 | 13 | 2449–2704 |
+| 4 | 812–1128 | 14 | 2705–2934 |
+| 5 | 1129–1380 | 15 | 2935–3020 |
+| 6 | 1381–1593 | 16 | 3021–3176 |
+| 7 | 1594–1681 | 17 | 3177–3272 |
+| 8 | 1682–1816 | 18 | 3273–3422 |
+| 9 | 1817–2015 | 19 | 3423–3474 |
+| 10 | 2016–2135 | | |
 
 The commit subject of each task is in its last step (`git commit -m "…"`).
 
@@ -85,6 +85,7 @@ From the verification notes, checked against the code on 2026-10-17. Numbers are
 |---|---|---|
 | Before Task 1 | 25 | Done: Docker Desktop runs on the second computer. |
 | Task 2 | — | Names sort in Turkish alphabetical order (P2 spec D21); Phase 1's English-collation test in `MockRepository.test.ts` changes with it. |
+| Task 3 | — | Stronger ordering tests from Task 2's review (P2 spec D22), pinned in Task 3. |
 | Task 3 | 7 | When Task 3 edits `seed.ts`, keep T-01's `createdAt` after its workspace's, so Task 15's local seed doesn't inherit the inversion. |
 | Task 4 | 3, 4 | Task 4 rewrites `SignInPage`; P2 spec §5.4 already returns to `state.from` or `/home`. Check that the new button reads "Signing in…" while pending. |
 | Task 6 | 9, 22 | Give the Role selects the ring-outline highlight (as in `AttributesStep.tsx`). The owner confirmed the WorkspacesPanel error reading (P2 spec D17). |
@@ -100,8 +101,8 @@ The Phase 2 plan was written before the Phase 1 decisions D9–D15. Each task's 
 ## Owner tasks
 
 - Before Phase 2: install Docker (done on the second computer).
-- During Phase 2: the decisions in the table above are taken (P2 spec D17–D21). Still to do: rename `master` to `main` on GitHub (Settings → General → Default branch) before CI is pushed.
-- After Task 19, the plan's owner checklist (plan lines 3392–3399): the Google "G" mark file, the production runbook end to end, Google sign-in for invited and uninvited accounts, Cloudflare Pages deep links and headers, an invite accepted from a university inbox, the KVKK cross-border transfer check and privacy notice, and the Supabase plan limits.
+- During Phase 2: the decisions in the table above are taken (P2 spec D17–D22). Still to do: rename `master` to `main` on GitHub (Settings → General → Default branch) before CI is pushed.
+- After Task 19, the plan's owner checklist (plan lines 3448–3455): the Google "G" mark file, the production runbook end to end, Google sign-in for invited and uninvited accounts, Cloudflare Pages deep links and headers, an invite accepted from a university inbox, the KVKK cross-border transfer check and privacy notice, and the Supabase plan limits.
 - Billing stays a placeholder (`/settings/billing`); the owner chose to leave it for now.
 
 ## Left on the first computer

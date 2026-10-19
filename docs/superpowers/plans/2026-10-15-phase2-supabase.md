@@ -524,7 +524,7 @@ git add -A && git commit -m "test: add the repository contract suite and shared 
 
 ### Task 3: Roles, members and invitations in the mock
 
-**Spec:** §6.1, §6.2, §6.4, §5.7 (rules and messages); Phase 1 spec §5.4 (`errorMessage`).
+**Spec:** §6.1, §6.2, §6.4, §5.7 (rules and messages), D21, D22; Phase 1 spec §5.4 (`errorMessage`).
 
 **Files:**
 - Modify:
@@ -534,7 +534,7 @@ git add -A && git commit -m "test: add the repository contract suite and shared 
   - `src/data/index.ts` (`VITE_MOCK_TEAM_ROLE`), `src/vite-env.d.ts`, `.env.example`, `src/test/fakes.ts`
   - `src/test/contract/repository.contract.ts`, `src/test/contract/mock.contract.test.ts`
   - any test that builds a `WorkspaceSummary` by hand (add `myRole`)
-- Test: `src/lib/format.test.ts`, `src/data/sort.test.ts`, `src/data/mock/seed.test.ts`, `src/data/mock/store.test.ts` (the `version: 1` expectations become `2`), the contract suite
+- Test: `src/lib/format.test.ts`, `src/data/sort.test.ts`, `src/data/mock/seed.test.ts`, `src/data/mock/store.test.ts` (the `version: 1` expectations become `2`), `src/data/mock/MockRepository.test.ts` (id tie-breaks, P2 spec D22), the contract suite
 
 **Interfaces:**
 - Consumes: `compareText`, `newestFirst` (Task 2).
@@ -614,6 +614,43 @@ it('orders members by role, then name (email when empty), then email', () => {
   const m = (role: Role, firstName: string, email: string): WorkspaceMember => ({ userId: email, firstName, lastName: '', email, role, joinedAt: '2026-01-01T00:00:00.000Z' });
   const list = [m('viewer', 'Ann', 'a@x.dev'), m('owner', 'zed', 'z@x.dev'), m('editor', 'Bob', 'b@x.dev'), m('owner', 'Amy', 'y@x.dev'), m('owner', '', 'c@x.dev')];
   expect(list.sort(compareMembers).map((x) => x.email)).toEqual(['y@x.dev', 'c@x.dev', 'z@x.dev', 'b@x.dev', 'a@x.dev']);
+});
+```
+
+In the same file, two of Task 2's tests gain expectations (P2 spec D22; no new tests):
+- 'compares text case-insensitively in Turkish alphabetical order': `expect(compareText('Cafe', 'Café')).not.toBe(0);`
+- 'puts the personal workspace first, then teams by name, age and id': a same-name pair whose older workspace has the larger id —
+
+```ts
+const twins = [w('b', 'Crew', 'team', '2026-03-01T00:00:00.000Z'), w('c', 'Crew', 'team', '2026-01-01T00:00:00.000Z')];
+expect(twins.sort(compareWorkspaces).map((x) => x.id)).toEqual(['c', 'b']);
+```
+
+`src/data/mock/MockRepository.test.ts` — add (P2 spec D22):
+
+```ts
+it('breaks equal timestamps by id whatever the stored order', async () => {
+  store.write((db) => {
+    const [first, second] = db.shares;
+    second!.sharedAt = first!.sharedAt;
+    db.shares.reverse();
+    const pending = db.tasks.filter((t) => !t.done);
+    for (const task of pending) {
+      task.dueDate = pending[0]!.dueDate;
+      task.createdAt = pending[0]!.createdAt;
+    }
+    db.tasks.reverse();
+    const mine = db.projects.filter((p) => p.workspaceId === db.workspaces[0]!.id);
+    for (const p of mine) p.updatedAt = mine[0]!.updatedAt;
+    db.projects.reverse();
+  });
+  const sortedIds = (ids: string[]) => [...ids].sort();
+  const shares = (await repo.listSharedWithMe()).map((r) => r.shareId);
+  expect(shares).toEqual(sortedIds(shares));
+  const tasks = (await repo.listPendingTasks()).map((t) => t.id);
+  expect(tasks).toEqual(sortedIds(tasks));
+  const projects = (await repo.listProjects(personalId())).map((p) => p.id);
+  expect(projects).toEqual(sortedIds(projects));
 });
 ```
 
@@ -737,6 +774,25 @@ describe('members and invitations', () => {
     expect(await f.repository.getCurrentUser()).toMatchObject({ firstName: 'Ada', lastName: 'Lovelace' });
   });
 });
+```
+
+Also inside `runRepositoryContract`, next to Task 2's workspace case (P2 spec D22). The names are created out of order, so an adapter that doesn't sort fails:
+
+```ts
+it('orders team workspaces in Turkish alphabetical order', async () => {
+  const f = await makeFixture();
+  await f.repository.createTeamWorkspace({ name: 'Çanakkale crew' });
+  await f.repository.createTeamWorkspace({ name: 'Czech crew' });
+  expect((await f.repository.listWorkspaces()).map((w) => w.name)).toEqual(['My workspace', 'Czech crew', 'Çanakkale crew', 'Site Operations']);
+});
+```
+
+And in Task 2's case 'orders pending tasks by due date, undated last, and toggles them', after the second toggle (`setTaskDone(tasks[0]!.id, false)`), check the full order again, so an adapter whose list loses its order after an update fails:
+
+```ts
+expect((await f.repository.listPendingTasks()).map((t) => t.title)).toEqual([
+  'Update status date for Riverside Office Tower', 'Import revised baseline from contractor', 'Review look-ahead schedule',
+]);
 ```
 
 - [ ] **Step 2: Run them to see them fail** — `npx vitest run src/lib src/data src/test/contract` → FAIL (missing types, methods and seed data).
