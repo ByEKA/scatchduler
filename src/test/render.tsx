@@ -4,6 +4,7 @@ import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { useEffect, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { createMemoryRouter, MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import type { Location } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { createQueryClient } from '@/app/queryClient';
 import { appRoutes } from '@/app/router';
@@ -71,8 +72,8 @@ export function OpenDialog({ kind, options }: { kind: DialogKind; options?: Dial
 }
 
 export interface RenderWithProvidersOptions {
-  /** The starting URL; `/` by default. */
-  route?: string;
+  /** The starting URL, or a location with `state`; `/` by default. */
+  route?: string | Partial<Location>;
   /** Route pattern that renders `ui`; other URLs render nothing. Unset: `ui` renders on any URL. */
   path?: string;
   dataLayer?: TestDataLayer;

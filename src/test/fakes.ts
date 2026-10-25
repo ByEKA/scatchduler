@@ -1,4 +1,6 @@
 import type { DataLayer } from '@/data';
+import type { AuthService, Session } from '@/data/auth';
+import { RepositoryError } from '@/data/errors';
 import { MockAuthService } from '@/data/mock/MockAuthService';
 import { MockRepository } from '@/data/mock/MockRepository';
 import type { Scenario } from '@/data/mock/seed';
@@ -61,4 +63,47 @@ export function createTestDataLayer(options: TestDataLayerOptions = {}): TestDat
   const repository = new MockRepository({ store, latencyMs: 0, failRate, random: () => 0 });
   Object.assign(repository, overrides);
   return { repository, auth: new MockAuthService({ store, latencyMs: 0 }), store };
+}
+
+/**
+ * An `AuthService` whose session only changes when a test says so: `emit(session)` sets it and
+ * tells the listeners, as a provider event would. Signed out by default. Its sign-in methods sign
+ * in `{ userId: 'fake-user' }`.
+ */
+export function createFakeAuth(initial: Session | null = null): {
+  auth: AuthService;
+  emit(session: Session | null): void;
+} {
+  let session = initial;
+  const listeners = new Set<(session: Session | null) => void>();
+  const emit = (next: Session | null): void => {
+    session = next;
+    for (const listener of [...listeners]) listener(next);
+  };
+  const signIn = async (): Promise<void> => {
+    emit({ userId: 'fake-user' });
+  };
+  const auth: AuthService = {
+    getSession: async () => session,
+    signInWithPassword: signIn,
+    signInWithGoogle: signIn,
+    completeOAuthSignIn: async () => undefined,
+    requestPasswordReset: async () => undefined,
+    verifyEmailLink: signIn,
+    updatePassword: async () => {
+      if (session === null) {
+        throw new RepositoryError('unauthorized', 'Your session expired. Please sign in again.');
+      }
+    },
+    signOut: async () => {
+      emit(null);
+    },
+    onAuthStateChange: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+  return { auth, emit };
 }

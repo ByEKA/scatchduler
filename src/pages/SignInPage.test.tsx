@@ -1,7 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
-import { Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RequireAuth } from '@/auth/RequireAuth';
 import { SignInPage } from '@/pages/SignInPage';
 import { createTestDataLayer } from '@/test/fakes';
 import { renderWithProviders } from '@/test/render';
@@ -11,95 +9,87 @@ async function signedOut() {
   await dataLayer.auth.signOut();
   return dataLayer;
 }
+const at = (state?: unknown) => ({ route: { pathname: '/sign-in', state }, path: '/sign-in' });
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
 describe('SignInPage', () => {
-  it('signs in with any email in demo mode and opens Home', async () => {
-    const { user } = renderWithProviders(<SignInPage />, {
-      route: '/sign-in',
-      path: '/sign-in',
-      dataLayer: await signedOut(),
-    });
+  it('signs in with email and password in demo mode', async () => {
+    const { user } = renderWithProviders(<SignInPage />, { ...at(), dataLayer: await signedOut() });
     expect(
-      await screen.findByText('Demo mode: any email signs you in as the demo user.'),
+      await screen.findByText('Demo mode: any email and password sign you in.'),
     ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Forgot password?' })).toHaveAttribute(
+      'href',
+      '/forgot-password',
+    );
     await user.type(screen.getByLabelText('Email'), 'lab@example.com');
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.type(screen.getByLabelText('Password'), 'any-password-1');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/home'));
   });
 
-  it('validates the email address', async () => {
-    const { user } = renderWithProviders(<SignInPage />, {
-      route: '/sign-in',
-      path: '/sign-in',
-      dataLayer: await signedOut(),
-    });
+  it('validates both fields', async () => {
+    const { user } = renderWithProviders(<SignInPage />, { ...at(), dataLayer: await signedOut() });
     await user.type(await screen.findByLabelText('Email'), 'nope');
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByText('Enter a valid email address')).toBeInTheDocument();
+    expect(screen.getByText('Enter your password')).toBeInTheDocument();
+  });
+
+  it('explains a wrong password without ending any session', async () => {
+    const { user } = renderWithProviders(<SignInPage />, { ...at(), dataLayer: await signedOut() });
+    await user.type(await screen.findByLabelText('Email'), 'deniz.kaya@example.com');
+    await user.type(screen.getByLabelText('Password'), 'wrong-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Wrong email or password');
+    expect(
+      screen.queryByText('Your session expired. Please sign in again.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows and hides the password', async () => {
+    const { user } = renderWithProviders(<SignInPage />, { ...at(), dataLayer: await signedOut() });
+    const input = await screen.findByLabelText('Password');
+    expect(input).toHaveAttribute('type', 'password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(input).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: 'Hide password' })).toBeInTheDocument();
+  });
+
+  it('continues with Google and returns to the requested page', async () => {
+    const dataLayer = await signedOut();
+    const google = vi.spyOn(dataLayer.auth, 'signInWithGoogle');
+    const { user } = renderWithProviders(<SignInPage />, {
+      ...at({ from: { pathname: '/w/x/projects', search: '', hash: '' } }),
+      dataLayer,
+    });
+    await user.click(await screen.findByRole('button', { name: 'Continue with Google' }));
+    expect(google).toHaveBeenCalledWith('/w/x/projects');
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/w/x/projects'));
+  });
+
+  it.each([
+    ['no-access', 'This Google account has no access yet. Ask a workspace owner to invite you.'],
+    ['failed', "Google sign-in didn't work. Please try again."],
+  ])('shows the %s banner from the callback', async (authError, copy) => {
+    renderWithProviders(<SignInPage />, { ...at({ authError }), dataLayer: await signedOut() });
+    expect(await screen.findByText(copy)).toBeInTheDocument();
+  });
+
+  it('explains invite-only access and hides Google when it is off', async () => {
+    vi.stubEnv('VITE_DATA_SOURCE', 'supabase');
+    renderWithProviders(<SignInPage />, { ...at(), dataLayer: await signedOut() });
+    expect(
+      await screen.findByText('Access is by invitation. Ask a workspace owner to invite you.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continue with Google' })).not.toBeInTheDocument();
   });
 
   it('sends signed-in visitors to Home', async () => {
-    renderWithProviders(<SignInPage />, { route: '/sign-in', path: '/sign-in' });
+    renderWithProviders(<SignInPage />, at());
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/home'));
-  });
-
-  it('replaces the form with a notice when a sign-in link was sent', async () => {
-    const dataLayer = await signedOut();
-    dataLayer.auth.signInWithEmail = async () => ({ status: 'link-sent' as const });
-    const { user } = renderWithProviders(<SignInPage />, {
-      route: '/sign-in',
-      path: '/sign-in',
-      dataLayer,
-    });
-    await user.type(await screen.findByLabelText('Email'), 'lab@example.com');
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByText('Check your inbox for a sign-in link.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
-  });
-
-  it('returns to the page the visitor asked for before signing in', async () => {
-    const { user } = renderWithProviders(
-      <Routes>
-        <Route path="/sign-in" element={<SignInPage />} />
-        <Route
-          path="/library"
-          element={
-            <RequireAuth>
-              <p>Library page</p>
-            </RequireAuth>
-          }
-        />
-      </Routes>,
-      { route: '/library?tab=all', dataLayer: await signedOut() },
-    );
-    await user.type(await screen.findByLabelText('Email'), 'lab@example.com');
-    await user.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByText('Library page')).toBeInTheDocument();
-    expect(screen.getByTestId('location')).toHaveTextContent('/library?tab=all');
-  });
-
-  it('treats a blank VITE_DATA_SOURCE as mock and hides the demo note otherwise', async () => {
-    vi.stubEnv('VITE_DATA_SOURCE', '');
-    const blank = renderWithProviders(<SignInPage />, {
-      route: '/sign-in',
-      path: '/sign-in',
-      dataLayer: await signedOut(),
-    });
-    expect(
-      await screen.findByText('Demo mode: any email signs you in as the demo user.'),
-    ).toBeInTheDocument();
-    blank.unmount();
-    vi.stubEnv('VITE_DATA_SOURCE', 'supabase');
-    renderWithProviders(<SignInPage />, {
-      route: '/sign-in',
-      path: '/sign-in',
-      dataLayer: await signedOut(),
-    });
-    await screen.findByLabelText('Email');
-    expect(screen.queryByText(/Demo mode/)).not.toBeInTheDocument();
   });
 });
