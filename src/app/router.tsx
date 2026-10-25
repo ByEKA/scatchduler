@@ -4,14 +4,22 @@ import { RequireAuth } from '@/auth/RequireAuth';
 import { PlaceholderPage } from '@/components/common/PlaceholderPage';
 import { ProjectPlaceholderPage } from '@/components/common/ProjectPlaceholderPage';
 import { AppShell } from '@/components/layout/AppShell';
+import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
+import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { HomePage } from '@/pages/HomePage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { SignInPage } from '@/pages/SignInPage';
 
-// Route table (spec §4.4). Every route except /sign-in sits under RequireAuth and AppShell,
-// unknown paths included.
+// Route table (spec §4.4, P2 spec §5.4). The auth pages sit outside RequireAuth and AppShell;
+// every other route sits under them, unknown paths included.
 export const appRoutes: RouteObject[] = [
   { path: '/sign-in', element: <SignInPage /> },
+  { path: '/forgot-password', element: <ForgotPasswordPage /> },
+  { path: '/reset-password', element: <ResetPasswordPage /> },
+  { path: '/accept-invite', element: <AcceptInvitePage /> },
+  { path: '/auth/callback', element: <AuthCallbackPage /> },
   {
     path: '/',
     element: (

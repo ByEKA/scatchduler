@@ -9,12 +9,12 @@ import { z } from 'zod';
 import { authOptions } from '@/auth/auth-options';
 import { useAuth } from '@/auth/AuthProvider';
 import { LoadingScreen } from '@/auth/RequireAuth';
-import { BrandLogo } from '@/components/brand/BrandLogo';
 import { GoogleMark } from '@/components/common/GoogleMark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RepositoryError } from '@/data/errors';
+import { AuthCard } from '@/features/auth/AuthCard';
 import { useSignInWithGoogle, useSignInWithPassword } from '@/hooks/useAuthActions';
 import { errorMessage } from '@/lib/format';
 
@@ -102,118 +102,116 @@ export function SignInPage(): ReactElement {
   const passwordError = errors.password?.message;
 
   return (
-    <main className="flex min-h-dvh items-center justify-center p-4">
-      <div className="w-full max-w-[380px] rounded-xl bg-card p-8 text-card-foreground ring-1 ring-edge">
-        <BrandLogo />
-        {banner && (
+    <AuthCard
+      title="Sign in"
+      description="Sign in with your work email."
+      banner={
+        banner && (
           <p
             role="alert"
             className="mt-6 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm"
           >
             {banner}
           </p>
-        )}
-        <h1 className="mt-6 text-lg font-bold tracking-[-0.01em]">Sign in</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Sign in with your work email.</p>
-        <form noValidate onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={emailId} className="text-xs font-semibold">
-              Email
-            </Label>
-            <Input
-              id={emailId}
-              type="email"
-              autoComplete="email"
-              aria-invalid={emailError ? true : undefined}
-              aria-describedby={emailError ? emailErrorId : undefined}
-              {...register('email')}
-            />
-            {emailError && (
-              <p id={emailErrorId} className="text-xs text-destructive">
-                {emailError}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-              <Label htmlFor={passwordId} className="text-xs font-semibold">
-                Password
-              </Label>
-              <Link
-                to="/forgot-password"
-                className="rounded-sm text-xs font-semibold text-link hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                Forgot password?
-              </Link>
-            </div>
-            <div className="relative">
-              <Input
-                id={passwordId}
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                className="pr-10"
-                aria-invalid={passwordError ? true : undefined}
-                aria-describedby={passwordError ? passwordErrorId : undefined}
-                {...register('password')}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="absolute top-1/2 right-0.5 -translate-y-1/2 text-muted-foreground"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-                onClick={() => setShowPassword((shown) => !shown)}
-              >
-                {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-              </Button>
-            </div>
-            {passwordError && (
-              <p id={passwordErrorId} className="text-xs text-destructive">
-                {passwordError}
-              </p>
-            )}
-          </div>
-          {failure !== null && (
-            <p role="alert" className="text-sm text-destructive">
-              {signInErrorMessage(failure)}
+        )
+      }
+    >
+      <form noValidate onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={emailId} className="text-xs font-semibold">
+            Email
+          </Label>
+          <Input
+            id={emailId}
+            type="email"
+            autoComplete="email"
+            aria-invalid={emailError ? true : undefined}
+            aria-describedby={emailError ? emailErrorId : undefined}
+            {...register('email')}
+          />
+          {emailError && (
+            <p id={emailErrorId} className="text-xs text-destructive">
+              {emailError}
             </p>
           )}
-          <Button type="submit" className="w-full" disabled={pending}>
-            {signInWithPassword.isPending && (
-              <Loader2 className="animate-spin" aria-hidden="true" />
-            )}
-            {signInWithPassword.isPending ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
-        {google && (
-          <>
-            <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="h-px flex-1 bg-border" aria-hidden="true" />
-              or
-              <span className="h-px flex-1 bg-border" aria-hidden="true" />
-            </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor={passwordId} className="text-xs font-semibold">
+              Password
+            </Label>
+            <Link
+              to="/forgot-password"
+              className="rounded-sm text-xs font-semibold text-link hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              Forgot password?
+            </Link>
+          </div>
+          <div className="relative">
+            <Input
+              id={passwordId}
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              className="pr-10"
+              aria-invalid={passwordError ? true : undefined}
+              aria-describedby={passwordError ? passwordErrorId : undefined}
+              {...register('password')}
+            />
             <Button
               type="button"
-              variant="outline"
-              className="w-full"
-              disabled={pending}
-              onClick={continueWithGoogle}
+              variant="ghost"
+              size="icon-sm"
+              className="absolute top-1/2 right-0.5 -translate-y-1/2 text-muted-foreground"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              onClick={() => setShowPassword((shown) => !shown)}
             >
-              {signInWithGoogle.isPending ? (
-                <Loader2 className="animate-spin" aria-hidden="true" />
-              ) : (
-                <GoogleMark />
-              )}
-              Continue with Google
+              {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
             </Button>
-          </>
+          </div>
+          {passwordError && (
+            <p id={passwordErrorId} className="text-xs text-destructive">
+              {passwordError}
+            </p>
+          )}
+        </div>
+        {failure !== null && (
+          <p role="alert" className="text-sm text-destructive">
+            {signInErrorMessage(failure)}
+          </p>
         )}
-        <p className="mt-6 text-xs text-muted-foreground">
-          {demo
-            ? 'Demo mode: any email and password sign you in.'
-            : 'Access is by invitation. Ask a workspace owner to invite you.'}
-        </p>
-      </div>
-    </main>
+        <Button type="submit" className="w-full" disabled={pending}>
+          {signInWithPassword.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+          {signInWithPassword.isPending ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </form>
+      {google && (
+        <>
+          <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+            or
+            <span className="h-px flex-1 bg-border" aria-hidden="true" />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={pending}
+            onClick={continueWithGoogle}
+          >
+            {signInWithGoogle.isPending ? (
+              <Loader2 className="animate-spin" aria-hidden="true" />
+            ) : (
+              <GoogleMark />
+            )}
+            Continue with Google
+          </Button>
+        </>
+      )}
+      <p className="mt-6 text-xs text-muted-foreground">
+        {demo
+          ? 'Demo mode: any email and password sign you in.'
+          : 'Access is by invitation. Ask a workspace owner to invite you.'}
+      </p>
+    </AuthCard>
   );
 }

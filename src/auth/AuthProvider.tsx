@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import type { Session } from '@/data/auth';
 import { useAuthService } from '@/data/DataLayerProvider';
 import { RepositoryError } from '@/data/errors';
+import { queryKeys } from '@/hooks/query-keys';
 
 export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
 
@@ -29,6 +30,8 @@ interface AuthState {
 }
 
 const SESSION_EXPIRED = 'Your session expired. Please sign in again.';
+/** First element of every auth query key; those queries outlive a change of user. */
+const AUTH_KEY_PREFIX = queryKeys.auth()[0];
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -65,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactElemen
       if (previous !== null && previous !== userId) {
         // The user signed out or another account signed in: nothing of theirs may stay cached.
         // Mutations are left alone, and so are the auth keys (the /auth/callback query).
-        queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
+        queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== AUTH_KEY_PREFIX });
       }
       if (userId !== null) expiredRef.current = false;
       lastUserIdRef.current = userId;

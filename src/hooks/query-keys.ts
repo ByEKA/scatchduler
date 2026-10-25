@@ -8,6 +8,10 @@ export const RECENT_PROJECTS_LIMIT = 5;
 // Project ID checks of one workspace. A `workspaceId` of `undefined` only appears in the key of a
 // query that is disabled until a workspace is known.
 export const queryKeys = {
+  /** Prefix of the auth queries; they survive a change of user (P2 spec §5.4). */
+  auth: () => ['auth'] as const,
+  /** The `/auth/callback` exchange for one callback URL (P2 spec §6.3). */
+  authCallback: (href: string) => ['auth', 'callback', href] as const,
   me: () => ['me'] as const,
   subscription: () => ['subscription'] as const,
   workspaces: () => ['workspaces'] as const,
