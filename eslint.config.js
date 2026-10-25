@@ -15,6 +15,7 @@ export default defineConfig([
     'playwright-report',
     'test-results',
     'src/components/ui',
+    'src/data/supabase/database.types.ts',
   ]),
   js.configs.recommended,
   {

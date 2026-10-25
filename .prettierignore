@@ -7,3 +7,4 @@ docs
 *.md
 .claude
 supabase/templates
+src/data/supabase/database.types.ts
