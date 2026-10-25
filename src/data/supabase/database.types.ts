@@ -53,6 +53,12 @@ export type Database = {
       foreignKeyName: "projects_workspace_id_fkey"
       columns: ["workspace_id"]
 isOneToOne: false
+      referencedRelation: "workspace_summaries"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "projects_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
       referencedRelation: "workspaces"
       referencedColumns: ["id"]
     }
@@ -76,8 +82,26 @@ isOneToOne: false
       referencedRelation: "schedules"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "schedule_shares_schedule_id_fkey"
+      columns: ["schedule_id"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["schedule_id"]
+    },{
       foreignKeyName: "schedule_shares_shared_by_fkey"
       columns: ["shared_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "schedule_shares_shared_by_fkey"
+      columns: ["shared_by"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["shared_by_id"]
+    },{
+      foreignKeyName: "schedule_shares_shared_with_fkey"
+      columns: ["shared_with"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
@@ -85,8 +109,8 @@ isOneToOne: false
       foreignKeyName: "schedule_shares_shared_with_fkey"
       columns: ["shared_with"]
 isOneToOne: false
-      referencedRelation: "profiles"
-      referencedColumns: ["id"]
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["shared_by_id"]
     }
                   ]
                 },"schedules": {
@@ -105,8 +129,20 @@ isOneToOne: false
       foreignKeyName: "schedules_project_id_fkey"
       columns: ["project_id"]
 isOneToOne: false
+      referencedRelation: "project_summaries"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "schedules_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
       referencedRelation: "projects"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "schedules_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["project_id"]
     }
                   ]
                 },"subscriptions": {
@@ -127,6 +163,12 @@ isOneToOne: false
 isOneToOne: true
       referencedRelation: "profiles"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "subscriptions_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["shared_by_id"]
     }
                   ]
                 },"tasks": {
@@ -148,11 +190,29 @@ isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "tasks_assignee_id_fkey"
+      columns: ["assignee_id"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["shared_by_id"]
+    },{
+      foreignKeyName: "tasks_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
+      referencedRelation: "project_summaries"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "tasks_project_id_fkey"
       columns: ["project_id"]
 isOneToOne: false
       referencedRelation: "projects"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasks_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["project_id"]
     }
                   ]
                 },"workspace_invitations": {
@@ -172,6 +232,18 @@ isOneToOne: false
       columns: ["invited_by"]
 isOneToOne: false
       referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "workspace_invitations_invited_by_fkey"
+      columns: ["invited_by"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["shared_by_id"]
+    },{
+      foreignKeyName: "workspace_invitations_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspace_summaries"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "workspace_invitations_workspace_id_fkey"
@@ -200,6 +272,18 @@ isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
     },{
+      foreignKeyName: "workspace_members_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["shared_by_id"]
+    },{
+      foreignKeyName: "workspace_members_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspace_summaries"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "workspace_members_workspace_id_fkey"
       columns: ["workspace_id"]
 isOneToOne: false
@@ -225,15 +309,117 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
+    },{
+      foreignKeyName: "workspaces_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["shared_by_id"]
     }
                   ]
                 }
           }
           Views: {
-            [_ in never]: never
+            "project_summaries": {
+                  Row: {
+                    "client_contact_email": string | null,"client_contact_name": string | null,"client_name": string | null,"code": string | null,"cover_image_path": string | null,"created_at": string | null,"description": string | null,"id": string | null,"location_address": string | null,"location_city": string | null,"location_country": string | null,"name": string | null,"planned_finish_date": string | null,"project_type": string | null,"schedule_count": number | null,"start_date": string | null,"status_date": string | null,"updated_at": string | null,"workspace_id": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string | null,"cover_image_path"?: string | null,"created_at"?: string | null,"description"?: string | null,"id"?: string | null,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"name"?: string | null,"planned_finish_date"?: string | null,"project_type"?: string | null,"schedule_count"?: never,"start_date"?: string | null,"status_date"?: string | null,"updated_at"?: string | null,"workspace_id"?: string | null
+                         }
+                        Update: {
+                           "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string | null,"cover_image_path"?: string | null,"created_at"?: string | null,"description"?: string | null,"id"?: string | null,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"name"?: string | null,"planned_finish_date"?: string | null,"project_type"?: string | null,"schedule_count"?: never,"start_date"?: string | null,"status_date"?: string | null,"updated_at"?: string | null,"workspace_id"?: string | null
+                         }
+                        Relationships: [
+                    {
+      foreignKeyName: "projects_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspace_summaries"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "projects_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"shared_with_me": {
+                  Row: {
+                    "project_id": string | null,"project_name": string | null,"schedule_id": string | null,"schedule_name": string | null,"share_id": string | null,"shared_at": string | null,"shared_by_avatar_url": string | null,"shared_by_first_name": string | null,"shared_by_id": string | null,"shared_by_last_name": string | null,"status_date": string | null,"workspace_id": string | null
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    {
+      foreignKeyName: "projects_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspace_summaries"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "projects_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"workspace_summaries": {
+                  Row: {
+                    "created_at": string | null,"created_by": string | null,"id": string | null,"kind": string | null,"my_role": string | null,"name": string | null,"project_count": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "created_at"?: string | null,"created_by"?: string | null,"id"?: string | null,"kind"?: string | null,"my_role"?: never,"name"?: string | null,"project_count"?: never
+                         }
+                        Update: {
+                           "created_at"?: string | null,"created_by"?: string | null,"id"?: string | null,"kind"?: string | null,"my_role"?: never,"name"?: string | null,"project_count"?: never
+                         }
+                        Relationships: [
+                    {
+      foreignKeyName: "workspaces_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "workspaces_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["shared_by_id"]
+    }
+                  ]
+                }
           }
           Functions: {
-            [_ in never]: never
+            "create_team_workspace":
+{ Args: { "p_name": string }; Returns: {
+              "created_at": string | null,
+"created_by": string | null,
+"id": string | null,
+"kind": string | null,
+"my_role": string | null,
+"name": string | null,
+"project_count": number | null
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "workspace_summaries"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
+"is_project_code_available":
+{ Args: { "p_code": string,"p_workspace_id": string }; Returns: boolean
+                           },
+"remove_member":
+{ Args: { "p_user_id": string,"p_workspace_id": string }; Returns: undefined
+                           },
+"update_member_role":
+{ Args: { "p_role": string,"p_user_id": string,"p_workspace_id": string }; Returns: undefined
+                           }
           }
           Enums: {
             [_ in never]: never
