@@ -21,6 +21,16 @@ describe('createDataLayer', () => {
       createMemoryStorage(),
     );
     await expect(repository.listWorkspaces()).resolves.toHaveLength(1);
+    const siteRole = async (teamRole: string) => {
+      const layer = createDataLayer(
+        { VITE_MOCK_TEAM_ROLE: teamRole, VITE_MOCK_LATENCY_MS: '0' },
+        createMemoryStorage(),
+      );
+      const workspaces = await layer.repository.listWorkspaces();
+      return workspaces.find((w) => w.name === 'Site Operations')?.myRole;
+    };
+    await expect(siteRole('viewer')).resolves.toBe('viewer');
+    await expect(siteRole('manager')).resolves.toBe('owner');
   });
 
   it('applies the fail rate and rejects mock settings that do not exist', async () => {

@@ -24,6 +24,10 @@ describe('seed', () => {
     ]);
     expect(db.subscription).toEqual({ plan: 'trial', trialEndsAt: '2026-10-23T10:00:00.000Z' });
     expect(db.session).toEqual({ userId: db.currentUserId });
+    for (const p of db.projects) {
+      const workspace = db.workspaces.find((w) => w.id === p.workspaceId)!;
+      expect(p.createdAt >= workspace.createdAt, `${p.code} createdAt`).toBe(true);
+    }
   });
 
   it('stores status dates as local calendar dates', () => {

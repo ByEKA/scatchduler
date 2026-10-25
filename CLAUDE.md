@@ -92,7 +92,7 @@ A task is done only when `npm run check` passes; `npm run test:e2e` must pass to
 
 ## Mock data
 
-`VITE_DATA_SOURCE=mock` (the only value implemented in Phase 1), `VITE_MOCK_SCENARIO=default|empty`, `VITE_MOCK_LATENCY_MS` (default `400`), `VITE_MOCK_FAIL_RATE` (`0`–`1`). Put local overrides in `.env.local` (git-ignored). In development, `window.__resetMockDb()` reseeds the store.
+`VITE_DATA_SOURCE=mock` (the only value implemented in Phase 1), `VITE_MOCK_SCENARIO=default|empty`, `VITE_MOCK_TEAM_ROLE=owner|editor|viewer` (the demo user's role in Site Operations; changing it reseeds), `VITE_MOCK_LATENCY_MS` (default `400`), `VITE_MOCK_FAIL_RATE` (`0`–`1`). Put local overrides in `.env.local` (git-ignored). In development, `window.__resetMockDb()` reseeds the store.
 
 ## Supabase (Phase 2)
 

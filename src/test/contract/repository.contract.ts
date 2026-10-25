@@ -244,6 +244,20 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         ]);
       });
 
+      it('lists members by role, then name, for a viewer too', async () => {
+        const f = await makeFixture({ teamRole: 'viewer' });
+        expect(
+          (await f.repository.listMembers(f.workspaces.team!)).map((m) => [
+            `${m.firstName} ${m.lastName}`,
+            m.role,
+          ]),
+        ).toEqual([
+          ['Mert Demir', 'owner'],
+          ['Deniz Kaya', 'viewer'],
+          ['Elif Arslan', 'viewer'],
+        ]);
+      });
+
       it('shows pending invitations to owners only', async () => {
         const owner = await makeFixture();
         expect(
@@ -270,10 +284,11 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           f.repository.inviteMember({ workspaceId: f.workspaces.team!, email, role: 'viewer' }),
         ).resolves.toEqual({ status: 'invited' });
         expect(
-          (await f.repository.listInvitations(f.workspaces.team!))
-            .filter((i) => i.email === email)
-            .map((i) => i.role),
-        ).toEqual(['viewer']);
+          (await f.repository.listInvitations(f.workspaces.team!)).map((i) => [i.email, i.role]),
+        ).toEqual([
+          [email, 'viewer'],
+          [f.pendingInvitationEmail, 'editor'],
+        ]);
       });
 
       it('adds an existing account directly and refuses current members', async () => {
@@ -384,6 +399,18 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         await expect(
           f.repository.removeMember({ workspaceId: f.workspaces.team!, userId: f.users.elif!.id }),
         ).rejects.toMatchObject({ code: 'forbidden' });
+      });
+
+      it('lets editors create but not see invitations', async () => {
+        const f = await makeFixture({ teamRole: 'editor' });
+        const team = f.workspaces.team!;
+        await expect(
+          f.repository.createProject(makeNewProjectInput(team, { code: 'E-1' })),
+        ).resolves.toBeDefined();
+        await expect(
+          f.repository.createSchedule({ projectId: f.projectIds['T-01']!, name: 'Editor plan' }),
+        ).resolves.toBeDefined();
+        expect(await f.repository.listInvitations(team)).toEqual([]);
       });
 
       it('keeps viewers from creating projects and schedules', async () => {
