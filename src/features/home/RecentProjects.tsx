@@ -1,7 +1,10 @@
+import { FolderKanban } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { EmptyState } from '@/components/common/EmptyState';
 import { SectionError } from '@/components/common/SectionError';
 import { CreateProjectCard } from '@/features/home/CreateProjectCard';
 import { ProjectCard, ProjectCardSkeleton } from '@/features/home/ProjectCard';
+import { canEdit } from '@/features/workspaces/roles';
 import { useCurrentContext } from '@/hooks/useCurrentContext';
 import { useRecentProjects } from '@/hooks/useProjects';
 
@@ -43,17 +46,34 @@ function Content(): ReactElement {
       />
     );
   }
+  // Viewers can't create projects (P2 spec §5.9).
+  const editable = canEdit(context.workspace);
+  if (!editable && recent.data.length === 0) {
+    return (
+      <div className="col-span-full py-6">
+        <EmptyState
+          icon={FolderKanban}
+          size="md"
+          title="No projects yet"
+          description="Projects in this workspace will appear here."
+        />
+      </div>
+    );
+  }
   return (
     <>
       {recent.data.map((project) => (
         <ProjectCard key={project.id} project={project} />
       ))}
-      <CreateProjectCard />
+      {editable && <CreateProjectCard />}
     </>
   );
 }
 
-/** Up to five of the current workspace's latest projects and the create card (spec §6.6). */
+/**
+ * Up to five of the current workspace's latest projects and the create card (spec §6.6); viewers
+ * get no create card (P2 spec §5.9).
+ */
 export function RecentProjects(): ReactElement {
   return (
     <section aria-labelledby="recent-heading" className="flex flex-col gap-4">

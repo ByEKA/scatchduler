@@ -1,7 +1,9 @@
 import { FilePlus2, FileUp, FolderPlus } from 'lucide-react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
 import { useCurrentContext } from '@/hooks/useCurrentContext';
+import { canEdit } from '@/features/workspaces/roles';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNow } from '@/hooks/useNow';
 import { greetingDate } from '@/lib/format';
@@ -17,6 +19,47 @@ const SOLID_CLASSES = 'bg-white text-brand-700 hover:bg-white/90';
 
 // The glass border is an inset ring, so the focus ring can still sit outside the button.
 const GLASS_CLASSES = 'bg-white/12 text-white inset-ring inset-ring-white/24 hover:bg-white/20';
+
+// No press feedback on a disabled action.
+const DISABLED_CLASSES = 'cursor-not-allowed opacity-60 motion-safe:active:scale-100';
+
+const VIEWER_HINT = "Viewers can't make changes in this workspace";
+
+/**
+ * A banner action. For viewers it stays focusable but does nothing and explains why (P2 spec §5.9,
+ * the same pattern as the disabled sidebar items). It always sits inside the tooltip trigger, so it
+ * never remounts when the workspace role arrives after the first render.
+ */
+function BannerButton({
+  disabled,
+  className,
+  onClick,
+  children,
+}: {
+  disabled: boolean;
+  className: string;
+  onClick: () => void;
+  children: ReactNode;
+}): ReactElement {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-disabled={disabled ? 'true' : undefined}
+          className={cn(BUTTON_CLASSES, className, disabled && DISABLED_CLASSES)}
+          onClick={() => {
+            if (disabled) return;
+            onClick();
+          }}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      {disabled && <TooltipContent sideOffset={6}>{VIEWER_HINT}</TooltipContent>}
+    </Tooltip>
+  );
+}
 
 /** "Hello, {firstName}" or, without a name, "Hello"; a skeleton while the user loads. */
 function Greeting(): ReactElement {
@@ -43,7 +86,8 @@ function Greeting(): ReactElement {
 
 /** The greeting, today's date and the three creation actions on the brand surface (spec §6.6). */
 export function WelcomeBanner(): ReactElement {
-  const { project } = useCurrentContext();
+  const { workspace, project } = useCurrentContext();
+  const disabled = !canEdit(workspace);
   const { openDialog } = useDialogs();
   const now = useNow(60_000);
 
@@ -57,31 +101,31 @@ export function WelcomeBanner(): ReactElement {
         <p className="mt-1 text-sm font-medium text-white/85">{greetingDate(now)}</p>
       </div>
       <div className="relative flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <button
-          type="button"
-          className={cn(BUTTON_CLASSES, SOLID_CLASSES)}
+        <BannerButton
+          disabled={disabled}
+          className={SOLID_CLASSES}
           onClick={() => openDialog('newSchedule', { projectId: project?.id })}
         >
           <FilePlus2 aria-hidden="true" />
           New schedule
-        </button>
-        <button
-          type="button"
-          className={cn(BUTTON_CLASSES, GLASS_CLASSES)}
+        </BannerButton>
+        <BannerButton
+          disabled={disabled}
+          className={GLASS_CLASSES}
           onClick={() => openDialog('importSchedule', { projectId: project?.id })}
         >
           <FileUp aria-hidden="true" />
           Import schedule
-        </button>
+        </BannerButton>
         <div aria-hidden="true" className="hidden h-7 w-px bg-white/25 sm:block" />
-        <button
-          type="button"
-          className={cn(BUTTON_CLASSES, GLASS_CLASSES)}
+        <BannerButton
+          disabled={disabled}
+          className={GLASS_CLASSES}
           onClick={() => openDialog('newProject')}
         >
           <FolderPlus aria-hidden="true" />
           New project
-        </button>
+        </BannerButton>
       </div>
     </section>
   );

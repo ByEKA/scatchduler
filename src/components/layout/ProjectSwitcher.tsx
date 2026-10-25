@@ -20,6 +20,7 @@ import { Popover, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ID, ProjectSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { canEdit } from '@/features/workspaces/roles';
 import { useCurrentContext } from '@/hooks/useCurrentContext';
 import { cn } from '@/lib/utils';
 
@@ -33,7 +34,7 @@ function matching(projects: ProjectSummary[], search: string): ProjectSummary[] 
 
 /** The current project and a searchable list of the workspace's projects (spec §6.4, §6.7). */
 export function ProjectSwitcher(): ReactElement {
-  const { status, projects, project, setProject } = useCurrentContext();
+  const { status, workspace, projects, project, setProject } = useCurrentContext();
   const { openDialog } = useDialogs();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -67,6 +68,8 @@ export function ProjectSwitcher(): ReactElement {
   };
 
   const visible = matching(projects, search);
+  // Viewers can't create projects, so they get no footer (P2 spec §5.9).
+  const editable = canEdit(workspace);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -142,15 +145,19 @@ export function ProjectSwitcher(): ReactElement {
               {visible.length === 0 && search.trim() !== '' && (
                 <div className="py-6 text-center text-sm">No projects found</div>
               )}
-              {visible.length > 0 && <CommandSeparator alwaysRender className="my-1" />}
-              <CommandItem
-                value="create-new-project"
-                onSelect={createProject}
-                className={cn(OPTION_CLASSES, 'text-link data-[selected=true]:text-link')}
-              >
-                <Plus className="size-4 text-link" aria-hidden="true" />
-                Create new project
-              </CommandItem>
+              {editable && (
+                <>
+                  {visible.length > 0 && <CommandSeparator alwaysRender className="my-1" />}
+                  <CommandItem
+                    value="create-new-project"
+                    onSelect={createProject}
+                    className={cn(OPTION_CLASSES, 'text-link data-[selected=true]:text-link')}
+                  >
+                    <Plus className="size-4 text-link" aria-hidden="true" />
+                    Create new project
+                  </CommandItem>
+                </>
+              )}
             </CommandList>
           </Command>
         </PopoverPrimitive.Content>
