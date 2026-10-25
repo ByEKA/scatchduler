@@ -2,10 +2,13 @@ import { createContext, useCallback, useContext, useMemo, useState } from 'react
 import type { ReactElement, ReactNode } from 'react';
 import type { ID } from '@/data/types';
 
-export type DialogKind = 'newSchedule' | 'importSchedule' | 'newProject' | 'newTeamWorkspace';
+export type DialogKind =
+  'newSchedule' | 'importSchedule' | 'newProject' | 'newTeamWorkspace' | 'workspaceMembers';
 
 export interface DialogOptions {
   projectId?: ID;
+  /** The workspace whose members 'workspaceMembers' shows. */
+  workspaceId?: ID;
 }
 
 export interface ActiveDialog {

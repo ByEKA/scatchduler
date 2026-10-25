@@ -16,3 +16,10 @@ export const POPOVER_SHELL_CLASSES =
  */
 export const OPTION_CLASSES =
   'h-8 gap-2 rounded-sm px-2 py-0 data-[selected=true]:outline-solid data-[selected=true]:outline-2 data-[selected=true]:-outline-offset-2 data-[selected=true]:outline-ring';
+
+/**
+ * The highlighted option of a Radix Select (spec §6.12). The accent background alone is about
+ * 1.1 : 1 against the popover, so the option also gets the ring-colored outline.
+ */
+export const SELECT_ITEM_HIGHLIGHT_CLASSES =
+  'focus:outline-2 focus:-outline-offset-2 focus:outline-ring focus:outline-solid';

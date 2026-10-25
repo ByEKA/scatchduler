@@ -9,6 +9,7 @@ import { NewProjectWizard } from '@/features/projects/NewProjectWizard';
 import { ImportScheduleDialog } from '@/features/schedules/ImportScheduleDialog';
 import { NewScheduleDialog } from '@/features/schedules/NewScheduleDialog';
 import { NewTeamWorkspaceDialog } from '@/features/workspaces/NewTeamWorkspaceDialog';
+import { WorkspaceMembersDialog } from '@/features/workspaces/WorkspaceMembersDialog';
 
 function renderDialog(entry: DialogEntry): ReactElement | null {
   switch (entry.kind) {
@@ -20,6 +21,11 @@ function renderDialog(entry: DialogEntry): ReactElement | null {
       return <NewProjectWizard />;
     case 'newTeamWorkspace':
       return <NewTeamWorkspaceDialog />;
+    case 'workspaceMembers':
+      // Without a workspace there are no members to show.
+      return entry.options.workspaceId === undefined ? null : (
+        <WorkspaceMembersDialog workspaceId={entry.options.workspaceId} />
+      );
     default:
       // A kind without a registered dialog renders nothing.
       return null;

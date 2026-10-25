@@ -1,7 +1,8 @@
-import { Check, ChevronRight, House, Plus, Users } from 'lucide-react';
+import { Check, ChevronRight, House, Plus, UserCog, Users } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { SectionError } from '@/components/common/SectionError';
 import { FOCUS_OUTLINE_CLASSES } from '@/components/layout/top-bar-parts';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
@@ -30,37 +31,57 @@ function WorkspaceRow({
   current: boolean;
   onSelect(): void;
 }): ReactElement {
+  const { openDialog } = useDialogs();
   const Icon = workspace.kind === 'personal' ? House : Users;
+  // P2 spec §5.8: a button can't hold another control, so the row is a flex container with the
+  // row button and, for team workspaces, the members button beside it. Personal rows keep an
+  // empty slot of the same width so the counts line up.
   return (
-    <button
-      type="button"
-      aria-current={current ? 'true' : undefined}
-      onClick={onSelect}
+    <div
       className={cn(
-        ROW_CLASSES,
-        ROW_FOCUS_CLASSES,
-        'transition-colors duration-150 ease-standard',
+        'flex items-center pr-2 transition-colors duration-150 ease-standard',
         current ? 'bg-sidebar-accent' : 'hover:bg-accent/60',
       )}
     >
-      <span
-        aria-hidden="true"
-        className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-600 text-primary-foreground"
+      <button
+        type="button"
+        aria-current={current ? 'true' : undefined}
+        onClick={onSelect}
+        className={cn(ROW_CLASSES, ROW_FOCUS_CLASSES, 'min-w-0 flex-1')}
       >
-        <Icon className="size-4" />
-      </span>
-      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-        <span className="truncate text-sm font-semibold" title={workspace.name}>
-          {workspace.name}
+        <span
+          aria-hidden="true"
+          className="flex size-8 shrink-0 items-center justify-center rounded-md bg-brand-600 text-primary-foreground"
+        >
+          <Icon className="size-4" />
         </span>
-        {/* The current row also shows a check mark, so it doesn't rely on its color alone. */}
-        {current && <Check className="size-3.5 shrink-0 text-link" aria-hidden="true" />}
-      </span>
-      <span className="shrink-0 text-xs text-muted-foreground">
-        {pluralize(workspace.projectCount, 'project')}
-      </span>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-    </button>
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="truncate text-sm font-semibold" title={workspace.name}>
+            {workspace.name}
+          </span>
+          {/* The current row also shows a check mark, so it doesn't rely on its color alone. */}
+          {current && <Check className="size-3.5 shrink-0 text-link" aria-hidden="true" />}
+        </span>
+        <span className="shrink-0 text-xs text-muted-foreground">
+          {pluralize(workspace.projectCount, 'project')}
+        </span>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      </button>
+      {workspace.kind === 'team' ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Members of ${workspace.name}`}
+          onClick={() => openDialog('workspaceMembers', { workspaceId: workspace.id })}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <UserCog aria-hidden="true" />
+        </Button>
+      ) : (
+        <span aria-hidden="true" className="size-8 shrink-0" />
+      )}
+    </div>
   );
 }
 

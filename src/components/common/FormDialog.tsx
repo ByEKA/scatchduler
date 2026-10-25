@@ -6,6 +6,7 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
+  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogOverlay,
@@ -87,6 +88,169 @@ function focusIsLost(): boolean {
   return focused === null || focused === document.body || !focused.isConnected;
 }
 
+export interface DialogShellProps {
+  title: string;
+  /** Muted text under the title; the dialog is described by it. */
+  description?: string;
+  /** Shown under the title and description, outside the body (the wizard's stepper). */
+  header?: ReactNode;
+  /** sm 440 px, md 520 px, lg 560 px, xl 640 px. */
+  width: 'sm' | 'md' | 'lg' | 'xl';
+  /** Escape, a click outside and the header close button call this; the caller decides. */
+  onCloseRequest: () => void;
+  /** Disables the header close button (while saving). */
+  closeDisabled?: boolean;
+  /** Radix's open auto-focus event; call `event.preventDefault()` before focusing a field yourself. */
+  onOpenAutoFocus?: (event: Event) => void;
+  children: ReactNode;
+}
+
+/**
+ * The modal shell of spec §6.7 that FormDialog and the dialogs that are no form share: overlay,
+ * motion, title and description, header close button, and focus back to the opener on close.
+ * Radix focuses the first focusable element of `children` on open. It renders open while
+ * DialogHost keeps it active.
+ */
+export function DialogShell({
+  title,
+  description,
+  header,
+  width,
+  onCloseRequest,
+  closeDisabled = false,
+  onOpenAutoFocus,
+  children,
+}: DialogShellProps): ReactElement {
+  const { open, opener, onExitComplete } = useContext(PresenceContext);
+
+  // Radix returns focus to a DialogTrigger, and these dialogs open without one: DialogHost passes
+  // the opener.
+  function handleCloseAutoFocus(event: Event): void {
+    event.preventDefault();
+    // Still open: another dialog replaced this one and has taken focus.
+    if (open) return;
+    onExitComplete();
+    // If focus moved on during the exit animation (Tab out of the closing dialog, or a dialog
+    // opened meanwhile), it stays where it went.
+    if (focusIsLost()) focusIfConnected(opener);
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && open) onCloseRequest();
+      }}
+    >
+      <DialogPortal>
+        <DialogOverlay className={OVERLAY_CLASSES} />
+        <DialogPrimitive.Content
+          onOpenAutoFocus={onOpenAutoFocus}
+          onCloseAutoFocus={handleCloseAutoFocus}
+          className={cn(
+            'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-48px)] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-5 rounded-xl border bg-popover p-6 text-popover-foreground shadow-popover outline-none',
+            CONTENT_MOTION_CLASSES,
+            WIDTH_CLASSES[width],
+          )}
+        >
+          <div className="flex shrink-0 flex-col gap-1 pr-8">
+            <DialogTitle className="text-md font-semibold">{title}</DialogTitle>
+            {description !== undefined && <DialogDescription>{description}</DialogDescription>}
+            {header}
+          </div>
+          {children}
+          {/* Last in the DOM so Radix focuses the first field, not this button, on open. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Close"
+            disabled={closeDisabled}
+            onClick={onCloseRequest}
+            className="absolute top-5 right-5 size-7 text-muted-foreground hover:text-foreground"
+          >
+            <XIcon aria-hidden="true" />
+          </Button>
+        </DialogPrimitive.Content>
+      </DialogPortal>
+    </Dialog>
+  );
+}
+
+export interface ConfirmDialogProps {
+  open: boolean;
+  title: string;
+  description?: string;
+  cancelLabel: string;
+  actionLabel: string;
+  onAction: () => void;
+  /** Cancel, Escape or a click outside. */
+  onCancel: () => void;
+  /** Whether focus goes back to where it was before the confirmation opened; true by default. */
+  returnFocus?: boolean;
+}
+
+/** The small confirmation over a dialog (spec §6.7 "Discard changes?"): title, two equal buttons. */
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  cancelLabel,
+  actionLabel,
+  onAction,
+  onCancel,
+  returnFocus = true,
+}: ConfirmDialogProps): ReactElement {
+  // The confirmation opens without a trigger, so it remembers what had focus before it opened.
+  const beforeOpenRef = useRef<Element | null>(null);
+
+  function handleOpenAutoFocus(): void {
+    // Runs before Radix moves focus to the cancel button.
+    beforeOpenRef.current = document.activeElement;
+  }
+
+  function handleCloseAutoFocus(event: Event): void {
+    event.preventDefault();
+    if (returnFocus) focusIfConnected(beforeOpenRef.current);
+  }
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onCancel();
+      }}
+    >
+      <AlertDialogPortal>
+        <AlertDialogOverlay className={OVERLAY_CLASSES} />
+        {/* data-size and the group class keep the header and footer layout of the ui component's
+            size "sm" (centered title, two equal buttons). */}
+        <AlertDialogPrimitive.Content
+          data-slot="alert-dialog-content"
+          data-size="sm"
+          onOpenAutoFocus={handleOpenAutoFocus}
+          onCloseAutoFocus={handleCloseAutoFocus}
+          className={cn(
+            'group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-80 max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-popover p-6 text-popover-foreground shadow-popover outline-none',
+            CONTENT_MOTION_CLASSES,
+          )}
+        >
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-md">{title}</AlertDialogTitle>
+            {description !== undefined && (
+              <AlertDialogDescription>{description}</AlertDialogDescription>
+            )}
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="secondary">{cancelLabel}</AlertDialogCancel>
+            <AlertDialogAction onClick={onAction}>{actionLabel}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogPrimitive.Content>
+      </AlertDialogPortal>
+    </AlertDialog>
+  );
+}
+
 export interface FormDialogProps {
   title: string;
   /** Muted text under the title; the dialog is described by it. */
@@ -133,13 +297,10 @@ export function FormDialog({
   onOpenAutoFocus,
   onKeyDownCapture,
 }: FormDialogProps): ReactElement {
-  const { open, opener, onExitComplete } = useContext(PresenceContext);
+  const { open } = useContext(PresenceContext);
   // Set while "Discard changes?" is open. `leaveFor` is the action a control asked to leave for;
   // without one, "Discard" closes the dialog.
   const [confirm, setConfirm] = useState<{ leaveFor?: () => void } | null>(null);
-  // Radix returns focus to a DialogTrigger, and these dialogs open without one: DialogHost passes
-  // the opener, and the dialog remembers what had focus before the confirmation opened.
-  const beforeConfirmRef = useRef<Element | null>(null);
   function leave(action?: () => void): void {
     // While saving, the dialog stays open, so a failed save keeps the form and its values
     // (spec §6.10).
@@ -169,127 +330,58 @@ export function FormDialog({
     onSubmit(event);
   }
 
-  function handleCloseAutoFocus(event: Event): void {
-    event.preventDefault();
-    // Still open: another dialog replaced this one and has taken focus.
-    if (open) return;
-    onExitComplete();
-    // If focus moved on during the exit animation (Tab out of the closing dialog, or a dialog
-    // opened meanwhile), it stays where it went.
-    if (focusIsLost()) focusIfConnected(opener);
-  }
-
-  function handleConfirmOpenAutoFocus(): void {
-    // Runs before Radix moves focus to "Keep editing".
-    beforeConfirmRef.current = document.activeElement;
-  }
-
-  function handleConfirmCloseAutoFocus(event: Event): void {
-    event.preventDefault();
-    // After "Keep editing", focus goes back to where it was; after "Discard" the dialog closes.
-    if (open) focusIfConnected(beforeConfirmRef.current);
-  }
-
   return (
     <>
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          if (!next) requestClose();
-        }}
+      <DialogShell
+        title={title}
+        description={description}
+        header={header}
+        width={width}
+        onCloseRequest={requestClose}
+        closeDisabled={isPending}
+        onOpenAutoFocus={onOpenAutoFocus}
       >
-        <DialogPortal>
-          <DialogOverlay className={OVERLAY_CLASSES} />
-          <DialogPrimitive.Content
-            onOpenAutoFocus={onOpenAutoFocus}
-            onCloseAutoFocus={handleCloseAutoFocus}
-            className={cn(
-              'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-48px)] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-5 rounded-xl border bg-popover p-6 text-popover-foreground shadow-popover outline-none',
-              CONTENT_MOTION_CLASSES,
-              WIDTH_CLASSES[width],
+        <form
+          noValidate
+          onSubmit={handleSubmit}
+          onKeyDownCapture={onKeyDownCapture}
+          className="flex min-h-0 flex-1 flex-col gap-5"
+        >
+          {/* The negative margins give focus rings room inside the scroll container. */}
+          <div className="-mx-6 -my-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-1">
+            <LeaveFormContext value={leave}>{children}</LeaveFormContext>
+          </div>
+          <div className="flex shrink-0 items-center justify-end gap-2">
+            {footer ? (
+              footer({ requestClose })
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={isPending}
+                  onClick={requestClose}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isPending || submitDisabled}>
+                  {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+                  {isPending ? pendingLabel : submitLabel}
+                </Button>
+              </>
             )}
-          >
-            <div className="flex shrink-0 flex-col gap-1 pr-8">
-              <DialogTitle className="text-md font-semibold">{title}</DialogTitle>
-              {description !== undefined && <DialogDescription>{description}</DialogDescription>}
-              {header}
-            </div>
-            <form
-              noValidate
-              onSubmit={handleSubmit}
-              onKeyDownCapture={onKeyDownCapture}
-              className="flex min-h-0 flex-1 flex-col gap-5"
-            >
-              {/* The negative margins give focus rings room inside the scroll container. */}
-              <div className="-mx-6 -my-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-1">
-                <LeaveFormContext value={leave}>{children}</LeaveFormContext>
-              </div>
-              <div className="flex shrink-0 items-center justify-end gap-2">
-                {footer ? (
-                  footer({ requestClose })
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={isPending}
-                      onClick={requestClose}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={isPending || submitDisabled}>
-                      {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-                      {isPending ? pendingLabel : submitLabel}
-                    </Button>
-                  </>
-                )}
-              </div>
-            </form>
-            {/* Last in the DOM so Radix focuses the first field, not this button, on open. */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Close"
-              disabled={isPending}
-              onClick={requestClose}
-              className="absolute top-5 right-5 size-7 text-muted-foreground hover:text-foreground"
-            >
-              <XIcon aria-hidden="true" />
-            </Button>
-          </DialogPrimitive.Content>
-        </DialogPortal>
-      </Dialog>
-      <AlertDialog
+          </div>
+        </form>
+      </DialogShell>
+      <ConfirmDialog
         open={confirm !== null}
-        onOpenChange={(next) => {
-          if (!next) setConfirm(null);
-        }}
-      >
-        <AlertDialogPortal>
-          <AlertDialogOverlay className={OVERLAY_CLASSES} />
-          {/* data-size and the group class keep the header and footer layout of the ui component's
-              size "sm" (centered title, two equal buttons). */}
-          <AlertDialogPrimitive.Content
-            data-slot="alert-dialog-content"
-            data-size="sm"
-            onOpenAutoFocus={handleConfirmOpenAutoFocus}
-            onCloseAutoFocus={handleConfirmCloseAutoFocus}
-            className={cn(
-              'group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-80 max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-popover p-6 text-popover-foreground shadow-popover outline-none',
-              CONTENT_MOTION_CLASSES,
-            )}
-          >
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-md">Discard changes?</AlertDialogTitle>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel variant="secondary">Keep editing</AlertDialogCancel>
-              <AlertDialogAction onClick={discard}>Discard</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogPrimitive.Content>
-        </AlertDialogPortal>
-      </AlertDialog>
+        title="Discard changes?"
+        cancelLabel="Keep editing"
+        actionLabel="Discard"
+        onAction={discard}
+        onCancel={() => setConfirm(null)}
+        returnFocus={open}
+      />
     </>
   );
 }

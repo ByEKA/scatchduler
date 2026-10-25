@@ -14,7 +14,7 @@ test('Home shows the seeded data', async ({ page }) => {
   );
   const workspaces = page.getByRole('region', { name: 'Workspaces' });
   await expect(workspaces.getByRole('listitem')).toHaveCount(2);
-  await expect(workspaces.getByRole('button', { name: /Site Operations/ })).toBeVisible();
+  await expect(workspaces.getByRole('button', { name: /^Site Operations/ })).toBeVisible();
   await expect(page.getByRole('region', { name: 'To do' }).getByRole('checkbox')).toHaveCount(3);
 });
 
@@ -75,7 +75,7 @@ test('a team workspace can be created', async ({ page }) => {
   await page.getByLabel('Workspace name', { exact: true }).fill('Field crew');
   await page.getByRole('button', { name: 'Create workspace', exact: true }).click();
   await expect(page.getByText('Workspace created')).toBeVisible();
-  await expect(workspaces.getByRole('button', { name: /Field crew/ })).toBeVisible();
+  await expect(workspaces.getByRole('button', { name: /^Field crew/ })).toBeVisible();
 });
 
 test('the theme choice survives a reload', async ({ page }) => {
@@ -100,7 +100,7 @@ for (const width of [1440, 1024, 768, 375]) {
     await expect(
       page
         .getByRole('region', { name: 'Workspaces' })
-        .getByRole('button', { name: /Site Operations/ }),
+        .getByRole('button', { name: /^Site Operations/ }),
     ).toBeVisible();
     await expect(page.getByRole('region', { name: 'To do' }).getByRole('checkbox')).toHaveCount(3);
     // The shell is 100dvh and only main scrolls, so fullPage alone stops at the viewport; grow it

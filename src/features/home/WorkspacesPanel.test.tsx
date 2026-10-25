@@ -18,7 +18,7 @@ describe('WorkspacesPanel', () => {
     const mine = await screen.findByRole('button', { name: /My workspace/ });
     expect(mine).toHaveTextContent('6 projects');
     expect(mine).toHaveAttribute('aria-current', 'true');
-    const ops = screen.getByRole('button', { name: /Site Operations/ });
+    const ops = screen.getByRole('button', { name: /^Site Operations/ });
     expect(ops).toHaveTextContent('1 project');
     expect(ops).not.toHaveAttribute('aria-current');
     await user.click(ops);
@@ -36,7 +36,7 @@ describe('WorkspacesPanel', () => {
 
   it('offers a new team workspace in the footer once team workspaces exist', async () => {
     const { user } = renderWithProviders(<WorkspacesPanel />);
-    await screen.findByRole('button', { name: /Site Operations/ });
+    await screen.findByRole('button', { name: /^Site Operations/ });
     expect(screen.queryByText('No team workspaces yet')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'New team workspace' }));
     expect(await screen.findByRole('dialog', { name: 'New team workspace' })).toBeInTheDocument();
@@ -96,9 +96,21 @@ describe('WorkspacesPanel', () => {
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: 'New team workspace' })).not.toBeInTheDocument(),
     );
-    expect(await screen.findByRole('button', { name: /Crew A/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^Crew A/ })).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'New team workspace' })).toHaveFocus(),
     );
+  });
+
+  it('opens the members of a team workspace', async () => {
+    const { user } = renderWithProviders(<WorkspacesPanel />, { route: '/home', path: '/home' });
+    const members = await screen.findByRole('button', { name: 'Members of Site Operations' });
+    expect(
+      screen.queryByRole('button', { name: 'Members of My workspace' }),
+    ).not.toBeInTheDocument();
+    await user.click(members);
+    expect(
+      await screen.findByRole('dialog', { name: 'Members of Site Operations' }),
+    ).toBeInTheDocument();
   });
 });

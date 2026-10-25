@@ -2,7 +2,10 @@ import { Select as SelectPrimitive } from 'radix-ui';
 import { useId } from 'react';
 import type { ReactElement } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { POPOVER_SHELL_CLASSES } from '@/components/common/popover-classes';
+import {
+  POPOVER_SHELL_CLASSES,
+  SELECT_ITEM_HIGHLIGHT_CLASSES,
+} from '@/components/common/popover-classes';
 import { Select, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ProjectType } from '@/data/types';
 import { PROJECT_TYPE_OPTIONS, type ProjectFormValues } from '@/features/projects/project-schema';
@@ -64,9 +67,7 @@ function ProjectTypeField(): ReactElement {
                     <SelectItem
                       key={option.value}
                       value={option.value}
-                      // The accent background alone is about 1.1 : 1 against the popover, so the
-                      // highlighted option also gets the ring-colored outline (spec §6.12).
-                      className="h-8 py-0 focus:outline-2 focus:-outline-offset-2 focus:outline-ring focus:outline-solid"
+                      className={cn('h-8 py-0', SELECT_ITEM_HIGHLIGHT_CLASSES)}
                     >
                       {option.label}
                     </SelectItem>
