@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
 import { DialogHost } from '@/features/dialogs/DialogHost';
 import { DialogsProvider } from '@/features/dialogs/DialogsProvider';
+import { CompleteProfileDialog } from '@/features/profile/CompleteProfileDialog';
 import { CurrentContextProvider } from '@/hooks/useCurrentContext';
 import { SidebarStateProvider } from '@/hooks/useSidebarState';
 
@@ -48,6 +49,8 @@ export function AppShell(): ReactElement {
             </main>
           </div>
           <DialogHost />
+          {/* Not a DialogsProvider dialog: it opens by itself when the name is missing (P2 spec §5.6). */}
+          <CompleteProfileDialog />
         </DialogsProvider>
       </SidebarStateProvider>
     </CurrentContextProvider>

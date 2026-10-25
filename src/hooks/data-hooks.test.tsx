@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RepositoryError } from '@/data/errors';
 import { useCreateProject, useProjectCodeAvailable, useRecentProjects } from '@/hooks/useProjects';
 import { useCreateSchedule, useImportSchedule } from '@/hooks/useSchedules';
@@ -7,6 +7,10 @@ import { usePendingTasks, useSetTaskDone } from '@/hooks/useTasks';
 import { useCreateTeamWorkspace, useWorkspaces } from '@/hooks/useWorkspaces';
 import { createTestDataLayer, makeNewProjectInput } from '@/test/fakes';
 import { createQueryWrapper } from '@/test/render';
+
+vi.mock('@/lib/image', () => ({
+  prepareCoverImage: vi.fn(async () => new File(['small'], 'cover.jpg', { type: 'image/jpeg' })),
+}));
 
 describe('data hooks', () => {
   it('useRecentProjects returns the five most recent projects', async () => {
@@ -35,6 +39,25 @@ describe('data hooks', () => {
       ),
     );
     await waitFor(() => expect(result.current.recent.data?.[0]?.code).toBe('007'));
+  });
+
+  it('useCreateProject stores the prepared cover image', async () => {
+    const dl = createTestDataLayer();
+    const workspaceId = dl.store.read().workspaces[0]!.id;
+    const create = vi.spyOn(dl.repository, 'createProject');
+    const { result } = renderHook(() => useCreateProject(), { wrapper: createQueryWrapper(dl) });
+    await act(() =>
+      result.current.mutateAsync(
+        makeNewProjectInput(workspaceId, {
+          code: '008',
+          coverImage: new File(['big'], 'photo.png', { type: 'image/png' }),
+        }),
+      ),
+    );
+    expect(create.mock.calls[0]![0].coverImage).toMatchObject({
+      name: 'cover.jpg',
+      type: 'image/jpeg',
+    });
   });
 
   it('useSetTaskDone removes the task at once and restores it when the write fails', async () => {

@@ -10,6 +10,7 @@ import { useRepository } from '@/data/DataLayerProvider';
 import type { NewProjectInput } from '@/data/repository';
 import type { ID, Project, ProjectSummary } from '@/data/types';
 import { queryKeys, RECENT_PROJECTS_LIMIT } from '@/hooks/query-keys';
+import { prepareCoverImage } from '@/lib/image';
 
 /** The Project ID format from spec §5.7; the availability check only runs for IDs that pass it. */
 const PROJECT_CODE_FORMAT = /^[A-Za-z0-9_-]{1,16}$/;
@@ -60,7 +61,12 @@ export function useCreateProject(): UseMutationResult<Project, Error, NewProject
   const repository = useRepository();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: NewProjectInput) => repository.createProject(input),
+    // The cover photo is shrunk first, so both adapters store the smaller image (P2 spec §8.3).
+    mutationFn: async (input: NewProjectInput) =>
+      repository.createProject({
+        ...input,
+        coverImage: input.coverImage ? await prepareCoverImage(input.coverImage) : null,
+      }),
     // Also after a failure: a conflict means the cached ID check for that code is out of date.
     // Returning the promise keeps the mutation pending until the lists have refetched.
     onSettled: (_project, _error, input) =>
