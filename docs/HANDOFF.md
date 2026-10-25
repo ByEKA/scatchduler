@@ -1,15 +1,26 @@
 # Handoff: continuing on another computer
 
-Written 2026-10-18 and updated on 2026-10-19 on the second computer. Phase 1 is done and tagged `v0.1.0`; Phase 2 (Supabase) is in progress.
+Written 2026-10-18 and updated on 2026-10-25 on the second computer. Phase 1 is done and tagged `v0.1.0`; Phase 2 (Supabase) is in progress: Tasks 1–3 are done. **Next: the D23 test commit, then Task 4.**
 
 ## Where things stand
 
-- The default branch is `main` (renamed from `master` on 2026-10-19, P2 spec D20). It holds Phase 1: 20 plan tasks, one commit each, plus fix and docs commits. `v0.1.0` is the commit `docs: record the phase 1 browser checks`.
+- Branch: locally `main`; on GitHub still `master` until the owner renames it (Settings → General → Default branch, P2 spec D20). After that rename, on each computer: `git branch -m master main` (if the local branch is still `master`), `git fetch origin`, `git branch -u origin/main main`, `git remote set-head origin -a`.
+- The branch holds Phase 1: 20 plan tasks, one commit each, plus fix and docs commits. `v0.1.0` is the commit `docs: record the phase 1 browser checks`.
 - Checks at that commit: `npm run check` passes (257 unit tests, `Contrast OK: 37 checks passed`, lint 0 errors and 13 react-refresh warnings), `npm run test:e2e` gives `12 passed`, and `npm run build` succeeds.
 - The owner's decisions made during Phase 1 are rows D9–D15 of the spec's decisions log (`docs/superpowers/specs/2026-10-14-home-shell-design.md`, §10). One more, on 2026-10-17: e2e builds into `dist-e2e` and serves it on port 4174, and never reuses a running server (`playwright.config.ts`).
 - The browser checklist and 25 open items are in `docs/superpowers/plans/2026-10-14-phase1-verification.md`.
 - Phase 2 continues on the second computer (Windows 11, Docker Desktop 29 with the WSL 2 engine, the repo at `C:\Users\EkA\Desktop\scatchduler`). Each finished plan task is one commit, so `git log` shows how far it got. Task 1's assumption checks all passed (`docs/superpowers/plans/2026-10-15-phase2-verification.md`).
-- The owner's Phase 2 decisions are rows D17–D22 of the P2 spec's decisions log (§13), each pinned in the plan task it affects.
+- Done: Task 1 `28c752e`, Task 2 `b218078`, Task 3 `1837578`. After Task 3: `npm run check` = 48 test files / 290 tests, lint 0 errors / 13 warnings, `Contrast OK: 37 checks passed`; `npm run test:e2e` = `12 passed`; `npm run test:integration` = 7 passed (needs the local stack).
+- The owner's Phase 2 decisions are rows D17–D23 of the P2 spec's decisions log (§13), each pinned in the plan task it affects. D23 is not in the plan: it is a separate `test:` commit before Task 4 (see its row for the exact checks). Its new contract cases add tests, so recount after it.
+- Tasks 4–8 need no Docker; Tasks 9–17 do. On a computer without Docker, stop before Task 9.
+- On the first computer, omit `root` from the workflow args (its default is `C:\scatchdule\scheduler-app`).
+
+## Notes prepared for Task 4
+
+- Test delta (computed from the plan): `MockAuthService.test.ts` replaced, 2 → 1; `SignInPage.test.tsx` replaced, 6 → 9; `auth.test.tsx` +2 (keep the existing cases); new files `mock-auth.contract.test.ts` (+4), `auth-options.test.ts` (+3), `GoogleMark.test.tsx` (+1). Net +12 unit tests, +3 files. e2e: `e2e/auth.spec.ts` adds 2 → `14 passed`.
+- The user menu item is already "Log out" (`src/components/layout/UserMenu.tsx`), which `e2e/auth.spec.ts` uses. The Phase 1 e2e specs never sign in (the mock starts signed in), so the new password field doesn't affect them.
+- Open items 3 and 4: the sign-in button shows a spinner and "Signing in…" while pending; signed-in visitors go to `state.from` or `/home`.
+- None of the Phase 1 decisions D9–D15 touch this task.
 
 ## Setting up the new computer
 
@@ -86,7 +97,9 @@ From the verification notes, checked against the code on 2026-10-17. Numbers are
 | Before Task 1 | 25 | Done: Docker Desktop runs on the second computer. |
 | Task 2 | — | Names sort in Turkish alphabetical order (P2 spec D21); Phase 1's English-collation test in `MockRepository.test.ts` changes with it. |
 | Task 3 | — | Stronger ordering tests from Task 2's review (P2 spec D22), pinned in Task 3. |
-| Task 3 | 7 | When Task 3 edits `seed.ts`, keep T-01's `createdAt` after its workspace's, so Task 15's local seed doesn't inherit the inversion. |
+| Task 3 | 7 | Done in Task 3 (project `createdAt` clamped to its workspace's); D23 adds the test. |
+| Before Task 4 | — | The D23 test commit (P2 spec §13). |
+| Task 15 | — | From Task 3's review: the mock's `createProject` on an unknown workspace rejects `not_found`, while Supabase under RLS will likely answer `forbidden`; and the mock's project and share lists don't filter by membership. Neither is in the contract; check them when the Supabase contract runs. |
 | Task 4 | 3, 4 | Task 4 rewrites `SignInPage`; P2 spec §5.4 already returns to `state.from` or `/home`. Check that the new button reads "Signing in…" while pending. |
 | Task 6 | 9, 22 | Give the Role selects the ring-outline highlight (as in `AttributesStep.tsx`). The owner confirmed the WorkspacesPanel error reading (P2 spec D17). |
 | Task 8 | 2 | Task 8's cover shrinking (long edge 1600 px, JPEG 0.85) should bring mock covers under the `localStorage` quota; check it. |
@@ -101,7 +114,7 @@ The Phase 2 plan was written before the Phase 1 decisions D9–D15. Each task's 
 ## Owner tasks
 
 - Before Phase 2: install Docker (done on the second computer).
-- During Phase 2: the decisions in the table above are taken (P2 spec D17–D22). Still to do: rename `master` to `main` on GitHub (Settings → General → Default branch) before CI is pushed.
+- During Phase 2: the decisions in the table above are taken (P2 spec D17–D23). Still to do: rename `master` to `main` on GitHub (Settings → General → Default branch) before CI is pushed.
 - After Task 19, the plan's owner checklist (plan lines 3448–3455): the Google "G" mark file, the production runbook end to end, Google sign-in for invited and uninvited accounts, Cloudflare Pages deep links and headers, an invite accepted from a university inbox, the KVKK cross-border transfer check and privacy notice, and the Supabase plan limits.
 - Billing stays a placeholder (`/settings/billing`); the owner chose to leave it for now.
 
@@ -112,3 +125,8 @@ Nothing here is needed on the new computer.
 - Two git stashes from cut-off sessions (`task 14 quality fix`, `task 10 partial work`); both tasks were redone and committed.
 - `C:\scatchdule\.playwright-mcp`: browser logs from the Playwright MCP server, outside the repo.
 - Claude Code's session history and memory for this project stay in that machine's `~/.claude` folder; this file replaces them.
+
+## Left on the second computer
+
+- A stale stash (`task 2 partial work`); Task 2 was redone and committed.
+- The local Supabase stack in Docker (`npm run db:stop` stops it). Its `supabase_vector` container restart-loops on Windows; that is harmless (only Studio's log views stay empty).
