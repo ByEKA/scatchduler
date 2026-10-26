@@ -11,7 +11,12 @@ export default mergeConfig(
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
-      include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs', 'integration/**/*.test.ts'],
+      include: [
+        'src/**/*.test.{ts,tsx}',
+        'scripts/**/*.test.mjs',
+        'integration/**/*.test.ts',
+        'supabase/functions/**/*.test.ts',
+      ],
       restoreMocks: true,
       // The longest user-event tests take 2-4 s in a full run and have hit the 5 s default.
       testTimeout: 10_000,

@@ -16,6 +16,8 @@ export default defineConfig([
     'test-results',
     'src/components/ui',
     'src/data/supabase/database.types.ts',
+    // Deno code (P2 spec §12); logic.ts next to it is linted.
+    'supabase/functions/**/index.ts',
   ]),
   js.configs.recommended,
   {

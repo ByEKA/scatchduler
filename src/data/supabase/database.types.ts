@@ -395,7 +395,12 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "create_team_workspace":
+            "account_by_email":
+{ Args: { "p_email": string }; Returns: {
+              "confirmed": boolean,"user_id": string
+            }[]
+                           },
+"create_team_workspace":
 { Args: { "p_name": string }; Returns: {
               "created_at": string | null,
 "created_by": string | null,
@@ -416,6 +421,9 @@ isOneToOne: false
                            },
 "remove_member":
 { Args: { "p_user_id": string,"p_workspace_id": string }; Returns: undefined
+                           },
+"save_invitation":
+{ Args: { "p_email": string,"p_invited_by": string,"p_role": string,"p_user_id": string,"p_workspace_id": string }; Returns: string
                            },
 "update_member_role":
 { Args: { "p_role": string,"p_user_id": string,"p_workspace_id": string }; Returns: undefined

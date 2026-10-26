@@ -392,8 +392,12 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+# Not secret: the origins the invitations function answers with CORS (P2 spec §5.7).
+[edge_runtime.secrets]
+ALLOWED_ORIGINS = "http://localhost:5173,http://localhost:4174"
+
+[functions.invitations]
+verify_jwt = true
 
 [analytics]
 enabled = true

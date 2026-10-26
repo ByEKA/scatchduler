@@ -2660,10 +2660,13 @@ beforeAll(async () => {
 });
 
 describe('invitations function', () => {
+  // P2 spec D24: the local Kong gateway adds `Access-Control-Allow-Origin: *` to every functions response and
+  // answers preflights that carry Access-Control-Request-Method itself, so the test checks the function's own
+  // status. The headers are checked on the hosted project (runbook, Task 18).
   it('answers CORS preflight for listed origins only', async () => {
-    const preflight = (origin: string) => fetch(url, { method: 'OPTIONS', headers: { origin, 'access-control-request-method': 'POST' } });
-    expect((await preflight('http://localhost:5173')).headers.get('access-control-allow-origin')).toBe('http://localhost:5173');
-    expect((await preflight('https://evil.example')).headers.get('access-control-allow-origin')).toBeNull();
+    const preflight = (origin: string) => fetch(url, { method: 'OPTIONS', headers: { origin } });
+    expect((await preflight('http://localhost:5173')).status).toBe(204);
+    expect((await preflight('https://evil.example')).status).toBe(403);
   });
 
   it('needs a session', async () => {
@@ -2673,7 +2676,7 @@ describe('invitations function', () => {
   it('invites, then revoking deletes the never-activated account', async () => {
     const email = `invitee.${tag}@example.com`;
     const after = new Date();
-    expect(await call({ action: 'invite', workspaceId, email, role: 'editor' })).toMatchObject({ status: 200, body: { status: 'invited' }, origin: 'http://localhost:5173' });
+    expect(await call({ action: 'invite', workspaceId, email, role: 'editor' })).toMatchObject({ status: 200, body: { status: 'invited' } });
     expect((await waitForEmail(stack.mailUrl, email, { after })).html).toContain(`Olive Owner invited you to the Crew ${tag} workspace.`);
     const { data: invitation } = await admin.from('workspace_invitations').select('id').eq('email', email).is('revoked_at', null).single();
     expect(await call({ action: 'revoke', invitationId: invitation!.id })).toMatchObject({ status: 200, body: { status: 'revoked' } });
@@ -3345,7 +3348,8 @@ jobs:
   - P2 spec §10 steps 1–9 as a checklist;
   - with step 1 (create the project): if the dashboard offers the cloud equivalent of `[api] auto_expose_new_tables = false` (new tables get no API-role grants automatically), turn it off so production matches local. The migrations revoke and grant explicitly either way;
   - its "Migration rules" and "Data protection" paragraphs;
-  - a "Record" section where the owner notes the date and result of S4 (Google sign-in), V1(d), V6 (SPA fallback and headers) and S8.
+  - a "Record" section where the owner notes the date and result of S4 (Google sign-in), V1(d), V6 (SPA fallback and headers) and S8;
+  - a CORS check for the `invitations` function on the hosted project (P2 spec D24): `curl -i -X OPTIONS https://<ref>.supabase.co/functions/v1/invitations -H 'Origin: <app origin>' -H 'Access-Control-Request-Method: POST'` answers with `Access-Control-Allow-Origin: <app origin>`, and the same with `Origin: https://evil.example` has no `Access-Control-Allow-Origin` header.
 
 - [ ] **Step 1: Write the failing tests**
 
