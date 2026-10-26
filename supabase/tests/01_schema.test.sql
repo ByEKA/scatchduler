@@ -34,7 +34,7 @@ select is((select updated_at from public.projects where code = 'P1'), now(), 'an
 update public.projects set updated_at = '2026-02-02T00:00:00Z' where code = 'P1';
 select is((select updated_at from public.projects where code = 'P1'), '2026-02-02T00:00:00Z'::timestamptz, 'an explicit updated_at is kept');
 insert into public.schedules (project_id, name, source) values (tests.project_id('P1'), 'Baseline', 'blank');
-select is((select status_date from public.schedules where name = 'Baseline'), '2026-10-12'::date, 'a new schedule copies the project status date');
+select is((select status_date from public.schedules where name = 'Baseline' and project_id = tests.project_id('P1')), '2026-10-12'::date, 'a new schedule copies the project status date');
 select is((select updated_at from public.projects where code = 'P1'), now(), 'a new schedule touches its project');
 
 select * from finish();

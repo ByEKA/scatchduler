@@ -1,0 +1,422 @@
+// `DataRepository` on Supabase (P2 spec §8.2). Reads go through the security-invoker views and
+// tables under RLS; member changes through the RPCs and the `invitations` Edge Function. Every
+// error becomes a `RepositoryError` (P2 spec §8.4).
+import { RepositoryError } from '@/data/errors';
+import type {
+  DataRepository,
+  ImportScheduleInput,
+  NewProjectInput,
+  NewScheduleInput,
+  NewTeamWorkspaceInput,
+} from '@/data/repository';
+import { compareMembers, compareWorkspaces } from '@/data/sort';
+import type { AppSupabaseClient } from '@/data/supabase/client';
+import { functionError, toRepositoryError } from '@/data/supabase/errors';
+import {
+  mapInvitation,
+  mapMember,
+  mapProject,
+  mapProjectSummary,
+  mapSchedule,
+  mapSharedRow,
+  mapSubscription,
+  mapTask,
+  mapUser,
+  mapWorkspaceSummary,
+  toProjectInsert,
+} from '@/data/supabase/mappers';
+import { createSignedUrlCache, type SignedUrlCache } from '@/data/supabase/signed-urls';
+import type {
+  ID,
+  InviteResult,
+  Project,
+  ProjectSummary,
+  Role,
+  Schedule,
+  SharedScheduleRow,
+  Subscription,
+  Task,
+  User,
+  Workspace,
+  WorkspaceInvitation,
+  WorkspaceMember,
+  WorkspaceSummary,
+} from '@/data/types';
+
+const COVERS = 'project-covers';
+const IMPORTS = 'schedule-imports';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Stands in for an id that isn't a UUID: no row has it, so it behaves as any unknown id. */
+const NO_ROW_ID = '00000000-0000-0000-0000-000000000000';
+
+/** Postgres rejects a malformed UUID outright; an unknown id gets the unknown-id answer instead. */
+const asUuid = (id: ID): ID => (UUID.test(id) ? id : NO_ROW_ID);
+
+const SESSION_EXPIRED = 'Your session expired. Please sign in again.';
+const PROJECT_NOT_FOUND = 'Project not found';
+const TASK_NOT_FOUND = 'Task not found';
+
+/** `.png` for PNG covers, `.jpg` for everything else (the bucket takes JPEG and PNG only). */
+const coverExtension = (file: File): string => (file.type === 'image/png' ? '.png' : '.jpg');
+
+/** The file's extension, lowercased with its dot, or `''`. Original names never reach the key. */
+function importExtension(fileName: string): string {
+  const match = /\.([A-Za-z0-9]{1,16})$/.exec(fileName);
+  return match ? `.${match[1]!.toLowerCase()}` : '';
+}
+
+export class SupabaseRepository implements DataRepository {
+  private readonly client: AppSupabaseClient;
+  private readonly signedUrls: SignedUrlCache;
+
+  constructor(client: AppSupabaseClient, options: { signedUrls?: SignedUrlCache } = {}) {
+    this.client = client;
+    this.signedUrls =
+      options.signedUrls ??
+      createSignedUrlCache(async (bucket, paths, expiresIn) => {
+        const { data, error } = await client.storage
+          .from(bucket)
+          .createSignedUrls(paths, expiresIn);
+        if (error) throw error;
+        return data.flatMap((item) =>
+          item.path && item.signedUrl ? [{ path: item.path, signedUrl: item.signedUrl }] : [],
+        );
+      });
+  }
+
+  async getCurrentUser(): Promise<User> {
+    return this.run(async () => {
+      const userId = await this.sessionUserId();
+      const { data, error } = await this.client
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (error) throw toRepositoryError(error, { notFound: 'User not found' });
+      return mapUser(data);
+    });
+  }
+
+  async getSubscription(): Promise<Subscription> {
+    return this.run(async () => {
+      const { data, error } = await this.client.from('subscriptions').select('*').single();
+      if (error) throw error;
+      return mapSubscription(data);
+    });
+  }
+
+  async listWorkspaces(): Promise<WorkspaceSummary[]> {
+    return this.run(async () => {
+      const { data, error } = await this.client.from('workspace_summaries').select('*');
+      if (error) throw error;
+      return data.map(mapWorkspaceSummary).sort(compareWorkspaces);
+    });
+  }
+
+  async createTeamWorkspace(input: NewTeamWorkspaceInput): Promise<Workspace> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('create_team_workspace', {
+        p_name: input.name,
+      });
+      if (error) throw error;
+      const summary = mapWorkspaceSummary(data);
+      return {
+        id: summary.id,
+        name: summary.name,
+        kind: summary.kind,
+        createdAt: summary.createdAt,
+      };
+    });
+  }
+
+  listProjects(workspaceId: ID): Promise<ProjectSummary[]> {
+    return this.projectSummaries(workspaceId, null);
+  }
+
+  listRecentProjects(workspaceId: ID, limit: number): Promise<ProjectSummary[]> {
+    return this.projectSummaries(workspaceId, Math.max(0, limit));
+  }
+
+  async isProjectCodeAvailable(workspaceId: ID, code: string): Promise<boolean> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('is_project_code_available', {
+        p_workspace_id: asUuid(workspaceId),
+        p_code: code,
+      });
+      if (error) throw error;
+      return data;
+    });
+  }
+
+  async createProject(input: NewProjectInput): Promise<Project> {
+    return this.run(async () => {
+      if (!UUID.test(input.workspaceId)) {
+        throw new RepositoryError('not_found', 'Workspace not found');
+      }
+      let coverPath: string | null = null;
+      if (input.coverImage) {
+        const file = input.coverImage;
+        coverPath = `${input.workspaceId}/${crypto.randomUUID()}${coverExtension(file)}`;
+        const { error } = await this.client.storage.from(COVERS).upload(coverPath, file, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: false,
+        });
+        if (error) throw error;
+      }
+      const { data, error } = await this.client
+        .from('projects')
+        .insert(toProjectInsert(input, coverPath))
+        .select('*')
+        .single();
+      if (error) {
+        if (coverPath) await this.removeQuietly(COVERS, coverPath);
+        throw error;
+      }
+      const coverUrl = coverPath
+        ? ((await this.signedUrls.urlsFor(COVERS, [coverPath])).get(coverPath) ?? null)
+        : null;
+      return mapProject(data, coverUrl);
+    });
+  }
+
+  async createSchedule(input: NewScheduleInput): Promise<Schedule> {
+    return this.run(async () => {
+      const project = await this.projectRef(input.projectId);
+      const { data, error } = await this.client
+        .from('schedules')
+        .insert({ project_id: project.id, name: input.name.trim(), source: 'blank' })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return mapSchedule(data);
+    });
+  }
+
+  async importSchedule(input: ImportScheduleInput): Promise<Schedule> {
+    return this.run(async () => {
+      const project = await this.projectRef(input.projectId);
+      const { file } = input;
+      const path = `${project.workspace_id}/${project.id}/${crypto.randomUUID()}${importExtension(file.name)}`;
+      const upload = await this.client.storage.from(IMPORTS).upload(path, file, {
+        contentType: file.type || 'application/octet-stream',
+        upsert: false,
+      });
+      if (upload.error) throw upload.error;
+      const { data, error } = await this.client
+        .from('schedules')
+        .insert({
+          project_id: project.id,
+          name: input.name.trim(),
+          source: 'import',
+          source_file_name: file.name,
+          source_file_path: path,
+        })
+        .select('*')
+        .single();
+      if (error) {
+        await this.removeQuietly(IMPORTS, path);
+        throw error;
+      }
+      return mapSchedule(data);
+    });
+  }
+
+  async listSharedWithMe(): Promise<SharedScheduleRow[]> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('shared_with_me')
+        .select('*')
+        .order('shared_at', { ascending: false })
+        .order('share_id', { ascending: true });
+      if (error) throw error;
+      return data.map(mapSharedRow);
+    });
+  }
+
+  async listPendingTasks(): Promise<Task[]> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('tasks')
+        .select('*')
+        .eq('done', false)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true });
+      if (error) throw error;
+      return data.map(mapTask);
+    });
+  }
+
+  async setTaskDone(taskId: ID, done: boolean): Promise<Task> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('tasks')
+        .update({ done })
+        .eq('id', asUuid(taskId))
+        .select('*')
+        .maybeSingle();
+      if (error) throw toRepositoryError(error, { notFound: TASK_NOT_FOUND });
+      if (data === null) throw new RepositoryError('not_found', TASK_NOT_FOUND);
+      return mapTask(data);
+    });
+  }
+
+  async listMembers(workspaceId: ID): Promise<WorkspaceMember[]> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('workspace_members')
+        .select('user_id, role, joined_at, profiles(first_name, last_name, email)')
+        .eq('workspace_id', asUuid(workspaceId));
+      if (error) throw error;
+      return data
+        .flatMap((row) => {
+          const { profiles } = row;
+          return profiles ? [mapMember({ ...row, profiles })] : [];
+        })
+        .sort(compareMembers);
+    });
+  }
+
+  async listInvitations(workspaceId: ID): Promise<WorkspaceInvitation[]> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('workspace_invitations')
+        .select('*')
+        .eq('workspace_id', asUuid(workspaceId))
+        .is('accepted_at', null)
+        .is('revoked_at', null)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: true });
+      if (error) throw error;
+      return data.map(mapInvitation);
+    });
+  }
+
+  async inviteMember(input: { workspaceId: ID; email: string; role: Role }): Promise<InviteResult> {
+    const data = await this.invoke({
+      action: 'invite',
+      workspaceId: asUuid(input.workspaceId),
+      email: input.email,
+      role: input.role,
+    });
+    const status = typeof data === 'object' && data !== null && 'status' in data && data.status;
+    if (status !== 'added' && status !== 'invited') {
+      throw new RepositoryError('unknown', 'Something went wrong. Please try again.');
+    }
+    return { status };
+  }
+
+  async revokeInvitation(invitationId: ID): Promise<void> {
+    await this.invoke({ action: 'revoke', invitationId: asUuid(invitationId) });
+  }
+
+  async updateMemberRole(input: { workspaceId: ID; userId: ID; role: Role }): Promise<void> {
+    return this.run(async () => {
+      const { error } = await this.client.rpc('update_member_role', {
+        p_workspace_id: asUuid(input.workspaceId),
+        p_user_id: asUuid(input.userId),
+        p_role: input.role,
+      });
+      if (error) throw error;
+    });
+  }
+
+  async removeMember(input: { workspaceId: ID; userId: ID }): Promise<void> {
+    return this.run(async () => {
+      const { error } = await this.client.rpc('remove_member', {
+        p_workspace_id: asUuid(input.workspaceId),
+        p_user_id: asUuid(input.userId),
+      });
+      if (error) throw error;
+    });
+  }
+
+  async updateProfile(input: { firstName: string; lastName: string }): Promise<User> {
+    return this.run(async () => {
+      const userId = await this.sessionUserId();
+      const { data, error } = await this.client
+        .from('profiles')
+        .update({ first_name: input.firstName.trim(), last_name: input.lastName.trim() })
+        .eq('id', userId)
+        .select('*')
+        .single();
+      if (error) throw toRepositoryError(error, { notFound: 'User not found' });
+      return mapUser(data);
+    });
+  }
+
+  /** Runs `op` and turns anything it throws into a `RepositoryError`. */
+  private async run<T>(op: () => Promise<T>): Promise<T> {
+    try {
+      return await op();
+    } catch (error) {
+      throw toRepositoryError(error);
+    }
+  }
+
+  /** The signed-in user's id; without a session, `unauthorized`. */
+  private async sessionUserId(): Promise<ID> {
+    const { data, error } = await this.client.auth.getSession();
+    if (error) throw error;
+    const userId = data.session?.user.id;
+    if (!userId) throw new RepositoryError('unauthorized', SESSION_EXPIRED);
+    return userId;
+  }
+
+  /** The project's id and workspace, or `not_found` "Project not found". */
+  private async projectRef(projectId: ID): Promise<{ id: ID; workspace_id: ID }> {
+    const { data, error } = await this.client
+      .from('projects')
+      .select('id, workspace_id')
+      .eq('id', asUuid(projectId))
+      .maybeSingle();
+    if (error) throw toRepositoryError(error, { notFound: PROJECT_NOT_FOUND });
+    if (data === null) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
+    return data;
+  }
+
+  /** The workspace's project summaries, latest update first (ties by id), with signed covers. */
+  private async projectSummaries(workspaceId: ID, limit: number | null): Promise<ProjectSummary[]> {
+    return this.run(async () => {
+      let query = this.client
+        .from('project_summaries')
+        .select('*')
+        .eq('workspace_id', asUuid(workspaceId))
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: true });
+      if (limit !== null) query = query.limit(limit);
+      const { data, error } = await query;
+      if (error) throw error;
+      const paths = data.flatMap((row) => (row.cover_image_path ? [row.cover_image_path] : []));
+      const urls = paths.length > 0 ? await this.signedUrls.urlsFor(COVERS, paths) : new Map();
+      return data.map((row) =>
+        mapProjectSummary(
+          row,
+          row.cover_image_path ? (urls.get(row.cover_image_path) ?? null) : null,
+        ),
+      );
+    });
+  }
+
+  /** Calls the `invitations` Edge Function; its errors go through `functionError`. */
+  private async invoke(body: Record<string, unknown>): Promise<unknown> {
+    let result: Awaited<ReturnType<AppSupabaseClient['functions']['invoke']>>;
+    try {
+      result = await this.client.functions.invoke('invitations', { body });
+    } catch (error) {
+      throw await functionError(error);
+    }
+    if (result.error) throw await functionError(result.error);
+    return result.data;
+  }
+
+  /** Best-effort cleanup after a failed insert; its own errors are ignored. */
+  private async removeQuietly(bucket: string, path: string): Promise<void> {
+    try {
+      await this.client.storage.from(bucket).remove([path]);
+    } catch {
+      // The object stays; nothing points at it.
+    }
+  }
+}
