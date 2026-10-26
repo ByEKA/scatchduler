@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "check": "npm run typecheck && npm run lint && npm run test && npm run check:contrast",
     "check:contrast": "node scripts/check-contrast.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs",
     "test:e2e": "playwright test",
     "test:e2e:supabase": "playwright test -c playwright.supabase.config.ts",
     "test:integration": "vitest run -c vitest.integration.config.ts",
@@ -29,7 +30,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "UNLICENSED",
   "type": "module",
   "private": true,
   "dependencies": {

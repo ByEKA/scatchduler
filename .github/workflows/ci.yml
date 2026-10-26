@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx supabase start
+      - run: npm run db:env
+      - run: npm run db:reset
+      - name: Generated types are current
+        run: npx supabase gen types typescript --local > /tmp/database.types.ts && diff -u src/data/supabase/database.types.ts /tmp/database.types.ts
+      - run: npm run test:db
+      - run: npm run test:integration
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:supabase
+      - name: No secret in the bundle
+        run: |
+          npm run build -- --mode supabase
+          export SUPABASE_SECRET_KEY="$(npx supabase status -o json | node -e "const s = JSON.parse(require('fs').readFileSync(0, 'utf8')); process.stdout.write(s.SECRET_KEY || s.SERVICE_ROLE_KEY || '')")"
+          npm run check:secrets

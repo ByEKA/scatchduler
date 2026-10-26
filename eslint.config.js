@@ -37,6 +37,10 @@ export default defineConfig([
     },
   },
   {
+    files: ['public/**/*.js'],
+    languageOptions: { sourceType: 'script', globals: globals.browser },
+  },
+  {
     files: ['scripts/**', '*.config.*'],
     languageOptions: { globals: globals.node },
   },

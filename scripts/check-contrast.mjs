@@ -1,7 +1,7 @@
 // WCAG 2.x contrast check over the design tokens in src/index.css (spec section 8).
 // `npm run check:contrast` runs it; the helpers are exported for scripts/check-contrast.test.mjs.
 import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { isMainModule } from './is-main-module.mjs';
 
 const TEXT = 4.5;
 const NON_TEXT = 3;
@@ -174,7 +174,7 @@ export function runChecks(css) {
   return failuresOf(measureAll(css));
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainModule(import.meta.url)) {
   const results = measureAll(readFileSync(new URL('../src/index.css', import.meta.url), 'utf8'));
   const failures = failuresOf(results);
   if (failures.length > 0) {
