@@ -1,12 +1,35 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createDataLayer } from '@/data';
+import { SupabaseAuthService } from '@/data/supabase/SupabaseAuthService';
+import { SupabaseRepository } from '@/data/supabase/SupabaseRepository';
 import { createMemoryStorage } from '@/lib/storage';
 
 describe('createDataLayer', () => {
-  it('explains that Supabase is not implemented yet', () => {
+  it('needs the Supabase URL and publishable key', () => {
     expect(() => createDataLayer({ VITE_DATA_SOURCE: 'supabase' }, null)).toThrow(
-      'Supabase data source is not implemented yet (Phase 2). Set VITE_DATA_SOURCE=mock.',
+      'Missing VITE_SUPABASE_URL',
     );
+    expect(() =>
+      createDataLayer(
+        { VITE_DATA_SOURCE: 'supabase', VITE_SUPABASE_URL: 'http://127.0.0.1:54321' },
+        null,
+      ),
+    ).toThrow('Missing VITE_SUPABASE_PUBLISHABLE_KEY');
+  });
+
+  it('builds the Supabase layer without touching the network', () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const layer = createDataLayer(
+      {
+        VITE_DATA_SOURCE: 'supabase',
+        VITE_SUPABASE_URL: 'http://127.0.0.1:54321',
+        VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_test',
+      },
+      null,
+    );
+    expect(layer.repository).toBeInstanceOf(SupabaseRepository);
+    expect(layer.auth).toBeInstanceOf(SupabaseAuthService);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('rejects unknown sources', () => {

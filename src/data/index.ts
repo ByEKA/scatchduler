@@ -1,11 +1,14 @@
-// The only module that picks and builds a data adapter (spec §4.1). UI code reaches the result
-// through `DataLayerProvider` and the hooks in `src/hooks`.
+// The only module that picks and builds a data adapter (spec §4.1; P2 spec §4.2). UI code reaches
+// the result through `DataLayerProvider` and the hooks in `src/hooks`.
 import type { AuthService } from '@/data/auth';
 import { MockAuthService } from '@/data/mock/MockAuthService';
 import { MockRepository } from '@/data/mock/MockRepository';
 import type { Scenario } from '@/data/mock/seed';
 import { createMockStore } from '@/data/mock/store';
 import type { DataRepository } from '@/data/repository';
+import { createSupabaseClient } from '@/data/supabase/client';
+import { SupabaseAuthService } from '@/data/supabase/SupabaseAuthService';
+import { SupabaseRepository } from '@/data/supabase/SupabaseRepository';
 import type { Role } from '@/data/types';
 import { getBrowserStorage, type StorageLike } from '@/lib/storage';
 
@@ -20,6 +23,8 @@ export interface DataLayerEnv {
   VITE_MOCK_TEAM_ROLE?: string;
   VITE_MOCK_LATENCY_MS?: string;
   VITE_MOCK_FAIL_RATE?: string;
+  VITE_SUPABASE_URL?: string;
+  VITE_SUPABASE_PUBLISHABLE_KEY?: string;
 }
 
 const DEFAULT_LATENCY_MS = 400;
@@ -60,6 +65,22 @@ function numberFrom(
 }
 
 /**
+ * One client shared by the repository and the auth service (P2 spec §8.1). Building it makes no
+ * network call; the Supabase values are read only for this source (P2 spec §4.2).
+ */
+function createSupabaseLayer(env: DataLayerEnv, storage: StorageLike | null): DataLayer {
+  const url = envValue(env.VITE_SUPABASE_URL);
+  if (url === undefined) throw new Error('Missing VITE_SUPABASE_URL');
+  const publishableKey = envValue(env.VITE_SUPABASE_PUBLISHABLE_KEY);
+  if (publishableKey === undefined) throw new Error('Missing VITE_SUPABASE_PUBLISHABLE_KEY');
+  const client = createSupabaseClient({ url, publishableKey, storage });
+  return {
+    repository: new SupabaseRepository(client),
+    auth: new SupabaseAuthService(client, { origin: () => window.location.origin }),
+  };
+}
+
+/**
  * Builds the repository and auth service named by `VITE_DATA_SOURCE` (`mock` when unset). Throws
  * when the env asks for a source or a mock setting that does not exist; the app shows that
  * message instead of starting.
@@ -69,11 +90,7 @@ export function createDataLayer(
   storage: StorageLike | null = getBrowserStorage(),
 ): DataLayer {
   const source = envValue(env.VITE_DATA_SOURCE) ?? 'mock';
-  if (source === 'supabase') {
-    throw new Error(
-      'Supabase data source is not implemented yet (Phase 2). Set VITE_DATA_SOURCE=mock.',
-    );
-  }
+  if (source === 'supabase') return createSupabaseLayer(env, storage);
   if (source !== 'mock') {
     throw new Error(`Unknown VITE_DATA_SOURCE "${source}"`);
   }
