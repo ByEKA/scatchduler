@@ -1,11 +1,14 @@
 node_modules
 dist
 dist-e2e
+dist-supabase
 coverage
 .env.local
 .env.*.local
 test-results
 playwright-report
+playwright-report-supabase
+test-results-supabase
 .DS_Store
 *.local
 supabase/.temp

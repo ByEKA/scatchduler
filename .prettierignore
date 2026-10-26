@@ -1,5 +1,6 @@
 dist
 dist-e2e
+dist-supabase
 coverage
 package-lock.json
 src/components/ui
