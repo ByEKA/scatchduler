@@ -4,7 +4,7 @@
 |---|---|
 | **Spec** | `docs/superpowers/specs/2026-10-14-phase2-supabase-design.md` (§11 assumptions, §2.2 success criteria) |
 | **Plan** | `docs/superpowers/plans/2026-10-15-phase2-supabase.md` (Task 1 checks the assumptions; Task 19 adds the final results and the owner checklist) |
-| **Status** | Task 1, 2026-10-18: every assumption checked on the local stack holds, so the design's primary path applies and no §11 fallback is in use. V1(d) and V6 wait for the first deployment; the rest of V2 is checked in Task 13. |
+| **Status** | Task 1, 2026-10-18: every assumption checked on the local stack holds, so the design's primary path applies and no §11 fallback is in use. Task 19, 2026-10-28: every automated check passes (see [Final results](#final-results)). V1(d), V6 and S8 wait for the first deployment; they are items of the [owner checklist](#owner-checklist). |
 
 ## Environment
 
@@ -45,6 +45,72 @@ Checked by `npm run test:integration` (`integration/assumptions.itest.ts`: 1 fil
 | V5 | Templates support `{{ .TokenHash }}`, `{{ .Data.* }}` and `{{ if }}`, and `config.toml` can point to template files | pass: with metadata the invite reads "Deniz Kaya invited you to the Site Operations workspace.", without it "You've been invited to join AppName."; both emails use the custom subjects, and their links are built from `site_url` (`http://localhost:5173/accept-invite?token_hash=…&type=invite`, `http://localhost:5173/reset-password?token_hash=…&type=recovery`) | 2026-10-18 |
 | V6 | Cloudflare Pages serves the SPA fallback and applies `public/_headers` | pending — first deployment | — |
 
+## Final results
+
+Recorded in Task 19 on 2026-10-28 at `938a7b4` plus this commit's doc changes, on the machine above, with the local stack running and freshly seeded (`npm run db:reset && npm run db:env`). The mock and Supabase e2e suites both serve on port 4174, so they ran one after the other (D28).
+
+| Check | Command | Result |
+|---|---|---|
+| Static checks, unit, component and contract tests (mock) | `npm run check` | typecheck clean; lint `0 errors, 13 warnings` (the 13 `react-refresh/only-export-components` warnings of Phase 1 open item 11); Vitest `70 passed (70)` files, `410 passed (410)` tests; `Contrast OK: 37 checks passed` |
+| Mock e2e | `npm run test:e2e` | `15 passed` |
+| pgTAP | `npm run test:db` | `Files=7, Tests=106`, `Result: PASS` |
+| Integration (assumptions, bootstrap, storage, invitations function, repository and auth contracts on Supabase) | `npm run test:integration` | `6 passed (6)` files, `45 passed (45)` tests |
+| Supabase e2e | `npm run test:e2e:supabase` | `4 passed` |
+| Mock build and secrets check | `npm run build && npm run check:secrets` | built; `No secrets found in dist/` |
+| Supabase build and secrets check | `npm run build -- --mode supabase && npm run check:secrets` | built; `No secrets found in dist/` |
+
+Both builds print Vite's "Some chunks are larger than 500 kB after minification" warning: the main chunk is about 1,078 kB (317 kB gzip) in either mode (see open item 11).
+
+### Success criteria
+
+| # | Result |
+|---|---|
+| S1 | pass: the repository and auth contract suites pass on the mock (`npm run check`) and on Supabase (`npm run test:integration`) |
+| S2 | pass: `npm run test:db` |
+| S3 | pass: `npm run test:e2e:supabase` ("an invited person accepts and lands in the team workspace") |
+| S4 | pending — owner checklist item 3 (first deployment) |
+| S5 | pass: `npm run check:secrets` after both builds |
+| S6 | pass: ESLint's data-layer boundary holds and both e2e suites run the same components |
+| S7 | pass locally; on GitHub Actions after the owner renames `master` → `main` and pushes (D20, open item 14) |
+| S8 | pending — owner checklist item 2 |
+
 ## Owner checklist
 
-Filled in Task 19.
+Each item needs the owner (a file only the owner may add, or the production project). Tick the box and fill in the result line.
+
+- [ ] **1. Google mark.** Add Google's official "G" mark from its sign-in branding resources as `src/assets/third-party/google-g.svg`; confirm the "Continue with Google" button shows it.
+  - Result:
+- [ ] **2. Production runbook.** Run `docs/runbooks/production.md` end to end and fill in its Record section (S8).
+  - Result:
+- [ ] **3. Google sign-in.** Google sign-in works for an invited email; an uninvited Google account sees the no-access banner (S4, V1(d)).
+  - Result:
+- [ ] **4. Cloudflare Pages.** Reloading a deep link (such as `/home`) works, and the response headers match `public/_headers` (V6).
+  - Result:
+- [ ] **5. Mail scanners.** Invite an address at your university and accept it after the email has sat in the inbox for a while (Review Focus 2).
+  - Result:
+- [ ] **6. KVKK.** Before inviting people outside the lab, check the KVKK cross-border transfer requirements with ITU's data-protection contact, and publish a privacy notice.
+  - Result:
+- [ ] **7. Supabase plan limits.** Check the pausing of inactive projects and the backup policy.
+  - Result:
+
+After the checklist, the owner tags `v0.2.0` and pushes; Task 19 left both to the owner.
+
+## Open items for the owner
+
+Left open by owner decision or found in reviews and not fixed. Numbers are for reference in replies.
+
+1. Offline sign-out (D27): `signOut` uses `scope: 'local'`; when the `/logout` call fails with a network error, supabase-js keeps the local session.
+2. Blocked storage (D27): `createStorageAdapter` keeps no memory copy when `localStorage.setItem` throws, so a session written while storage is full or blocked isn't read back from the adapter.
+3. Adapter differences (D26): `createProject` in a workspace the caller can't see rejects `not_found` in the mock and `forbidden` on Supabase, and the mock's project and share lists don't filter by membership. Neither is in the contract; the UI can't reach either case.
+4. `safeNext` rejects `//evil.example` and other off-site targets but doesn't reject control characters in `next`.
+5. In the Members dialog the Remove button stays enabled while a removal is in flight, so it can be pressed again.
+6. The `update_member_role` and `remove_member` RPCs check that the caller is an owner before they lock the workspace's member rows, so an owner demoted by a concurrent call can still pass the check.
+7. `opacity-60` on disabled buttons also dims their focus ring.
+8. `AuthProvider`'s session-expiry guard (one sign-out, one toast) resets on any auth event, and stays set if `signOut` fails.
+9. `create_team_workspace` trims only spaces from the name (not tabs or other whitespace), and its `p_role` is not validated.
+10. `createProject` on Supabase: if signing the cover URL fails after the insert succeeded, the call rejects although the project was saved; a retry then hits the duplicate-code error.
+11. supabase-js is bundled statically, also in the mock build, so both builds carry the same 1,078 kB main chunk and Vite's chunk-size warning. Loading the Supabase adapters with a dynamic `import()` would split it off.
+12. Untested branches: `SupabaseAuthService`'s network-error mapping in `verifyEmailLink` and `requestPasswordReset`, and `completeOAuthSignIn` reading `error_code` from the URL hash; the repository's cover and import storage key formats and its storage cleanup; `scripts/is-main-module.mjs`.
+13. Integration and e2e runs leave their accounts and the "E2E crew N" workspaces in the local database until `npm run db:reset`.
+14. The default branch on GitHub is still `master`; the owner renames it to `main` before pushing, so CI and Cloudflare Pages use `main` (D20).
+15. The favicon (Phase 1 open item 15) waits for the owner's approval.
