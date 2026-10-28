@@ -4,6 +4,8 @@ Project memory for Claude Code. Read it at the start of every session.
 
 **Status:** Phase 2 complete (v0.2.0). Next: Phase 3 — see docs/product/roadmap.md.
 
+Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
+
 ## What this is
 
 A construction-scheduling web app (our own product, first used as a lab tool). Phase 1 builds the signed-in app shell and the Home screen on mock data; Phase 2 moves the data layer to Supabase.

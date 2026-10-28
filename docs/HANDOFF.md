@@ -1,6 +1,6 @@
 # Handoff: continuing on another computer
 
-Written 2026-10-18 and updated on 2026-10-25 on the second computer. Phase 1 is done and tagged `v0.1.0`; Phase 2 (Supabase) is in progress: Tasks 1–3 are done. **Next: the D23 test commit, then Task 4.**
+Written 2026-10-18 and updated on 2026-10-28 on the second computer. Phase 1 is done and tagged `v0.1.0`. Phase 2 (Supabase) is done: all 19 plan tasks are committed. **Next: the owner checklist in `docs/superpowers/plans/2026-10-15-phase2-verification.md`, then the `v0.2.0` tag and the push (see Owner tasks).**
 
 ## Where things stand
 
@@ -10,17 +10,10 @@ Written 2026-10-18 and updated on 2026-10-25 on the second computer. Phase 1 is 
 - The owner's decisions made during Phase 1 are rows D9–D15 of the spec's decisions log (`docs/superpowers/specs/2026-10-14-home-shell-design.md`, §10). One more, on 2026-10-17: e2e builds into `dist-e2e` and serves it on port 4174, and never reuses a running server (`playwright.config.ts`).
 - The browser checklist and 25 open items are in `docs/superpowers/plans/2026-10-14-phase1-verification.md`.
 - Phase 2 continues on the second computer (Windows 11, Docker Desktop 29 with the WSL 2 engine, the repo at `C:\Users\EkA\Desktop\scatchduler`). Each finished plan task is one commit, so `git log` shows how far it got. Task 1's assumption checks all passed (`docs/superpowers/plans/2026-10-15-phase2-verification.md`).
-- Done: Task 1 `28c752e`, Task 2 `b218078`, Task 3 `1837578`. After Task 3: `npm run check` = 48 test files / 290 tests, lint 0 errors / 13 warnings, `Contrast OK: 37 checks passed`; `npm run test:e2e` = `12 passed`; `npm run test:integration` = 7 passed (needs the local stack).
-- The owner's Phase 2 decisions are rows D17–D23 of the P2 spec's decisions log (§13), each pinned in the plan task it affects. D23 is not in the plan: it is a separate `test:` commit before Task 4 (see its row for the exact checks). Its new contract cases add tests, so recount after it.
+- Phase 2 is done: one commit per task (`git log`), plus the D23 test commit and the docs commits for the decision rows. Results after Task 19 (`docs/superpowers/plans/2026-10-15-phase2-verification.md` has the full list): `npm run check` = 70 test files / 410 tests, lint 0 errors / 13 warnings, `Contrast OK: 37 checks passed`; `npm run test:e2e` = `15 passed`; `npm run test:e2e:supabase` = `4 passed`; `npm run test:db` = 7 files / 106; `npm run test:integration` = 6 files / 45; `npm run check:secrets` is clean for both build modes. The two e2e suites share port 4174 (D28), so run them one after the other.
+- The owner's Phase 2 decisions are rows D17–D28 of the P2 spec's decisions log (§13). D25–D28 were taken after Tasks 14–18 (the secrets-check wording, the mock/Supabase differences on unknown workspaces, the offline sign-out and storage open items, and the shared e2e port).
 - Tasks 4–8 need no Docker; Tasks 9–17 do. On a computer without Docker, stop before Task 9.
 - On the first computer, omit `root` from the workflow args (its default is `C:\scatchdule\scheduler-app`).
-
-## Notes prepared for Task 4
-
-- Test delta (computed from the plan): `MockAuthService.test.ts` replaced, 2 → 1; `SignInPage.test.tsx` replaced, 6 → 9; `auth.test.tsx` +2 (keep the existing cases); new files `mock-auth.contract.test.ts` (+4), `auth-options.test.ts` (+3), `GoogleMark.test.tsx` (+1). Net +12 unit tests, +3 files. e2e: `e2e/auth.spec.ts` adds 2 → `14 passed`.
-- The user menu item is already "Log out" (`src/components/layout/UserMenu.tsx`), which `e2e/auth.spec.ts` uses. The Phase 1 e2e specs never sign in (the mock starts signed in), so the new password field doesn't affect them.
-- Open items 3 and 4: the sign-in button shows a spinner and "Signing in…" while pending; signed-in visitors go to `state.from` or `/home`.
-- None of the Phase 1 decisions D9–D15 touch this task.
 
 ## Setting up the new computer
 
@@ -68,13 +61,13 @@ The per-task runner is `.claude/workflows/plan-task.js` (Claude Code Workflow to
 |---|---|---|---|
 | 1 | 85–337 | 11 | 2136–2346 |
 | 2 | 338–524 | 12 | 2347–2448 |
-| 3 | 525–811 | 13 | 2449–2704 |
-| 4 | 812–1128 | 14 | 2705–2934 |
-| 5 | 1129–1380 | 15 | 2935–3020 |
-| 6 | 1381–1593 | 16 | 3021–3176 |
-| 7 | 1594–1681 | 17 | 3177–3272 |
-| 8 | 1682–1816 | 18 | 3273–3422 |
-| 9 | 1817–2015 | 19 | 3423–3474 |
+| 3 | 525–811 | 13 | 2449–2707 |
+| 4 | 812–1128 | 14 | 2708–2937 |
+| 5 | 1129–1380 | 15 | 2938–3023 |
+| 6 | 1381–1593 | 16 | 3024–3179 |
+| 7 | 1594–1681 | 17 | 3180–3275 |
+| 8 | 1682–1816 | 18 | 3276–3426 |
+| 9 | 1817–2015 | 19 | 3427–3478 |
 | 10 | 2016–2135 | | |
 
 The commit subject of each task is in its last step (`git commit -m "…"`).
@@ -114,8 +107,8 @@ The Phase 2 plan was written before the Phase 1 decisions D9–D15. Each task's 
 ## Owner tasks
 
 - Before Phase 2: install Docker (done on the second computer).
-- During Phase 2: the decisions in the table above are taken (P2 spec D17–D23). Still to do: rename `master` to `main` on GitHub (Settings → General → Default branch) before CI is pushed.
-- After Task 19, the plan's owner checklist (plan lines 3448–3455): the Google "G" mark file, the production runbook end to end, Google sign-in for invited and uninvited accounts, Cloudflare Pages deep links and headers, an invite accepted from a university inbox, the KVKK cross-border transfer check and privacy notice, and the Supabase plan limits.
+- During Phase 2: the decisions are taken (P2 spec D17–D28). Still to do: rename `master` to `main` on GitHub (Settings → General → Default branch) before CI (`.github/workflows/ci.yml`, Task 18) is pushed.
+- Now: optionally bump `package.json` `version` to `0.2.0`, approve or supply a favicon (Phase 1 item 15), then tag `v0.2.0` and push once the checklist is reviewed. The checklist (in the Phase 2 verification notes): the Google "G" mark file, the production runbook end to end, Google sign-in for invited and uninvited accounts, Cloudflare Pages deep links and headers, an invite accepted from a university inbox, the KVKK cross-border transfer check and privacy notice, and the Supabase plan limits.
 - Billing stays a placeholder (`/settings/billing`); the owner chose to leave it for now.
 
 ## Left on the first computer

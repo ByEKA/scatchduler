@@ -53,28 +53,10 @@ After each task, give me a two-line status. Stop and ask me if the spec seems wr
 - To see empty and error states: create `.env.local` with `VITE_MOCK_SCENARIO=empty` or `VITE_MOCK_FAIL_RATE=1`, restart `npm run dev`, then run `__resetMockDb()` in the browser console.
 - The product name and color are placeholders: change them in `src/config/brand.ts` and the six `--brand-*` values in `src/index.css`.
 
-## Next: Phase 2
+## Phase 2
 
-The Phase 2 spec and plan are ready. Start them once Phase 1 is merged and tagged. Phase 1 is tagged `v0.1.0`; `docs/HANDOFF.md` has the current state, the working rules and the Phase 2 kickoff prompt.
+Phase 2 (Supabase) is done; `docs/superpowers/plans/2026-10-15-phase2-verification.md` has the results, the owner checklist and the open items, and `docs/HANDOFF.md` has the current state and the working rules. Running on the local stack needs Docker Desktop (or another Docker engine); production needs a Supabase account and a Cloudflare account (see `docs/runbooks/production.md`).
 
-You'll also need:
-- Docker Desktop (or another Docker engine) running, for the local Supabase stack;
-- for production, a Supabase account and a Cloudflare account.
-
-Task 1 checks the local stack and stops if one of the spec's assumptions about Supabase doesn't hold.
-
-```text
-Phase 1 is merged. Read CLAUDE.md, the Phase 2 spec (docs/superpowers/specs/2026-10-14-phase2-supabase-design.md) and the Phase 2 plan (docs/superpowers/plans/2026-10-15-phase2-supabase.md).
-Docker is running. Execute the plan with superpowers:subagent-driven-development, task by task, in order.
-For every task: write the failing test first, run the commands shown and compare with the expected output, then commit.
-Stop and ask me if a Supabase assumption check fails, the spec seems wrong, or a test can't pass without changing the spec.
-After Task 19, show me the verification notes and the owner checklist.
-```
-
-Before going live, the plan's last task leaves you a short checklist. It covers:
-- the Google mark file you add yourself;
-- the production runbook;
-- a Google sign-in test;
-- a data-protection check.
+Before going live, the verification notes' owner checklist covers the Google mark file you add yourself, the production runbook, a Google sign-in test and a data-protection check.
 
 Later phases follow `docs/product/roadmap.md`; its last section has a ready kickoff prompt for any phase.
