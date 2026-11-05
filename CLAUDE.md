@@ -2,7 +2,7 @@
 
 Project memory for Claude Code. Read it at the start of every session.
 
-**Status:** Phase 2 complete (v0.2.0). Next: Phase 3 — see docs/product/roadmap.md.
+**Status:** Phase 2 complete (v0.2.0). Phase 3 core in progress (usability first) — spec `docs/superpowers/specs/2026-11-05-phase3-core-design.md`; then a Phase 4 core.
 
 Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
 
@@ -10,8 +10,9 @@ Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
 
 A construction-scheduling web app (our own product, first used as a lab tool). Phase 1 builds the signed-in app shell and the Home screen on mock data; Phase 2 moves the data layer to Supabase.
 
-Sources of truth — read them before writing code. The Phase 2 spec and plan come first; the Phase 1 spec and plan hold for everything Phase 2 leaves unchanged.
+Sources of truth — read them before writing code. The Phase 3 core spec comes first, then the Phase 2 spec and plan; the Phase 1 spec and plan hold for everything later phases leave unchanged.
 
+- Phase 3 core spec: `docs/superpowers/specs/2026-11-05-phase3-core-design.md` (the full Phase 3 spec `2026-11-03-phase3-projects-files-library-design.md` is the reference for the deferred parts only)
 - Phase 2 spec: `docs/superpowers/specs/2026-10-14-phase2-supabase-design.md`
 - Phase 2 plan: `docs/superpowers/plans/2026-10-15-phase2-supabase.md` (assumption checks and results: `docs/superpowers/plans/2026-10-15-phase2-verification.md`)
 - Phase 1 spec: `docs/superpowers/specs/2026-10-14-home-shell-design.md`

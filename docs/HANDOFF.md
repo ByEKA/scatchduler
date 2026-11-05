@@ -1,10 +1,10 @@
 # Handoff: continuing on another computer
 
-Written 2026-10-18 and updated on 2026-10-28 on the second computer. Phase 1 is done and tagged `v0.1.0`. Phase 2 (Supabase) is done: all 19 plan tasks are committed. **Next: the owner checklist in `docs/superpowers/plans/2026-10-15-phase2-verification.md`, then the `v0.2.0` tag and the push (see Owner tasks).**
+Written 2026-10-18 and updated on 2026-11-05 on the second computer. Phase 1 is done and tagged `v0.1.0`. Phase 2 (Supabase) is done (all 19 plan tasks; the `v0.2.0` tag waits for the owner's checklist review). **Phase 3 core is in progress: spec `docs/superpowers/specs/2026-11-05-phase3-core-design.md` (owner decision 2026-11-05: usability first, no one-to-one copy of the reference product); one plan of about 24 tasks, then a Phase 4 core.**
 
 ## Where things stand
 
-- Branch: locally `main`; on GitHub still `master` until the owner renames it (Settings → General → Default branch, P2 spec D20). After that rename, on each computer: `git branch -m master main` (if the local branch is still `master`), `git fetch origin`, `git branch -u origin/main main`, `git remote set-head origin -a`.
+- Branch: `main` everywhere. On 2026-11-05 the owner made `main` GitHub's default branch and deleted `master` (P2 spec D20). On another computer whose clone still has `master`: `git branch -m master main`, `git fetch origin --prune`, `git branch -u origin/main main`, `git remote set-head origin -a`.
 - The branch holds Phase 1: 20 plan tasks, one commit each, plus fix and docs commits. `v0.1.0` is the commit `docs: record the phase 1 browser checks`.
 - Checks at that commit: `npm run check` passes (257 unit tests, `Contrast OK: 37 checks passed`, lint 0 errors and 13 react-refresh warnings), `npm run test:e2e` gives `12 passed`, and `npm run build` succeeds.
 - The owner's decisions made during Phase 1 are rows D9–D15 of the spec's decisions log (`docs/superpowers/specs/2026-10-14-home-shell-design.md`, §10). One more, on 2026-10-17: e2e builds into `dist-e2e` and serves it on port 4174, and never reuses a running server (`playwright.config.ts`).
