@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(19);
+select plan(24);
 
 select has_table('public', t, format('table public.%s exists', t))
   from unnest(array['profiles', 'subscriptions', 'workspaces', 'workspace_members', 'workspace_invitations',
@@ -8,6 +8,9 @@ select has_table('public', t, format('table public.%s exists', t))
 
 select is((select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
            where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity), 0, 'RLS is enabled on every public table');
+
+select has_column('public', 'projects', c, format('projects.%s exists', c))
+  from unnest(array['status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
 
 do $$
 declare v_owner uuid := tests.create_profile('owner@test.dev'); v_ws uuid;

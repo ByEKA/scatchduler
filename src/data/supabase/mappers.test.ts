@@ -28,7 +28,13 @@ describe('mappers', () => {
       location_country: 'TR',
       created_at: '2026-10-14T09:30:00.123456+00:00',
       updated_at: '2026-10-14T09:31:00+00:00',
+      status: 'active',
+      stage: null,
+      sector: null,
+      location_lat: null,
+      location_lng: null,
       schedule_count: 2,
+      total_schedule_count: 2,
     };
     expect(mapProjectSummary(row, 'https://signed/url')).toEqual({
       id: 'p1',

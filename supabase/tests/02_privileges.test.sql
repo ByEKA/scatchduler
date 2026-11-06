@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(21);
+select plan(26);
 
 select is_empty($$ select table_name from information_schema.role_table_grants where grantee = 'anon' and table_schema = 'public' $$,
   'anon has no privileges on public tables');
@@ -23,6 +23,8 @@ select table_privs_are('public', 'workspace_summaries', 'authenticated', array['
 select table_privs_are('public', 'workspace_summaries', 'anon', array[]::text[], 'anon cannot read the views');
 select function_privs_are('public', 'create_team_workspace', array['text'], 'authenticated', array['EXECUTE'], 'signed-in users call the RPCs');
 select function_privs_are('public', 'create_team_workspace', array['text'], 'anon', array[]::text[], 'anon cannot');
+select column_privs_are('public', 'projects', c, 'authenticated', array['INSERT', 'SELECT', 'UPDATE'], format('projects.%s is set and edited', c))
+  from unnest(array['status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
 select is_empty($$
   select n.nspname || '.' || p.proname || '(' || oidvectortypes(p.proargtypes) || ')'
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -33,9 +35,9 @@ select set_eq($$
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname in ('public', 'app') and has_function_privilege('authenticated', p.oid, 'execute') $$,
   $$ values ('app.my_project_ids(text)'), ('app.my_workspace_ids(text)'), ('public.create_team_workspace(text)'),
-            ('public.is_project_code_available(uuid, text)'), ('public.remove_member(uuid, uuid)'),
+            ('public.delete_project(uuid)'), ('public.is_project_code_available(uuid, text)'), ('public.remove_member(uuid, uuid)'),
             ('public.update_member_role(uuid, uuid, text)') $$,
-  'signed-in users can execute exactly the four RPCs and the two RLS helpers');
+  'signed-in users can execute exactly the five RPCs and the two RLS helpers');
 
 select * from finish();
 rollback;

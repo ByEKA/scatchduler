@@ -39,14 +39,14 @@ export type Database = {
                   ]
                 },"projects": {
                   Row: {
-                    "client_contact_email": string | null,"client_contact_name": string | null,"client_name": string | null,"code": string,"cover_image_path": string | null,"created_at": string,"description": string | null,"id": string,"location_address": string | null,"location_city": string | null,"location_country": string | null,"name": string,"planned_finish_date": string | null,"project_type": string | null,"start_date": string | null,"status_date": string | null,"updated_at": string,"workspace_id": string
+                    "client_contact_email": string | null,"client_contact_name": string | null,"client_name": string | null,"code": string,"cover_image_path": string | null,"created_at": string,"description": string | null,"id": string,"location_address": string | null,"location_city": string | null,"location_country": string | null,"location_lat": number | null,"location_lng": number | null,"name": string,"planned_finish_date": string | null,"project_type": string | null,"sector": string | null,"stage": string | null,"start_date": string | null,"status": string,"status_date": string | null,"updated_at": string,"workspace_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code": string,"cover_image_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"name": string,"planned_finish_date"?: string | null,"project_type"?: string | null,"start_date"?: string | null,"status_date"?: string | null,"updated_at"?: string,"workspace_id": string
+                    "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code": string,"cover_image_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"location_lat"?: number | null,"location_lng"?: number | null,"name": string,"planned_finish_date"?: string | null,"project_type"?: string | null,"sector"?: string | null,"stage"?: string | null,"start_date"?: string | null,"status"?: string,"status_date"?: string | null,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string,"cover_image_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"name"?: string,"planned_finish_date"?: string | null,"project_type"?: string | null,"start_date"?: string | null,"status_date"?: string | null,"updated_at"?: string,"workspace_id"?: string
+                    "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string,"cover_image_path"?: string | null,"created_at"?: string,"description"?: string | null,"id"?: string,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"location_lat"?: number | null,"location_lng"?: number | null,"name"?: string,"planned_finish_date"?: string | null,"project_type"?: string | null,"sector"?: string | null,"stage"?: string | null,"start_date"?: string | null,"status"?: string,"status_date"?: string | null,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -322,14 +322,14 @@ isOneToOne: false
           Views: {
             "project_summaries": {
                   Row: {
-                    "client_contact_email": string | null,"client_contact_name": string | null,"client_name": string | null,"code": string | null,"cover_image_path": string | null,"created_at": string | null,"description": string | null,"id": string | null,"location_address": string | null,"location_city": string | null,"location_country": string | null,"name": string | null,"planned_finish_date": string | null,"project_type": string | null,"schedule_count": number | null,"start_date": string | null,"status_date": string | null,"updated_at": string | null,"workspace_id": string | null
+                    "client_contact_email": string | null,"client_contact_name": string | null,"client_name": string | null,"code": string | null,"cover_image_path": string | null,"created_at": string | null,"description": string | null,"id": string | null,"location_address": string | null,"location_city": string | null,"location_country": string | null,"location_lat": number | null,"location_lng": number | null,"name": string | null,"planned_finish_date": string | null,"project_type": string | null,"schedule_count": number | null,"sector": string | null,"stage": string | null,"start_date": string | null,"status": string | null,"status_date": string | null,"total_schedule_count": number | null,"updated_at": string | null,"workspace_id": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                           "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string | null,"cover_image_path"?: string | null,"created_at"?: string | null,"description"?: string | null,"id"?: string | null,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"name"?: string | null,"planned_finish_date"?: string | null,"project_type"?: string | null,"schedule_count"?: never,"start_date"?: string | null,"status_date"?: string | null,"updated_at"?: string | null,"workspace_id"?: string | null
+                           "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string | null,"cover_image_path"?: string | null,"created_at"?: string | null,"description"?: string | null,"id"?: string | null,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"location_lat"?: number | null,"location_lng"?: number | null,"name"?: string | null,"planned_finish_date"?: string | null,"project_type"?: string | null,"schedule_count"?: never,"sector"?: string | null,"stage"?: string | null,"start_date"?: string | null,"status"?: string | null,"status_date"?: string | null,"total_schedule_count"?: never,"updated_at"?: string | null,"workspace_id"?: string | null
                          }
                         Update: {
-                           "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string | null,"cover_image_path"?: string | null,"created_at"?: string | null,"description"?: string | null,"id"?: string | null,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"name"?: string | null,"planned_finish_date"?: string | null,"project_type"?: string | null,"schedule_count"?: never,"start_date"?: string | null,"status_date"?: string | null,"updated_at"?: string | null,"workspace_id"?: string | null
+                           "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string | null,"cover_image_path"?: string | null,"created_at"?: string | null,"description"?: string | null,"id"?: string | null,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"location_lat"?: number | null,"location_lng"?: number | null,"name"?: string | null,"planned_finish_date"?: string | null,"project_type"?: string | null,"schedule_count"?: never,"sector"?: string | null,"stage"?: string | null,"start_date"?: string | null,"status"?: string | null,"status_date"?: string | null,"total_schedule_count"?: never,"updated_at"?: string | null,"workspace_id"?: string | null
                          }
                         Relationships: [
                     {
@@ -416,6 +416,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"delete_project":
+{ Args: { "p_project_id": string }; Returns: {
+              "bucket": string,"path": string
+            }[]
+                           },
 "is_project_code_available":
 { Args: { "p_code": string,"p_workspace_id": string }; Returns: boolean
                            },

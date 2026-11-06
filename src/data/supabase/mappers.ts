@@ -95,7 +95,7 @@ export function mapWorkspaceSummary(row: WorkspaceSummaryRow): WorkspaceSummary 
 
 // A `projects` row fits this shape too, so both project mappers share one conversion.
 function projectFrom(
-  row: Omit<ProjectSummaryRow, 'schedule_count'>,
+  row: Omit<ProjectSummaryRow, 'schedule_count' | 'total_schedule_count'>,
   coverUrl: string | null,
 ): Project {
   return {
