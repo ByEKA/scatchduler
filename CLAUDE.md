@@ -13,6 +13,7 @@ A construction-scheduling web app (our own product, first used as a lab tool). P
 Sources of truth — read them before writing code. The Phase 3 core spec comes first, then the Phase 2 spec and plan; the Phase 1 spec and plan hold for everything later phases leave unchanged.
 
 - Phase 3 core spec: `docs/superpowers/specs/2026-11-05-phase3-core-design.md` (the full Phase 3 spec `2026-11-03-phase3-projects-files-library-design.md` is the reference for the deferred parts only)
+- Phase 3 core plan: `docs/superpowers/plans/2026-11-05-phase3-core.md` (assumption checks and results: `docs/superpowers/plans/2026-11-05-phase3-core-verification.md`)
 - Phase 2 spec: `docs/superpowers/specs/2026-10-14-phase2-supabase-design.md`
 - Phase 2 plan: `docs/superpowers/plans/2026-10-15-phase2-supabase.md` (assumption checks and results: `docs/superpowers/plans/2026-10-15-phase2-verification.md`)
 - Phase 1 spec: `docs/superpowers/specs/2026-10-14-home-shell-design.md`
@@ -27,7 +28,7 @@ If code and spec disagree, the spec wins. The plan's exact names, labels and cop
 
 ## Stack
 
-React 19 · Vite · TypeScript (strict) · Tailwind CSS v4 (CSS-first; tokens in `src/index.css`) · shadcn/ui (Radix) · lucide-react · React Router ≥ 7 (declarative) · TanStack Query v5 · react-hook-form + zod · date-fns · sonner · Vitest + Testing Library · Playwright · npm
+React 19 · Vite · TypeScript (strict) · Tailwind CSS v4 (CSS-first; tokens in `src/index.css`) · shadcn/ui (Radix) · lucide-react · React Router ≥ 7 (declarative) · TanStack Query v5 · react-hook-form + zod · date-fns · sonner · fast-xml-parser · papaparse · SheetJS CE (vendor/) · fflate · TanStack Table · Vitest + Testing Library · Playwright · npm
 
 ## Commands
 
@@ -61,6 +62,7 @@ A task is done only when `npm run check` passes; `npm run test:e2e` must pass to
 5. Creation dialogs open through `useDialogs().openDialog(kind, options)`; `DialogHost` renders them.
 6. `localStorage` is accessed only through `src/lib/storage.ts`.
 7. No hard-coded colors: use token utilities (`bg-card`, `text-muted-foreground`, `text-link`, `ring-edge`, …). The brand color changes by editing the six `--brand-*` values only.
+8. src/import/** is pure TypeScript: no React, hooks, UI or adapters. Only hooks import src/import/client.ts; xlsx, papaparse, fast-xml-parser and fflate are imported statically only inside src/import/** (ESLint).
 
 ## TypeScript
 
@@ -106,3 +108,4 @@ A task is done only when `npm run check` passes; `npm run test:e2e` must pass to
 
 - One commit per plan task, Conventional Commits (`feat:`, `fix:`, `test:`, `chore:`, `docs:`).
 - Never commit `.env.local` or secrets.
+- Real exports live only in the main checkout's git-ignored `real-exports/`; Task 24 reads them there by path; they are never copied or committed, not even anonymized.

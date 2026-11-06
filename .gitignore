@@ -13,3 +13,6 @@ test-results-supabase
 *.local
 supabase/.temp
 supabase/.branches
+
+# The owner's real schedule exports: read by path in Task 24 only, never committed (spec D2)
+/real-exports/
