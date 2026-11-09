@@ -104,6 +104,21 @@ From the verification notes, checked against the code on 2026-10-17. Numbers are
 
 The Phase 2 plan was written before the Phase 1 decisions D9–D15. Each task's notes should tell the implementer which of them it touches (for example D11–D13 for the dialogs, D14 for the shared table, D15 for To do), so plan assertions that predate them follow the spec.
 
+## Open items from Phase 3 core reviews
+
+Minor findings the task reviews left open, for the batched cleanup after the plan. None breaks data consistency.
+
+| From | Item | What to do |
+|---|---|---|
+| Task 3 | Deadlock between `delete_schedules` and `delete_project` | Two owners deleting a schedule and its whole project in the same instant can hit 40P01 (generic error toast; data stays consistent). Fix: `delete_schedules` locks the project row before its delete, the order `delete_project` uses; map 40P01 in `errors.ts`. |
+| Task 4 | Empty file on the interim Supabase import path | A 0-byte `.xer` passes the P2 dialog's schema, then fails the `source_file_size` check with the generic validation toast. Task 23's `FILE_EMPTY` replaces this path; check it there. |
+| Task 4 | No test for the adapter's "Use a .xer, .xml or .csv file." refusal | Interim path only; Task 23 removes it. Check it is gone. |
+| Task 4 | `schedule_imports_delete` and service-role inserts | The policy's NOT EXISTS check runs under the editor's RLS; a service-role insert (seed) naming another workspace's object would be invisible to it. Keep seeded objects inside their own workspace folder. |
+| Task 4 | The storage path rule accepts lower-case UUIDs only | Both producers emit lower case; keep it so for any new writer. |
+| Task 5 | Mock and Supabase differ on coordinates past six decimals or out of numeric range | The mock checks the range before rounding (binary `toFixed`); Postgres casts to `numeric(8,6)`/`numeric(9,6)` first, and an overflow (22003) maps to `unknown`. The wizard (Task 16) range-checks input. Fix: round before the range check in the mock; mapping 22003 to `validation` is the owner's call (outside spec §4.11). |
+| Task 5 | Untested paths | `updateProject`'s value checks on the mock; Supabase removing a new cover after a failed update; cover `'remove'` deleting the old object; `useUpdateProject` shrinking a File cover. |
+| Task 5 | Stale mock data in development browsers | `MOCK_DB_VERSION` stays 3 (plan pin), so a browser that saved mock data during Tasks 3–4 lacks the new project attributes. Run `window.__resetMockDb()` before visual checks. |
+
 ## Owner tasks
 
 - Before Phase 2: install Docker (done on the second computer).
