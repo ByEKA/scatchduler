@@ -52,10 +52,29 @@ export interface WorkspaceInvitation {
 
 export type InviteResult = { status: 'added' | 'invited' };
 
-export type ProjectType = 'building' | 'infrastructure' | 'industrial' | 'residential' | 'other';
+export type ProjectStatus = 'active' | 'on_hold' | 'completed' | 'cancelled';
+
+export type ProjectStage =
+  'pursuit' | 'preconstruction' | 'construction' | 'closeout' | 'completed';
+
+export type ProjectType =
+  | 'building'
+  | 'residential'
+  | 'infrastructure'
+  | 'industrial'
+  | 'energy'
+  | 'transportation'
+  | 'water'
+  | 'other';
+
+/** Ownership (P3 core spec D2). */
+export type ProjectSector = 'public' | 'private' | 'public_private';
 
 export interface ProjectAttributes {
+  status: ProjectStatus; // 'active' by default
+  stage: ProjectStage | null;
   projectType: ProjectType | null;
+  sector: ProjectSector | null;
   startDate: ISODate | null;
   plannedFinishDate: ISODate | null;
 }
@@ -66,10 +85,13 @@ export interface ProjectClient {
   contactEmail: string | null;
 }
 
+/** `latitude` and `longitude` are WGS 84 decimal degrees, both set or both `null`. */
 export interface ProjectLocation {
   address: string | null;
   city: string | null;
   country: string | null;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface Project {

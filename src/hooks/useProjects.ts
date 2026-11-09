@@ -7,7 +7,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 import { useRepository } from '@/data/DataLayerProvider';
-import type { NewProjectInput } from '@/data/repository';
+import type { NewProjectInput, UpdateProjectInput } from '@/data/repository';
 import type { ID, Project, ProjectSummary } from '@/data/types';
 import { queryKeys, RECENT_PROJECTS_LIMIT } from '@/hooks/query-keys';
 import { prepareCoverImage } from '@/lib/image';
@@ -35,6 +35,21 @@ export function useWorkspaceProjects(
   return useQuery({
     queryKey: queryKeys.workspaceProjects(workspaceId),
     queryFn: workspaceId === undefined ? skipToken : () => repository.listProjects(workspaceId),
+  });
+}
+
+/** One project with its summary; idle until both ids are set. */
+export function useProject(
+  workspaceId: ID | undefined,
+  projectId: ID | undefined,
+): UseQueryResult<ProjectSummary> {
+  const repository = useRepository();
+  return useQuery({
+    queryKey: queryKeys.project(workspaceId, projectId),
+    queryFn:
+      workspaceId === undefined || projectId === undefined
+        ? skipToken
+        : () => repository.getProject(projectId),
   });
 }
 
@@ -72,6 +87,31 @@ export function useCreateProject(): UseMutationResult<Project, Error, NewProject
     onSettled: (_project, _error, input) =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.projects(input.workspaceId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() }),
+      ]),
+  });
+}
+
+export function useUpdateProject(): UseMutationResult<
+  Project,
+  Error,
+  { workspaceId: ID; input: UpdateProjectInput }
+> {
+  const repository = useRepository();
+  const queryClient = useQueryClient();
+  return useMutation({
+    // A new cover is shrunk first, as in useCreateProject.
+    mutationFn: async ({ input }: { workspaceId: ID; input: UpdateProjectInput }) =>
+      repository.updateProject({
+        ...input,
+        cover: input.cover instanceof File ? await prepareCoverImage(input.cover) : input.cover,
+      }),
+    // Also after a failure: a conflict means the cached ID check for that code is out of date.
+    // The project prefix covers the lists, the ID checks and this project's own query.
+    onSettled: (_project, _error, { workspaceId }) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects(workspaceId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sharedWithMe() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() }),
       ]),
   });

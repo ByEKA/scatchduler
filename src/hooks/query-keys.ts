@@ -24,6 +24,9 @@ export const queryKeys = {
   /** `code` is the trimmed, lower-cased Project ID, the form the repository compares. */
   projectCode: (workspaceId: ID | undefined, code: string) =>
     ['projects', workspaceId, 'code', code] as const,
+  /** One project with its summary (P3 core spec §4.4). */
+  project: (workspaceId: ID | undefined, projectId: ID | undefined) =>
+    ['projects', workspaceId, 'detail', projectId] as const,
   /** The members of one workspace (P2 spec §6.3). */
   members: (workspaceId: ID) => ['members', workspaceId] as const,
   /** Prefix of every member query; a profile change refreshes them all. */

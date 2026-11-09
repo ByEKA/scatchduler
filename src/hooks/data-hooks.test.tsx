@@ -1,11 +1,17 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { RepositoryError } from '@/data/errors';
-import { useCreateProject, useProjectCodeAvailable, useRecentProjects } from '@/hooks/useProjects';
+import {
+  useCreateProject,
+  useProject,
+  useProjectCodeAvailable,
+  useRecentProjects,
+  useUpdateProject,
+} from '@/hooks/useProjects';
 import { useCreateSchedule, useImportSchedule } from '@/hooks/useSchedules';
 import { usePendingTasks, useSetTaskDone } from '@/hooks/useTasks';
 import { useCreateTeamWorkspace, useWorkspaces } from '@/hooks/useWorkspaces';
-import { createTestDataLayer, makeNewProjectInput } from '@/test/fakes';
+import { createTestDataLayer, makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
 import { createQueryWrapper } from '@/test/render';
 
 vi.mock('@/lib/image', () => ({
@@ -158,6 +164,25 @@ describe('data hooks', () => {
     await waitFor(() =>
       expect(result.current.workspaces.data?.map((w) => w.name)).toContain('Field crew'),
     );
+  });
+
+  it('useUpdateProject refreshes the project it changed', async () => {
+    const dl = createTestDataLayer();
+    const db = dl.store.read();
+    const workspaceId = db.workspaces[0]!.id;
+    const metro = db.projects.find((p) => p.code === '002')!;
+    const { result } = renderHook(
+      () => ({ project: useProject(workspaceId, metro.id), update: useUpdateProject() }),
+      { wrapper: createQueryWrapper(dl) },
+    );
+    await waitFor(() => expect(result.current.project.data?.name).toBe('Metro Line Extension'));
+    await act(() =>
+      result.current.update.mutateAsync({
+        workspaceId,
+        input: makeUpdateProjectInput(result.current.project.data!, { name: 'Metro Line 2' }),
+      }),
+    );
+    await waitFor(() => expect(result.current.project.data?.name).toBe('Metro Line 2'));
   });
 
   it('useProjectCodeAvailable stays idle for malformed IDs', () => {

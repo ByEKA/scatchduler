@@ -9,6 +9,7 @@ import type {
   NewProjectInput,
   NewScheduleInput,
   NewTeamWorkspaceInput,
+  UpdateProjectInput,
 } from '@/data/repository';
 import { compareIds, compareMembers, compareWorkspaces, newestFirst } from '@/data/sort';
 import type {
@@ -16,7 +17,14 @@ import type {
   ISODateTime,
   InviteResult,
   Project,
+  ProjectAttributes,
+  ProjectClient,
+  ProjectLocation,
+  ProjectSector,
+  ProjectStage,
+  ProjectStatus,
   ProjectSummary,
+  ProjectType,
   Role,
   Schedule,
   ScheduleSource,
@@ -78,15 +86,20 @@ function readAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
+/** The project with its schedule count. */
+function projectSummary(db: MockDb, project: Project): ProjectSummary {
+  return {
+    ...project,
+    scheduleCount: db.schedules.filter((schedule) => schedule.projectId === project.id).length,
+  };
+}
+
 /** The workspace's projects, latest `updatedAt` first (ties by id), with their schedule counts. */
 function projectSummaries(db: MockDb, workspaceId: ID): ProjectSummary[] {
   return db.projects
     .filter((project) => project.workspaceId === workspaceId)
     .sort(newestFirst((project) => project.updatedAt))
-    .map((project) => ({
-      ...project,
-      scheduleCount: db.schedules.filter((schedule) => schedule.projectId === project.id).length,
-    }));
+    .map((project) => projectSummary(db, project));
 }
 
 /** Due date ascending with undated tasks last, then oldest first, then by id. */
@@ -107,6 +120,96 @@ function comparePendingTasks(a: Task, b: Task): number {
 const ROLE_LEVEL: Record<Role, number> = { owner: 3, editor: 2, viewer: 1 };
 
 const NO_PERMISSION = "You don't have permission to do that.";
+const PROJECT_NOT_FOUND = 'Project not found';
+const PROJECT_CODE_TAKEN = 'This ID is already used in this workspace';
+
+// The values the `projects` check constraints allow (P3 core spec §4.6).
+const PROJECT_STATUSES: readonly ProjectStatus[] = ['active', 'on_hold', 'completed', 'cancelled'];
+const PROJECT_STAGES: readonly ProjectStage[] = [
+  'pursuit',
+  'preconstruction',
+  'construction',
+  'closeout',
+  'completed',
+];
+const PROJECT_TYPES: readonly ProjectType[] = [
+  'building',
+  'residential',
+  'infrastructure',
+  'industrial',
+  'energy',
+  'transportation',
+  'water',
+  'other',
+];
+const PROJECT_SECTORS: readonly ProjectSector[] = ['public', 'private', 'public_private'];
+
+/** Supabase's copy for a plain check violation (P2 spec §8.4). */
+const INVALID_VALUES = "Some values aren't valid. Check the form and try again.";
+
+const isOneOf = (list: readonly string[], value: unknown): boolean =>
+  typeof value === 'string' && list.includes(value);
+
+const isInRange = (value: number, limit: number): boolean =>
+  Number.isFinite(value) && value >= -limit && value <= limit;
+
+/**
+ * The `projects` check constraints, run by `createProject` and `updateProject` after the role
+ * check: status, stage, type and sector from their lists, and coordinates set together and in
+ * range. Anything else is 'validation' with the plain check copy, as the database answers.
+ */
+function checkProjectValues(attributes: ProjectAttributes, location: ProjectLocation): void {
+  const { latitude, longitude } = location;
+  const valid =
+    isOneOf(PROJECT_STATUSES, attributes.status) &&
+    (attributes.stage === null || isOneOf(PROJECT_STAGES, attributes.stage)) &&
+    (attributes.projectType === null || isOneOf(PROJECT_TYPES, attributes.projectType)) &&
+    (attributes.sector === null || isOneOf(PROJECT_SECTORS, attributes.sector)) &&
+    (latitude === null) === (longitude === null) &&
+    (latitude === null || isInRange(latitude, 90)) &&
+    (longitude === null || isInRange(longitude, 180));
+  if (!valid) throw new RepositoryError('validation', INVALID_VALUES);
+}
+
+/**
+ * A coordinate as `numeric(8,6)` and `numeric(9,6)` store it: rounded to six decimals. `+ 0`
+ * turns a rounded `-0` into `0`, as the database returns it.
+ */
+function roundCoordinate(value: number | null): number | null {
+  return value === null ? null : Number(value.toFixed(6)) + 0;
+}
+
+/** The stored client: text trimmed, empty text `null`. */
+function storedClient(client: ProjectClient): ProjectClient {
+  return {
+    name: optionalText(client.name),
+    contactName: optionalText(client.contactName),
+    contactEmail: optionalText(client.contactEmail),
+  };
+}
+
+/** The stored attributes: empty dates `null`. */
+function storedAttributes(attributes: ProjectAttributes): ProjectAttributes {
+  return {
+    status: attributes.status,
+    stage: attributes.stage,
+    projectType: attributes.projectType,
+    sector: attributes.sector,
+    startDate: optionalText(attributes.startDate),
+    plannedFinishDate: optionalText(attributes.plannedFinishDate),
+  };
+}
+
+/** The stored location: text trimmed, empty text `null`, coordinates rounded. */
+function storedLocation(location: ProjectLocation): ProjectLocation {
+  return {
+    address: optionalText(location.address),
+    city: optionalText(location.city),
+    country: optionalText(location.country),
+    latitude: roundCoordinate(location.latitude),
+    longitude: roundCoordinate(location.longitude),
+  };
+}
 
 /** An invitable email after trimming and lowercasing; the Edge Function checks the same shape. */
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -248,11 +351,12 @@ export class MockRepository implements DataRepository {
         if (!hasRole(db, input.workspaceId, 'editor')) {
           throw new RepositoryError('forbidden', NO_PERMISSION);
         }
+        checkProjectValues(input.attributes, input.location);
         const key = codeKey(code);
         if (
           db.projects.some((p) => p.workspaceId === input.workspaceId && codeKey(p.code) === key)
         ) {
-          throw new RepositoryError('conflict', 'This ID is already used in this workspace');
+          throw new RepositoryError('conflict', PROJECT_CODE_TAKEN);
         }
         const project: Project = {
           id: crypto.randomUUID(),
@@ -262,25 +366,63 @@ export class MockRepository implements DataRepository {
           description: optionalText(input.description),
           coverImageUrl,
           statusDate: optionalText(input.statusDate),
-          attributes: {
-            projectType: input.attributes.projectType,
-            startDate: optionalText(input.attributes.startDate),
-            plannedFinishDate: optionalText(input.attributes.plannedFinishDate),
-          },
-          client: {
-            name: optionalText(input.client.name),
-            contactName: optionalText(input.client.contactName),
-            contactEmail: optionalText(input.client.contactEmail),
-          },
-          location: {
-            address: optionalText(input.location.address),
-            city: optionalText(input.location.city),
-            country: optionalText(input.location.country),
-          },
+          attributes: storedAttributes(input.attributes),
+          client: storedClient(input.client),
+          location: storedLocation(input.location),
           createdAt: timestamp,
           updatedAt: timestamp,
         };
         db.projects.push(project);
+        return project;
+      });
+    });
+  }
+
+  getProject(projectId: ID): Promise<ProjectSummary> {
+    return this.run('read', () => {
+      // No membership filter: the mock holds no project the user can't see (spec D34).
+      const db = this.store.read();
+      const project = db.projects.find((p) => p.id === projectId);
+      if (!project) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
+      return projectSummary(db, project);
+    });
+  }
+
+  updateProject(input: UpdateProjectInput): Promise<Project> {
+    return this.run('write', async () => {
+      // As in createProject: a new cover is read first; the checks (project, role, values, then
+      // ID) and the write run in one synchronous store write.
+      const newCoverUrl = input.cover instanceof File ? await readAsDataUrl(input.cover) : null;
+      const timestamp = this.now().toISOString();
+      return this.commit((db) => {
+        const project = db.projects.find((p) => p.id === input.projectId);
+        if (!project) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
+        if (!hasRole(db, project.workspaceId, 'editor')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        checkProjectValues(input.attributes, input.location);
+        const code = input.code.trim();
+        const key = codeKey(code);
+        if (
+          db.projects.some(
+            (p) =>
+              p.id !== project.id &&
+              p.workspaceId === project.workspaceId &&
+              codeKey(p.code) === key,
+          )
+        ) {
+          throw new RepositoryError('conflict', PROJECT_CODE_TAKEN);
+        }
+        project.code = code;
+        project.name = input.name.trim();
+        project.description = optionalText(input.description);
+        if (input.cover !== 'keep') project.coverImageUrl = newCoverUrl;
+        // Left out, the status date stays as it is (R6).
+        if (input.statusDate !== undefined) project.statusDate = optionalText(input.statusDate);
+        project.attributes = storedAttributes(input.attributes);
+        project.client = storedClient(input.client);
+        project.location = storedLocation(input.location);
+        project.updatedAt = timestamp;
         return project;
       });
     });

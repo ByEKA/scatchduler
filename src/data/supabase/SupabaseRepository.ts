@@ -8,6 +8,7 @@ import type {
   NewProjectInput,
   NewScheduleInput,
   NewTeamWorkspaceInput,
+  UpdateProjectInput,
 } from '@/data/repository';
 import { compareMembers, compareWorkspaces } from '@/data/sort';
 import type { AppSupabaseClient } from '@/data/supabase/client';
@@ -24,6 +25,7 @@ import {
   mapUser,
   mapWorkspaceSummary,
   toProjectInsert,
+  toProjectUpdate,
 } from '@/data/supabase/mappers';
 import { createSignedUrlCache, type SignedUrlCache } from '@/data/supabase/signed-urls';
 import type {
@@ -54,6 +56,7 @@ const NO_ROW_ID = '00000000-0000-0000-0000-000000000000';
 const asUuid = (id: ID): ID => (UUID.test(id) ? id : NO_ROW_ID);
 
 const SESSION_EXPIRED = 'Your session expired. Please sign in again.';
+const NO_PERMISSION = "You don't have permission to do that.";
 const PROJECT_NOT_FOUND = 'Project not found';
 const TASK_NOT_FOUND = 'Task not found';
 
@@ -187,10 +190,68 @@ export class SupabaseRepository implements DataRepository {
         if (coverPath) await this.removeQuietly(COVERS, coverPath);
         throw error;
       }
-      const coverUrl = coverPath
-        ? ((await this.signedUrls.urlsFor(COVERS, [coverPath])).get(coverPath) ?? null)
-        : null;
-      return mapProject(data, coverUrl);
+      return mapProject(data, await this.coverUrl(data.cover_image_path));
+    });
+  }
+
+  async getProject(projectId: ID): Promise<ProjectSummary> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('project_summaries')
+        .select('*')
+        .eq('id', asUuid(projectId))
+        .single();
+      if (error) throw toRepositoryError(error, { notFound: PROJECT_NOT_FOUND });
+      return mapProjectSummary(data, await this.coverUrl(data.cover_image_path));
+    });
+  }
+
+  /**
+   * A new cover is uploaded before the update and removed again when the update fails; after a
+   * successful update the replaced or removed cover's object is deleted (best effort). RLS only
+   * filters an update, so no row back from a project the read could see is `forbidden` (§4.10).
+   */
+  async updateProject(input: UpdateProjectInput): Promise<Project> {
+    return this.run(async () => {
+      const { data: current, error: readError } = await this.client
+        .from('projects')
+        .select('id, workspace_id, cover_image_path')
+        .eq('id', asUuid(input.projectId))
+        .maybeSingle();
+      if (readError) throw toRepositoryError(readError, { notFound: PROJECT_NOT_FOUND });
+      if (current === null) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
+
+      // undefined keeps the cover, null removes it, a path replaces it.
+      let coverPath: string | null | undefined;
+      let uploaded: string | null = null;
+      if (input.cover instanceof File) {
+        const file = input.cover;
+        uploaded = `${current.workspace_id}/${crypto.randomUUID()}${coverExtension(file)}`;
+        const { error } = await this.client.storage.from(COVERS).upload(uploaded, file, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: false,
+        });
+        if (error) throw error;
+        coverPath = uploaded;
+      } else if (input.cover === 'remove') {
+        coverPath = null;
+      }
+
+      const { data, error } = await this.client
+        .from('projects')
+        .update(toProjectUpdate(input, coverPath))
+        .eq('id', current.id)
+        .select('*')
+        .maybeSingle();
+      if (error || data === null) {
+        if (uploaded) await this.removeQuietly(COVERS, uploaded);
+        throw error ?? new RepositoryError('forbidden', NO_PERMISSION);
+      }
+      const previous = current.cover_image_path;
+      if (coverPath !== undefined && previous !== null && previous !== coverPath) {
+        await this.removeQuietly(COVERS, previous);
+      }
+      return mapProject(data, await this.coverUrl(data.cover_image_path));
     });
   }
 
@@ -402,6 +463,12 @@ export class SupabaseRepository implements DataRepository {
     return data;
   }
 
+  /** A signed URL for the cover at `path`, or `null` without a cover. */
+  private async coverUrl(path: string | null): Promise<string | null> {
+    if (path === null) return null;
+    return (await this.signedUrls.urlsFor(COVERS, [path])).get(path) ?? null;
+  }
+
   /** The workspace's project summaries, latest update first (ties by id), with signed covers. */
   private async projectSummaries(workspaceId: ID, limit: number | null): Promise<ProjectSummary[]> {
     return this.run(async () => {
@@ -437,7 +504,7 @@ export class SupabaseRepository implements DataRepository {
     return result.data;
   }
 
-  /** Best-effort cleanup after a failed insert; its own errors are ignored. */
+  /** Best-effort removal of an object nothing points at any more; its own errors are ignored. */
   private async removeQuietly(bucket: string, path: string): Promise<void> {
     try {
       await this.client.storage.from(bucket).remove([path]);

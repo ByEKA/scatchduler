@@ -5,11 +5,14 @@ import { MockAuthService } from '@/data/mock/MockAuthService';
 import { MockRepository } from '@/data/mock/MockRepository';
 import type { Scenario } from '@/data/mock/seed';
 import { createMockStore, type MockStore } from '@/data/mock/store';
-import type { DataRepository, NewProjectInput } from '@/data/repository';
-import type { ID, Role } from '@/data/types';
+import type { DataRepository, NewProjectInput, UpdateProjectInput } from '@/data/repository';
+import type { ID, Project, Role } from '@/data/types';
 import { createMemoryStorage } from '@/lib/storage';
 
-/** A valid `NewProjectInput`: code `'900'`, name `'Test project'`, every optional value `null`. */
+/**
+ * A valid `NewProjectInput`: code `'900'`, name `'Test project'`, status `'active'`, every
+ * optional value `null`.
+ */
 export function makeNewProjectInput(
   workspaceId: ID,
   overrides: Partial<NewProjectInput> = {},
@@ -21,9 +24,35 @@ export function makeNewProjectInput(
     description: null,
     coverImage: null,
     statusDate: null,
-    attributes: { projectType: null, startDate: null, plannedFinishDate: null },
+    attributes: {
+      status: 'active',
+      stage: null,
+      projectType: null,
+      sector: null,
+      startDate: null,
+      plannedFinishDate: null,
+    },
     client: { name: null, contactName: null, contactEmail: null },
-    location: { address: null, city: null, country: null },
+    location: { address: null, city: null, country: null, latitude: null, longitude: null },
+    ...overrides,
+  };
+}
+
+/** An `UpdateProjectInput` that saves the project's own values, keeps its cover and status date. */
+export function makeUpdateProjectInput(
+  project: Project,
+  overrides: Partial<UpdateProjectInput> = {},
+): UpdateProjectInput {
+  return {
+    projectId: project.id,
+    code: project.code,
+    name: project.name,
+    description: project.description,
+    cover: 'keep',
+    statusDate: project.statusDate,
+    attributes: { ...project.attributes },
+    client: { ...project.client },
+    location: { ...project.location },
     ...overrides,
   };
 }

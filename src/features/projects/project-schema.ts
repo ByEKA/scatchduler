@@ -65,7 +65,17 @@ export const PROJECT_TYPE_OPTIONS: ReadonlyArray<{ value: ProjectType; label: st
   { value: 'other', label: 'Other' },
 ];
 
-const PROJECT_TYPES = ['building', 'infrastructure', 'industrial', 'residential', 'other'] as const;
+/** Every `ProjectType`, so the form accepts any stored type (P3 core spec §4.1). */
+const PROJECT_TYPES = [
+  'building',
+  'residential',
+  'infrastructure',
+  'industrial',
+  'energy',
+  'transportation',
+  'water',
+  'other',
+] as const satisfies readonly ProjectType[];
 
 /** The photo types the wizard accepts (spec §5.7). */
 export const COVER_IMAGE_TYPES: readonly string[] = ['image/jpeg', 'image/png'];
@@ -159,7 +169,10 @@ function textOrNull(value: string): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
-/** The create request for the form's values: strings trimmed, empty optional values `null`. */
+/**
+ * The create request for the form's values: strings trimmed, empty optional values `null`. The
+ * form has no status, stage, sector or coordinates yet, so they go as their defaults.
+ */
 export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): NewProjectInput {
   return {
     workspaceId,
@@ -169,7 +182,10 @@ export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): N
     coverImage: values.coverImage,
     statusDate: textOrNull(values.statusDate),
     attributes: {
+      status: 'active',
+      stage: null,
       projectType: values.projectType === '' ? null : values.projectType,
+      sector: null,
       startDate: textOrNull(values.startDate),
       plannedFinishDate: textOrNull(values.plannedFinishDate),
     },
@@ -182,6 +198,8 @@ export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): N
       address: textOrNull(values.address),
       city: textOrNull(values.city),
       country: textOrNull(values.country),
+      latitude: null,
+      longitude: null,
     },
   };
 }

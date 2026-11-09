@@ -5,6 +5,10 @@ import type {
   ISODate,
   ISODateTime,
   Project,
+  ProjectSector,
+  ProjectStage,
+  ProjectStatus,
+  ProjectType,
   Role,
   Schedule,
   Subscription,
@@ -89,9 +93,20 @@ interface SeedProject {
   /** How long before the seed time the project was last updated. */
   updatedMsAgo: number;
   statusDaysBefore: number | null;
+  status: ProjectStatus;
+  stage: ProjectStage;
+  projectType: ProjectType;
+  sector: ProjectSector;
+  clientName: string;
+  city: string | null;
+  /** Latitude and longitude, or `null` for a project without coordinates. */
+  coordinates: readonly [number, number] | null;
   /** The project's schedules in creation order, each with its code (spec §4.5). */
   schedules: Array<{ name: string; code: string }>;
 }
+
+/** Every seed project's country (spec §4.5). */
+const SEED_COUNTRY = 'Türkiye';
 
 // The `default` projects in creation order, with their schedules in order.
 const DEFAULT_PROJECTS: SeedProject[] = [
@@ -101,6 +116,13 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 3 * MINUTE_MS,
     statusDaysBefore: 2,
+    status: 'active',
+    stage: 'construction',
+    projectType: 'building',
+    sector: 'private',
+    clientName: 'Riverside Holding',
+    city: 'Istanbul',
+    coordinates: [41.0151, 28.9795],
     schedules: [{ name: 'Main schedule', code: 'MS-01' }],
   },
   {
@@ -109,6 +131,13 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 2 * DAY_MS,
     statusDaysBefore: null,
+    status: 'active',
+    stage: 'preconstruction',
+    projectType: 'transportation',
+    sector: 'public',
+    clientName: 'City Transit Office',
+    city: 'Ankara',
+    coordinates: [39.9334, 32.8597],
     schedules: [],
   },
   {
@@ -117,6 +146,13 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 5 * DAY_MS,
     statusDaysBefore: 7,
+    status: 'active',
+    stage: 'construction',
+    projectType: 'industrial',
+    sector: 'private',
+    clientName: 'Aegean Ports',
+    city: 'Izmir',
+    coordinates: [38.4192, 27.1287],
     schedules: [
       { name: 'Baseline', code: 'BL-01' },
       { name: 'Update 1', code: 'UP-01' },
@@ -129,6 +165,13 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 21 * DAY_MS,
     statusDaysBefore: 14,
+    status: 'on_hold',
+    stage: 'construction',
+    projectType: 'building',
+    sector: 'public',
+    clientName: 'Northfield University',
+    city: 'Istanbul',
+    coordinates: null,
     schedules: [
       { name: 'Baseline', code: 'BL-01' },
       { name: 'Recovery plan', code: 'RP-01' },
@@ -140,6 +183,13 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 35 * DAY_MS,
     statusDaysBefore: null,
+    status: 'completed',
+    stage: 'completed',
+    projectType: 'infrastructure',
+    sector: 'public',
+    clientName: 'Regional Roads Office',
+    city: 'Bursa',
+    coordinates: [40.1828, 29.0663],
     schedules: [{ name: 'Baseline', code: 'BL-01' }],
   },
   {
@@ -148,6 +198,13 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 60 * DAY_MS,
     statusDaysBefore: 30,
+    status: 'active',
+    stage: 'pursuit',
+    projectType: 'residential',
+    sector: 'private',
+    clientName: 'Millstone Homes',
+    city: null,
+    coordinates: null,
     schedules: [],
   },
   {
@@ -156,6 +213,13 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'team',
     updatedMsAgo: 7 * DAY_MS,
     statusDaysBefore: 3,
+    status: 'active',
+    stage: 'construction',
+    projectType: 'infrastructure',
+    sector: 'public',
+    clientName: 'Tunnel Operations Agency',
+    city: 'Istanbul',
+    coordinates: [41.0422, 29.0083],
     schedules: [
       { name: 'Baseline rev. 3', code: 'BL-03' },
       { name: 'Look-ahead W42', code: 'LA-42' },
@@ -250,9 +314,22 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
       description: null,
       coverImageUrl: null,
       statusDate,
-      attributes: { projectType: null, startDate: null, plannedFinishDate: null },
-      client: { name: null, contactName: null, contactEmail: null },
-      location: { address: null, city: null, country: null },
+      attributes: {
+        status: row.status,
+        stage: row.stage,
+        projectType: row.projectType,
+        sector: row.sector,
+        startDate: null,
+        plannedFinishDate: null,
+      },
+      client: { name: row.clientName, contactName: null, contactEmail: null },
+      location: {
+        address: null,
+        city: row.city,
+        country: SEED_COUNTRY,
+        latitude: row.coordinates?.[0] ?? null,
+        longitude: row.coordinates?.[1] ?? null,
+      },
       // Created 30 days before its last update, but never before its workspace.
       createdAt: msAgo(Math.min(row.updatedMsAgo + 30 * DAY_MS, WORKSPACE_AGE_MS[row.workspace])),
       updatedAt,

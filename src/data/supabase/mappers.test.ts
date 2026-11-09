@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { UpdateProjectInput } from '@/data/repository';
 import {
   mapMember,
   mapProjectSummary,
   mapSharedRow,
   toProjectInsert,
+  toProjectUpdate,
 } from '@/data/supabase/mappers';
 import { makeNewProjectInput } from '@/test/fakes';
 
@@ -28,11 +30,11 @@ describe('mappers', () => {
       location_country: 'TR',
       created_at: '2026-10-14T09:30:00.123456+00:00',
       updated_at: '2026-10-14T09:31:00+00:00',
-      status: 'active',
-      stage: null,
-      sector: null,
-      location_lat: null,
-      location_lng: null,
+      status: 'on_hold',
+      stage: 'construction',
+      sector: 'public',
+      location_lat: 41.0151,
+      location_lng: 28.9795,
       schedule_count: 2,
       total_schedule_count: 2,
       current_schedule_id: null,
@@ -46,9 +48,22 @@ describe('mappers', () => {
       description: null,
       coverImageUrl: 'https://signed/url',
       statusDate: '2026-10-12',
-      attributes: { projectType: 'building', startDate: null, plannedFinishDate: null },
+      attributes: {
+        status: 'on_hold',
+        stage: 'construction',
+        projectType: 'building',
+        sector: 'public',
+        startDate: null,
+        plannedFinishDate: null,
+      },
       client: { name: 'Acme', contactName: null, contactEmail: null },
-      location: { address: null, city: 'Izmir', country: 'TR' },
+      location: {
+        address: null,
+        city: 'Izmir',
+        country: 'TR',
+        latitude: 41.0151,
+        longitude: 28.9795,
+      },
       createdAt: '2026-10-14T09:30:00.123Z',
       updatedAt: '2026-10-14T09:31:00.000Z',
       scheduleCount: 2,
@@ -117,6 +132,78 @@ describe('mappers', () => {
       cover_image_path: 'w1/c.jpg',
       client_name: 'Acme',
       client_contact_name: null,
+    });
+  });
+
+  it('writes the attributes and coordinates into the insert', () => {
+    const input = makeNewProjectInput('w1', {
+      attributes: {
+        status: 'cancelled',
+        stage: 'closeout',
+        projectType: 'water',
+        sector: 'private',
+        startDate: null,
+        plannedFinishDate: null,
+      },
+      location: {
+        address: null,
+        city: null,
+        country: null,
+        latitude: -33.8688,
+        longitude: 151.2093,
+      },
+    });
+    expect(toProjectInsert(input, null)).toMatchObject({
+      status: 'cancelled',
+      stage: 'closeout',
+      project_type: 'water',
+      sector: 'private',
+      location_lat: -33.8688,
+      location_lng: 151.2093,
+    });
+  });
+
+  it('builds a project update that leaves out what the input keeps', () => {
+    const input: UpdateProjectInput = {
+      projectId: 'p1',
+      code: ' 008 ',
+      name: ' Pier ',
+      description: '',
+      cover: 'keep',
+      attributes: {
+        status: 'on_hold',
+        stage: null,
+        projectType: 'water',
+        sector: 'public',
+        startDate: null,
+        plannedFinishDate: null,
+      },
+      client: { name: null, contactName: null, contactEmail: null },
+      location: {
+        address: null,
+        city: 'Bursa',
+        country: null,
+        latitude: 40.1828,
+        longitude: 29.0663,
+      },
+    };
+    const update = toProjectUpdate(input, undefined);
+    expect(update).toMatchObject({
+      code: '008',
+      name: 'Pier',
+      description: null,
+      status: 'on_hold',
+      project_type: 'water',
+      sector: 'public',
+      location_city: 'Bursa',
+      location_lat: 40.1828,
+      location_lng: 29.0663,
+    });
+    expect(update).not.toHaveProperty('status_date');
+    expect(update).not.toHaveProperty('cover_image_path');
+    expect(toProjectUpdate({ ...input, statusDate: null }, null)).toMatchObject({
+      status_date: null,
+      cover_image_path: null,
     });
   });
 });

@@ -1,12 +1,15 @@
 // Converts Supabase rows (snake_case, Postgres timestamps) to the domain types in `src/data/types.ts`
 // (P2 spec §8.2). Views report every column as nullable; `need` turns a missing value into an error
 // instead of letting `null` leak into a field the contract says is always set.
-import type { NewProjectInput } from '@/data/repository';
+import type { NewProjectInput, UpdateProjectInput } from '@/data/repository';
 import type { Database } from '@/data/supabase/database.types';
 import type {
   ISODateTime,
   Plan,
   Project,
+  ProjectSector,
+  ProjectStage,
+  ProjectStatus,
   ProjectSummary,
   ProjectType,
   Role,
@@ -37,6 +40,7 @@ type SharedRow = Views['shared_with_me']['Row'];
 type TaskRow = Tables['tasks']['Row'];
 type InvitationRow = Tables['workspace_invitations']['Row'];
 type ProjectInsert = Tables['projects']['Insert'];
+type ProjectUpdate = Tables['projects']['Update'];
 
 function need<T>(value: T | null | undefined, column: string): T {
   if (value === null || value === undefined) {
@@ -58,6 +62,10 @@ function optionalText(value: string | null): string | null {
   const trimmed = value?.trim() ?? '';
   return trimmed === '' ? null : trimmed;
 }
+
+/** A `numeric` column as a number; `null` stays `null`. */
+const numberOrNull = (value: number | string | null): number | null =>
+  value === null ? null : Number(value);
 
 export function mapUser(row: ProfileRow): User {
   return {
@@ -110,7 +118,10 @@ function projectFrom(
     coverImageUrl: coverUrl,
     statusDate: row.status_date,
     attributes: {
+      status: need(row.status, 'status') as ProjectStatus,
+      stage: row.stage as ProjectStage | null,
       projectType: row.project_type as ProjectType | null,
+      sector: row.sector as ProjectSector | null,
       startDate: row.start_date,
       plannedFinishDate: row.planned_finish_date,
     },
@@ -123,6 +134,8 @@ function projectFrom(
       address: row.location_address,
       city: row.location_city,
       country: row.location_country,
+      latitude: numberOrNull(row.location_lat),
+      longitude: numberOrNull(row.location_lng),
     },
     createdAt: toIso(need(row.created_at, 'created_at')),
     updatedAt: toIso(need(row.updated_at, 'updated_at')),
@@ -211,16 +224,25 @@ export function mapInvitation(row: InvitationRow): WorkspaceInvitation {
   };
 }
 
-/** The `projects` insert for the form input: text trimmed, empty text stored as `null`. */
-export function toProjectInsert(input: NewProjectInput, coverPath: string | null): ProjectInsert {
+/**
+ * The columns an insert and an update both write, from the form input: text trimmed, empty text
+ * stored as `null`. Status, stage, type, sector and coordinates go as they are; the database
+ * checks them.
+ */
+function projectColumns(
+  input: Pick<
+    NewProjectInput,
+    'code' | 'name' | 'description' | 'attributes' | 'client' | 'location'
+  >,
+) {
   return {
-    workspace_id: input.workspaceId,
     code: input.code.trim(),
     name: input.name.trim(),
     description: optionalText(input.description),
-    cover_image_path: coverPath,
-    status_date: optionalText(input.statusDate),
+    status: input.attributes.status,
+    stage: input.attributes.stage,
     project_type: input.attributes.projectType,
+    sector: input.attributes.sector,
     start_date: optionalText(input.attributes.startDate),
     planned_finish_date: optionalText(input.attributes.plannedFinishDate),
     client_name: optionalText(input.client.name),
@@ -229,5 +251,32 @@ export function toProjectInsert(input: NewProjectInput, coverPath: string | null
     location_address: optionalText(input.location.address),
     location_city: optionalText(input.location.city),
     location_country: optionalText(input.location.country),
+    location_lat: input.location.latitude,
+    location_lng: input.location.longitude,
+  } satisfies ProjectUpdate;
+}
+
+/** The `projects` insert for the form input: text trimmed, empty text stored as `null`. */
+export function toProjectInsert(input: NewProjectInput, coverPath: string | null): ProjectInsert {
+  return {
+    workspace_id: input.workspaceId,
+    ...projectColumns(input),
+    cover_image_path: coverPath,
+    status_date: optionalText(input.statusDate),
   };
+}
+
+/**
+ * The `projects` update for the edit input, trimmed as `toProjectInsert` does. It has no
+ * `status_date` key when the input has no status date (R6), and no `cover_image_path` key when
+ * `coverPath` is `undefined` (the cover is kept).
+ */
+export function toProjectUpdate(
+  input: UpdateProjectInput,
+  coverPath: string | null | undefined,
+): ProjectUpdate {
+  const update: ProjectUpdate = projectColumns(input);
+  if (input.statusDate !== undefined) update.status_date = optionalText(input.statusDate);
+  if (coverPath !== undefined) update.cover_image_path = coverPath;
+  return update;
 }

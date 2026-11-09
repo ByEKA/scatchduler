@@ -31,6 +31,21 @@ export interface NewProjectInput {
   location: ProjectLocation;
 }
 
+/** What `updateProject` does with the cover: keep it, remove it, or replace it with the file. */
+export type CoverChange = 'keep' | 'remove' | File;
+
+export interface UpdateProjectInput {
+  projectId: ID;
+  code: string;
+  name: string;
+  description: string | null;
+  cover: CoverChange;
+  statusDate?: ISODate | null; // left out while the project has a current schedule (R6)
+  attributes: ProjectAttributes;
+  client: ProjectClient;
+  location: ProjectLocation;
+}
+
 export interface NewScheduleInput {
   projectId: ID;
   name: string;
@@ -62,8 +77,20 @@ export interface DataRepository {
   listRecentProjects(workspaceId: ID, limit: number): Promise<ProjectSummary[]>;
   /** Case-insensitive, trimmed comparison against existing codes in the workspace. */
   isProjectCodeAvailable(workspaceId: ID, code: string): Promise<boolean>;
-  /** Rejects with RepositoryError('conflict') when the code is taken. */
+  /**
+   * Rejects with RepositoryError('conflict') when the code is taken, and 'validation' when a
+   * status, stage, type or sector is outside its list or the coordinates aren't a valid pair.
+   */
   createProject(input: NewProjectInput): Promise<Project>;
+  /** 'not_found' "Project not found" when unknown (or hidden by RLS, Supabase only; D34). */
+  getProject(projectId: ID): Promise<ProjectSummary>;
+  /**
+   * Editors and owners; viewers 'forbidden', unknown (or hidden) projects 'not_found'. Checks the
+   * values as `createProject` does; a code another project of the workspace has is 'conflict'
+   * "This ID is already used in this workspace". Leaves the status date alone when the input has
+   * none, and sets `updatedAt` to now.
+   */
+  updateProject(input: UpdateProjectInput): Promise<Project>;
 
   /**
    * Both set the parent project's updatedAt to now. A blank or malformed code rejects

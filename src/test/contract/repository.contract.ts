@@ -4,8 +4,8 @@
 // seed's.
 import { describe, expect, it } from 'vitest';
 import type { DataRepository } from '@/data/repository';
-import type { ID, ISODateTime, Role } from '@/data/types';
-import { makeNewProjectInput } from '@/test/fakes';
+import type { ID, ISODateTime, ProjectStatus, Role } from '@/data/types';
+import { makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
 
 /** The seed scenario a fixture starts from (Phase 1 spec §5.6). */
 export type ContractScenario = 'default' | 'empty';
@@ -480,6 +480,306 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           firstName: 'Ada',
           lastName: 'Lovelace',
         });
+      });
+    });
+
+    describe('project attributes', () => {
+      it('reads the seeded attributes and locations', async () => {
+        const f = await makeFixture();
+        const projects = await f.repository.listProjects(f.workspaces.personal);
+        expect(
+          projects.map((p) => [
+            p.code,
+            p.attributes.status,
+            p.attributes.stage,
+            p.attributes.projectType,
+            p.attributes.sector,
+            p.client.name,
+            p.location.city,
+            p.location.country,
+            p.location.latitude,
+            p.location.longitude,
+          ]),
+        ).toEqual([
+          [
+            '001',
+            'active',
+            'construction',
+            'building',
+            'private',
+            'Riverside Holding',
+            'Istanbul',
+            'Türkiye',
+            41.0151,
+            28.9795,
+          ],
+          [
+            '002',
+            'active',
+            'preconstruction',
+            'transportation',
+            'public',
+            'City Transit Office',
+            'Ankara',
+            'Türkiye',
+            39.9334,
+            32.8597,
+          ],
+          [
+            '003',
+            'active',
+            'construction',
+            'industrial',
+            'private',
+            'Aegean Ports',
+            'Izmir',
+            'Türkiye',
+            38.4192,
+            27.1287,
+          ],
+          [
+            '004',
+            'on_hold',
+            'construction',
+            'building',
+            'public',
+            'Northfield University',
+            'Istanbul',
+            'Türkiye',
+            null,
+            null,
+          ],
+          [
+            '005',
+            'completed',
+            'completed',
+            'infrastructure',
+            'public',
+            'Regional Roads Office',
+            'Bursa',
+            'Türkiye',
+            40.1828,
+            29.0663,
+          ],
+          [
+            '006',
+            'active',
+            'pursuit',
+            'residential',
+            'private',
+            'Millstone Homes',
+            null,
+            'Türkiye',
+            null,
+            null,
+          ],
+        ]);
+        expect((await f.repository.listProjects(f.workspaces.team!))[0]).toMatchObject({
+          code: 'T-01',
+          attributes: {
+            status: 'active',
+            stage: 'construction',
+            projectType: 'infrastructure',
+            sector: 'public',
+          },
+          client: { name: 'Tunnel Operations Agency' },
+          location: { city: 'Istanbul', latitude: 41.0422, longitude: 29.0083 },
+        });
+      });
+
+      it('creates projects with status, stage, sector and coordinates', async () => {
+        const f = await makeFixture();
+        const expected = {
+          attributes: {
+            status: 'on_hold',
+            stage: 'pursuit',
+            projectType: 'energy',
+            sector: 'public_private',
+            startDate: '2026-03-01',
+            plannedFinishDate: '2027-06-30',
+          },
+          location: {
+            address: null,
+            city: 'Konya',
+            country: 'Türkiye',
+            latitude: 37.8746,
+            longitude: -32.4932,
+          },
+        } as const;
+        const created = await f.repository.createProject(
+          makeNewProjectInput(f.workspaces.personal, {
+            code: '010',
+            name: 'Solar Park',
+            ...expected,
+          }),
+        );
+        expect(created).toMatchObject(expected);
+        expect(
+          (await f.repository.listProjects(f.workspaces.personal)).find((p) => p.code === '010'),
+        ).toMatchObject(expected);
+      });
+
+      it('refuses half coordinates and values outside the lists', async () => {
+        const f = await makeFixture();
+        const base = makeNewProjectInput(f.workspaces.personal, { code: '011' });
+        const invalid = {
+          code: 'validation',
+          message: "Some values aren't valid. Check the form and try again.",
+        };
+        await expect(
+          f.repository.createProject({
+            ...base,
+            location: { ...base.location, latitude: 41.0151 },
+          }),
+        ).rejects.toMatchObject(invalid);
+        await expect(
+          f.repository.createProject({
+            ...base,
+            location: { ...base.location, latitude: 91, longitude: 0 },
+          }),
+        ).rejects.toMatchObject(invalid);
+        await expect(
+          f.repository.createProject({
+            ...base,
+            attributes: { ...base.attributes, status: 'paused' as ProjectStatus },
+          }),
+        ).rejects.toMatchObject(invalid);
+        expect(await f.repository.isProjectCodeAvailable(f.workspaces.personal, '011')).toBe(true);
+      });
+    });
+
+    describe('one project', () => {
+      it('gets a project with its summary and refuses unknown ids', async () => {
+        const f = await makeFixture();
+        expect(await f.repository.getProject(f.projectIds['003']!)).toMatchObject({
+          code: '003',
+          name: 'Harbor Logistics Hub',
+          scheduleCount: 3,
+          attributes: { status: 'active', stage: 'construction' },
+          location: { city: 'Izmir' },
+        });
+        for (const id of unknownIds()) {
+          await expect(f.repository.getProject(id)).rejects.toMatchObject({
+            code: 'not_found',
+            message: 'Project not found',
+          });
+        }
+      });
+
+      it('updates details, attributes and coordinates and moves the project up', async () => {
+        const f = await makeFixture();
+        const before = await f.repository.getProject(f.projectIds['006']!);
+        const updated = await f.repository.updateProject(
+          makeUpdateProjectInput(before, {
+            code: '006B',
+            name: '  Old Mill Lofts ',
+            description: 'Phase two',
+            attributes: {
+              status: 'completed',
+              stage: 'closeout',
+              projectType: 'water',
+              sector: 'public',
+              startDate: '2026-01-05',
+              plannedFinishDate: '2026-12-20',
+            },
+            client: {
+              name: 'Millstone Homes',
+              contactName: 'Ayşe Demir',
+              contactEmail: 'ayse@example.com',
+            },
+            location: {
+              address: 'Mill Road 4',
+              city: 'Eskişehir',
+              country: 'Türkiye',
+              latitude: 39.7767,
+              longitude: 30.5206,
+            },
+          }),
+        );
+        expect(updated).toMatchObject({
+          code: '006B',
+          name: 'Old Mill Lofts',
+          description: 'Phase two',
+          attributes: {
+            status: 'completed',
+            stage: 'closeout',
+            projectType: 'water',
+            sector: 'public',
+          },
+          client: { contactName: 'Ayşe Demir' },
+          location: { city: 'Eskişehir', latitude: 39.7767, longitude: 30.5206 },
+        });
+        expect(Date.parse(updated.updatedAt)).toBeGreaterThan(Date.parse(before.updatedAt));
+        expect((await f.repository.listRecentProjects(f.workspaces.personal, 1))[0]!.code).toBe(
+          '006B',
+        );
+        expect(await f.repository.getProject(before.id)).toMatchObject({
+          name: 'Old Mill Lofts',
+          location: { address: 'Mill Road 4' },
+        });
+      });
+
+      it('keeps the status date when the input leaves it out and refuses a taken code', async () => {
+        const f = await makeFixture();
+        const project = await f.repository.getProject(f.projectIds['006']!);
+        const input = makeUpdateProjectInput(project, { name: 'Old Mill' });
+        delete input.statusDate;
+        expect(await f.repository.updateProject(input)).toMatchObject({
+          name: 'Old Mill',
+          statusDate: project.statusDate,
+        });
+        expect(
+          await f.repository.updateProject(
+            makeUpdateProjectInput(project, { statusDate: '2026-01-15' }),
+          ),
+        ).toMatchObject({ statusDate: '2026-01-15' });
+        await expect(
+          f.repository.updateProject(makeUpdateProjectInput(project, { code: ' 001 ' })),
+        ).rejects.toMatchObject({
+          code: 'conflict',
+          message: 'This ID is already used in this workspace',
+        });
+      });
+
+      it('replaces, keeps and removes the cover', async () => {
+        const f = await makeFixture();
+        const project = await f.repository.getProject(f.projectIds['002']!);
+        const jpeg = new File([new Uint8Array([0xff, 0xd8, 0xff])], 'cover.jpg', {
+          type: 'image/jpeg',
+        });
+        const withCover = await f.repository.updateProject(
+          makeUpdateProjectInput(project, { cover: jpeg }),
+        );
+        expect(withCover.coverImageUrl).toEqual(expect.any(String));
+        expect(
+          (
+            await f.repository.updateProject(
+              makeUpdateProjectInput(withCover, { name: 'Metro Line 2' }),
+            )
+          ).coverImageUrl,
+        ).toEqual(expect.any(String));
+        expect(
+          (await f.repository.updateProject(makeUpdateProjectInput(withCover, { cover: 'remove' })))
+            .coverImageUrl,
+        ).toBeNull();
+      });
+
+      it('refuses updates from viewers and of unknown projects', async () => {
+        const viewer = await makeFixture({ teamRole: 'viewer' });
+        const tunnel = await viewer.repository.getProject(viewer.projectIds['T-01']!);
+        await expect(
+          viewer.repository.updateProject(makeUpdateProjectInput(tunnel, { name: 'Nope' })),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        const f = await makeFixture();
+        const riverside = await f.repository.getProject(f.projectIds['001']!);
+        for (const id of unknownIds()) {
+          await expect(
+            f.repository.updateProject({ ...makeUpdateProjectInput(riverside), projectId: id }),
+          ).rejects.toMatchObject({
+            code: 'not_found',
+            message: 'Project not found',
+          });
+        }
       });
     });
   });

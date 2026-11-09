@@ -63,9 +63,16 @@ describe('project form schema', () => {
       description: null,
       coverImage: null,
       statusDate: null,
-      attributes: { projectType: null, startDate: null, plannedFinishDate: null },
+      attributes: {
+        status: 'active',
+        stage: null,
+        projectType: null,
+        sector: null,
+        startDate: null,
+        plannedFinishDate: null,
+      },
       client: { name: 'Port Authority', contactName: null, contactEmail: null },
-      location: { address: null, city: null, country: null },
+      location: { address: null, city: null, country: null, latitude: null, longitude: null },
     });
   });
 });
