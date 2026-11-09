@@ -60,10 +60,24 @@ const TASK_NOT_FOUND = 'Task not found';
 /** `.png` for PNG covers, `.jpg` for everything else (the bucket takes JPEG and PNG only). */
 const coverExtension = (file: File): string => (file.type === 'image/png' ? '.png' : '.jpg');
 
-/** The file's extension, lowercased with its dot, or `''`. Original names never reach the key. */
-function importExtension(fileName: string): string {
-  const match = /\.([A-Za-z0-9]{1,16})$/.exec(fileName);
-  return match ? `.${match[1]!.toLowerCase()}` : '';
+/**
+ * The interim import path (spec §2.4): the format comes from the file's extension, one of the
+ * types the P2 import dialog takes, and names the stored object's suffix (§4.9). Original names
+ * never reach the key.
+ */
+function interimImportFormat(
+  fileName: string,
+): { format: 'xer' | 'mspdi' | 'csv'; suffix: string } | null {
+  switch (/\.[^.]+$/.exec(fileName)?.[0].toLowerCase()) {
+    case '.xer':
+      return { format: 'xer', suffix: 'xer.gz' };
+    case '.xml':
+      return { format: 'mspdi', suffix: 'xml.gz' };
+    case '.csv':
+      return { format: 'csv', suffix: 'csv.gz' };
+    default:
+      return null;
+  }
 }
 
 export class SupabaseRepository implements DataRepository {
@@ -200,11 +214,15 @@ export class SupabaseRepository implements DataRepository {
 
   async importSchedule(input: ImportScheduleInput): Promise<Schedule> {
     return this.run(async () => {
-      const project = await this.projectRef(input.projectId);
       const { file } = input;
-      const path = `${project.workspace_id}/${project.id}/${crypto.randomUUID()}${importExtension(file.name)}`;
-      const upload = await this.client.storage.from(IMPORTS).upload(path, file, {
-        contentType: file.type || 'application/octet-stream',
+      const stored = interimImportFormat(file.name);
+      if (!stored) throw new RepositoryError('validation', 'Use a .xer, .xml or .csv file.');
+      const project = await this.projectRef(input.projectId);
+      const { gzipSync } = await import('fflate');
+      const bytes = gzipSync(new Uint8Array(await file.arrayBuffer()));
+      const path = `${project.workspace_id}/${project.id}/${crypto.randomUUID()}.${stored.suffix}`;
+      const upload = await this.client.storage.from(IMPORTS).upload(path, bytes, {
+        contentType: 'application/gzip',
         upsert: false,
       });
       if (upload.error) throw upload.error;
@@ -215,8 +233,10 @@ export class SupabaseRepository implements DataRepository {
           name: input.name.trim(),
           code: input.code.trim(),
           source: 'import',
+          source_format: stored.format,
           source_file_name: file.name,
           source_file_path: path,
+          source_file_size: file.size,
         })
         .select('*')
         .single();

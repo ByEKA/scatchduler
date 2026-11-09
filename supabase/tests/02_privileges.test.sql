@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(33);
+select plan(36);
 
 select is_empty($$ select table_name from information_schema.role_table_grants where grantee = 'anon' and table_schema = 'public' $$,
   'anon has no privileges on public tables');
@@ -30,6 +30,8 @@ select column_privs_are('public', 'schedules', 'code', 'authenticated', array['I
 select column_privs_are('public', 'schedules', 'is_current', 'authenticated', array['SELECT'], 'is_current changes only through set_current_schedule');
 select column_privs_are('public', 'schedules', 'project_id', 'authenticated', array['INSERT', 'SELECT'], 'a schedule never moves to another project');
 select column_privs_are('public', 'schedules', 'updated_at', 'authenticated', array['SELECT'], 'schedules.updated_at is never written by users');
+select column_privs_are('public', 'schedules', c, 'authenticated', array['INSERT', 'SELECT'], format('schedules.%s is set on insert only', c))
+  from unnest(array['source_format', 'import_report', 'activity_count']) as c;
 select table_privs_are('public', 'schedule_items', 'authenticated', array['SELECT'], 'schedule_items is readable by signed-in users');
 select table_privs_are('public', 'schedule_items', 'anon', array[]::text[], 'anon cannot read schedule_items');
 select is_empty($$

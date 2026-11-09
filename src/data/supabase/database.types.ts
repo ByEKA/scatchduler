@@ -127,14 +127,14 @@ isOneToOne: false
                   ]
                 },"schedules": {
                   Row: {
-                    "activity_count": number,"archived_at": string | null,"baseline": string,"code": string | null,"created_at": string,"id": string,"is_current": boolean,"name": string,"notes": string | null,"project_id": string,"source": string,"source_file_name": string | null,"source_file_path": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string
+                    "activity_count": number,"archived_at": string | null,"baseline": string,"code": string | null,"created_at": string,"id": string,"import_mapping": Json | null,"import_report": Json | null,"is_current": boolean,"name": string,"notes": string | null,"parser_version": string | null,"project_id": string,"source": string,"source_file_name": string | null,"source_file_path": string | null,"source_file_sha256": string | null,"source_file_size": number | null,"source_format": string | null,"source_project_code": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"code"?: string | null,"created_at"?: string,"id"?: string,"is_current"?: boolean,"name": string,"notes"?: string | null,"project_id": string,"source": string,"source_file_name"?: string | null,"source_file_path"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
+                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"code"?: string | null,"created_at"?: string,"id"?: string,"import_mapping"?: Json | null,"import_report"?: Json | null,"is_current"?: boolean,"name": string,"notes"?: string | null,"parser_version"?: string | null,"project_id": string,"source": string,"source_file_name"?: string | null,"source_file_path"?: string | null,"source_file_sha256"?: string | null,"source_file_size"?: number | null,"source_format"?: string | null,"source_project_code"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
                   }
                   Update: {
-                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"code"?: string | null,"created_at"?: string,"id"?: string,"is_current"?: boolean,"name"?: string,"notes"?: string | null,"project_id"?: string,"source"?: string,"source_file_name"?: string | null,"source_file_path"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
+                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"code"?: string | null,"created_at"?: string,"id"?: string,"import_mapping"?: Json | null,"import_report"?: Json | null,"is_current"?: boolean,"name"?: string,"notes"?: string | null,"parser_version"?: string | null,"project_id"?: string,"source"?: string,"source_file_name"?: string | null,"source_file_path"?: string | null,"source_file_sha256"?: string | null,"source_file_size"?: number | null,"source_format"?: string | null,"source_project_code"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -354,14 +354,14 @@ isOneToOne: false
                   ]
                 },"schedule_items": {
                   Row: {
-                    "activity_count": number | null,"archived_at": string | null,"baseline": string | null,"code": string | null,"created_at": string | null,"id": string | null,"is_current": boolean | null,"name": string | null,"notes": string | null,"project_id": string | null,"source": string | null,"source_file_name": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string | null
+                    "activity_count": number | null,"archived_at": string | null,"baseline": string | null,"code": string | null,"created_at": string | null,"has_import_mapping": boolean | null,"has_import_report": boolean | null,"id": string | null,"is_current": boolean | null,"name": string | null,"notes": string | null,"project_id": string | null,"source": string | null,"source_file_name": string | null,"source_format": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"code"?: string | null,"created_at"?: string | null,"id"?: string | null,"is_current"?: boolean | null,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
+                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"code"?: string | null,"created_at"?: string | null,"has_import_mapping"?: never,"has_import_report"?: never,"id"?: string | null,"is_current"?: boolean | null,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"source_format"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
                          }
                         Update: {
-                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"code"?: string | null,"created_at"?: string | null,"id"?: string | null,"is_current"?: boolean | null,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
+                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"code"?: string | null,"created_at"?: string | null,"has_import_mapping"?: never,"has_import_report"?: never,"id"?: string | null,"is_current"?: boolean | null,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"source_format"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
                          }
                         Relationships: [
                     {

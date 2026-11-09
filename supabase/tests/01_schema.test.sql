@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(32);
+select plan(39);
 
 select has_table('public', t, format('table public.%s exists', t))
   from unnest(array['profiles', 'subscriptions', 'workspaces', 'workspace_members', 'workspace_invitations',
@@ -13,6 +13,8 @@ select has_column('public', 'projects', c, format('projects.%s exists', c))
   from unnest(array['status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
 select has_column('public', 'schedules', c, format('schedules.%s exists', c))
   from unnest(array['code', 'notes', 'is_current', 'baseline', 'update_number', 'archived_at', 'activity_count']) as c;
+select has_column('public', 'schedules', c, format('schedules.%s exists', c))
+  from unnest(array['source_format', 'source_file_size', 'source_file_sha256', 'source_project_code', 'parser_version', 'import_mapping', 'import_report']) as c;
 select has_view('public', 'schedule_items', 'view schedule_items exists');
 
 do $$
