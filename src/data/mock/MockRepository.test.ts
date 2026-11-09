@@ -88,7 +88,11 @@ describe('MockRepository', () => {
   });
 
   it('moves a project to the top of recent projects when a schedule is added', async () => {
-    const schedule = await repo.createSchedule({ projectId: project('006').id, name: 'Baseline' });
+    const schedule = await repo.createSchedule({
+      projectId: project('006').id,
+      name: 'Baseline',
+      code: 'S01',
+    });
     expect(schedule).toMatchObject({
       source: 'blank',
       sourceFileName: null,
@@ -105,10 +109,13 @@ describe('MockRepository', () => {
     const imported = await repo.importSchedule({
       projectId: project('002').id,
       name: 'Rev 7',
+      code: 'REV-7',
       file: new File(['x'], 'rev7.XER'),
     });
     expect(imported).toMatchObject({ source: 'import', sourceFileName: 'rev7.XER' });
-    await expect(repo.createSchedule({ projectId: 'nope', name: 'X' })).rejects.toMatchObject({
+    await expect(
+      repo.createSchedule({ projectId: 'nope', name: 'X', code: 'X' }),
+    ).rejects.toMatchObject({
       code: 'not_found',
       message: 'Project not found',
     });

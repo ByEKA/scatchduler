@@ -34,11 +34,13 @@ export interface NewProjectInput {
 export interface NewScheduleInput {
   projectId: ID;
   name: string;
+  code: string; // trimmed by the adapter; required and unique in the project, ignoring case (R8)
 }
 
 export interface ImportScheduleInput {
   projectId: ID;
   name: string;
+  code: string; // as NewScheduleInput's
   file: File; // Phase 1: metadata only; Phase 2: uploaded to Storage
 }
 
@@ -63,7 +65,10 @@ export interface DataRepository {
   /** Rejects with RepositoryError('conflict') when the code is taken. */
   createProject(input: NewProjectInput): Promise<Project>;
 
-  /** Both set the parent project's updatedAt to now. */
+  /**
+   * Both set the parent project's updatedAt to now. A blank or malformed code rejects
+   * 'validation', a code the project already uses (ignoring case) 'conflict' (R8).
+   */
   createSchedule(input: NewScheduleInput): Promise<Schedule>;
   importSchedule(input: ImportScheduleInput): Promise<Schedule>;
 

@@ -50,7 +50,7 @@ export interface MockInvitation {
 
 /** The whole mock database, stored as one JSON document (spec §5.6, P2 spec §6.4). */
 export interface MockDb {
-  version: 2;
+  version: 3;
   scenario: Scenario;
   /** The current user's seeded role in Site Operations; a different requested role reseeds. */
   teamRole: Role;
@@ -89,7 +89,8 @@ interface SeedProject {
   /** How long before the seed time the project was last updated. */
   updatedMsAgo: number;
   statusDaysBefore: number | null;
-  schedules: string[];
+  /** The project's schedules in creation order, each with its code (spec §4.5). */
+  schedules: Array<{ name: string; code: string }>;
 }
 
 // The `default` projects in creation order, with their schedules in order.
@@ -100,7 +101,7 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 3 * MINUTE_MS,
     statusDaysBefore: 2,
-    schedules: ['Main schedule'],
+    schedules: [{ name: 'Main schedule', code: 'MS-01' }],
   },
   {
     code: '002',
@@ -116,7 +117,11 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 5 * DAY_MS,
     statusDaysBefore: 7,
-    schedules: ['Baseline', 'Update 1', 'Update 2'],
+    schedules: [
+      { name: 'Baseline', code: 'BL-01' },
+      { name: 'Update 1', code: 'UP-01' },
+      { name: 'Update 2', code: 'UP-02' },
+    ],
   },
   {
     code: '004',
@@ -124,7 +129,10 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 21 * DAY_MS,
     statusDaysBefore: 14,
-    schedules: ['Baseline', 'Recovery plan'],
+    schedules: [
+      { name: 'Baseline', code: 'BL-01' },
+      { name: 'Recovery plan', code: 'RP-01' },
+    ],
   },
   {
     code: '005',
@@ -132,7 +140,7 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'personal',
     updatedMsAgo: 35 * DAY_MS,
     statusDaysBefore: null,
-    schedules: ['Baseline'],
+    schedules: [{ name: 'Baseline', code: 'BL-01' }],
   },
   {
     code: '006',
@@ -148,7 +156,10 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     workspace: 'team',
     updatedMsAgo: 7 * DAY_MS,
     statusDaysBefore: 3,
-    schedules: ['Baseline rev. 3', 'Look-ahead W42'],
+    schedules: [
+      { name: 'Baseline rev. 3', code: 'BL-03' },
+      { name: 'Look-ahead W42', code: 'LA-42' },
+    ],
   },
 ];
 
@@ -184,7 +195,7 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
   const deniz = makeUser('Deniz', 'Kaya', 'deniz.kaya@example.com');
   const personal = makeWorkspace('My workspace', 'personal', msAgo(WORKSPACE_AGE_MS.personal));
   const db: MockDb = {
-    version: 2,
+    version: 3,
     scenario,
     teamRole,
     seededAt: now.toISOString(),
@@ -247,11 +258,12 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
       updatedAt,
     };
     db.projects.push(project);
-    for (const name of row.schedules) {
+    for (const { name, code } of row.schedules) {
       db.schedules.push({
         id: crypto.randomUUID(),
         projectId: project.id,
         name,
+        code,
         statusDate,
         source: 'blank',
         sourceFileName: null,

@@ -186,6 +186,7 @@ export async function loadSeed(
           id: s.id,
           project_id: s.projectId,
           name: s.name,
+          code: s.code,
           status_date: s.statusDate,
           source: s.source,
           source_file_name: s.sourceFileName,

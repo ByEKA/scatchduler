@@ -23,6 +23,8 @@ create or replace function tests.personal_workspace(p_user_id uuid) returns uuid
   select id from public.workspaces where created_by = p_user_id and kind = 'personal' $$;
 create or replace function tests.project_id(p_code text) returns uuid language sql stable security definer set search_path = '' as $$
   select id from public.projects where code = p_code $$;
+create or replace function tests.schedule_id(p_name text) returns uuid language sql stable security definer set search_path = '' as $$
+  select id from public.schedules where name = p_name $$;
 
 create or replace function tests.team_workspace(p_name text, p_owner uuid) returns uuid language plpgsql security definer set search_path = '' as $$
 declare v_id uuid;

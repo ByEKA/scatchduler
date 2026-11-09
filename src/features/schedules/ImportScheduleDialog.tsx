@@ -8,13 +8,16 @@ import { FileDropzone } from '@/components/common/FileDropzone';
 import { FormDialog } from '@/components/common/FormDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RepositoryError } from '@/data/errors';
 import type { ID } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { suggestImportCode } from '@/features/files/codes';
 import { ProjectField } from '@/features/schedules/ProjectCombobox';
 import {
   defaultProjectId,
   importScheduleSchema,
   MAX_SCHEDULE_BYTES,
+  SCHEDULE_CODE_HINT,
   SCHEDULE_EXTENSIONS,
   scheduleNameFromFile,
   schedulePath,
@@ -27,13 +30,15 @@ import { errorMessage } from '@/lib/format';
 
 const FILE_HINT = 'Primavera P6 (.xer), MS Project XML (.xml) or CSV · up to 20 MB';
 const DROPZONE_HEIGHT = 140;
-// The fields in the order the form shows them. Name registers during the form's own render, before
-// the two Controllers below it, so react-hook-form's own error focus would skip the file.
-const FIELD_ORDER = ['file', 'name', 'projectId'] as const;
+// The fields in the order the form shows them. Name and Code register during the form's own
+// render, before the two Controllers around them, so react-hook-form's own error focus would skip
+// the file.
+const FIELD_ORDER = ['file', 'name', 'code', 'projectId'] as const;
 
 /**
  * Imports a schedule file into a project and opens the new schedule (spec §6.7). Phase 1 keeps
- * the file's name only. The project defaults like New schedule's.
+ * the file's name only. The project defaults like New schedule's. Until the stepped import
+ * dialog replaces it, it asks for a code too (P3 core spec §2.4, the interim import path).
  */
 export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactElement {
   const { closeDialog } = useDialogs();
@@ -42,6 +47,9 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
   const importSchedule = useImportSchedule();
   const nameId = useId();
   const nameErrorId = useId();
+  const codeId = useId();
+  const codeHintId = useId();
+  const codeErrorId = useId();
   // Drops a second submit that arrives before the pending state has rendered.
   const submittingRef = useRef(false);
   const initialProjectId =
@@ -53,15 +61,21 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     getValues,
     setValue,
     resetField,
+    setError,
     setFocus,
     formState: { errors, isDirty, isSubmitting, isSubmitted },
   } = useForm({
     resolver: zodResolver(importScheduleSchema),
-    defaultValues: { file: null, name: '', projectId: initialProjectId ?? '' },
+    defaultValues: { file: null, name: '', code: '', projectId: initialProjectId ?? '' },
     shouldFocusError: false,
   });
   const { fallback, onOpenAutoFocus } = useScheduleDialogFallback({
-    fieldHeights: [DROPZONE_HEIGHT, 36, 36],
+    fields: [
+      { height: DROPZONE_HEIGHT },
+      { height: 36 },
+      { height: 36, hint: true },
+      { height: 36 },
+    ],
     focusForm: () => setFocus('file'),
   });
   const isPending = isSubmitting || importSchedule.isPending;
@@ -78,15 +92,18 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     }
   }, [initialProjectId, projects, getValues, resetField]);
 
-  /** Keeps the chosen file and fills an empty Name from its file name. */
+  /** Keeps the chosen file and fills an empty Name and an empty Code from its file name. */
   function chooseFile(file: File | null, onChange: (file: File | null) => void): void {
     onChange(file);
-    if (file === null || getValues('name').trim() !== '') return;
-    setValue('name', scheduleNameFromFile(file.name), {
-      shouldDirty: true,
-      // After a submit, fields check themselves as they change; before it, they stay quiet.
-      shouldValidate: isSubmitted,
-    });
+    if (file === null) return;
+    // After a submit, fields check themselves as they change; before it, they stay quiet.
+    const options = { shouldDirty: true, shouldValidate: isSubmitted };
+    if (getValues('name').trim() === '') {
+      setValue('name', scheduleNameFromFile(file.name), options);
+    }
+    if (getValues('code').trim() === '') {
+      setValue('code', suggestImportCode([], { fileName: file.name }), options);
+    }
   }
 
   async function save(values: ImportScheduleValues): Promise<void> {
@@ -102,7 +119,12 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     } catch (error) {
       // Only a failure re-arms the form; after a success the dialog is closing.
       submittingRef.current = false;
-      toast.error(errorMessage(error));
+      // The project already uses the code (R8): the answer goes under Code.
+      if (error instanceof RepositoryError && error.code === 'conflict') {
+        setError('code', { type: 'conflict', message: error.message }, { shouldFocus: true });
+      } else {
+        toast.error(errorMessage(error));
+      }
     }
   }
 
@@ -116,6 +138,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
   }
 
   const nameError = errors.name?.message;
+  const codeError = errors.code?.message;
 
   return (
     <FormDialog
@@ -169,6 +192,30 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
             {nameError && (
               <p id={nameErrorId} className="text-xs text-destructive">
                 {nameError}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={codeId} className="text-xs font-semibold">
+              Code
+            </Label>
+            <Input
+              id={codeId}
+              autoComplete="off"
+              spellCheck={false}
+              aria-required="true"
+              aria-invalid={codeError ? true : undefined}
+              aria-describedby={codeError ? `${codeHintId} ${codeErrorId}` : codeHintId}
+              readOnly={isPending}
+              className="font-mono"
+              {...register('code')}
+            />
+            <p id={codeHintId} className="text-xs text-muted-foreground">
+              {SCHEDULE_CODE_HINT}
+            </p>
+            {codeError && (
+              <p id={codeErrorId} className="text-xs text-destructive">
+                {codeError}
               </p>
             )}
           </div>

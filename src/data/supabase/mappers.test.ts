@@ -35,6 +35,8 @@ describe('mappers', () => {
       location_lng: null,
       schedule_count: 2,
       total_schedule_count: 2,
+      current_schedule_id: null,
+      current_schedule_name: null,
     };
     expect(mapProjectSummary(row, 'https://signed/url')).toEqual({
       id: 'p1',

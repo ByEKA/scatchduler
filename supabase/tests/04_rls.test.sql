@@ -54,7 +54,7 @@ select is_empty($$ select 1 from public.tasks $$, 'a viewer sees only their own 
 -- an editor
 select tests.authenticate_as(tests.user_id('ed@test.dev'));
 select lives_ok($$ insert into public.projects (workspace_id, code, name) values (tests.workspace_id('Crew'), 'E1', 'Editor project') $$, 'an editor adds projects');
-select lives_ok($$ insert into public.schedules (project_id, name, source) values (tests.project_id('P2'), 'By editor', 'blank') $$, 'an editor adds schedules');
+select lives_ok($$ insert into public.schedules (project_id, name, code, source) values (tests.project_id('P2'), 'By editor', 'BE-1', 'blank') $$, 'an editor adds schedules');
 select is((select updated_at from public.projects where code = 'P2'), now(), 'the editor''s schedule touches the project (touch_project must be a definer)');
 with u as (update public.projects set name = 'Pier' where code = 'P1' returning 1) select is(count(*)::int, 1, 'an editor renames projects') from u;
 with d as (delete from public.projects where code = 'E1' returning 1) select is(count(*)::int, 0, 'only owners delete projects') from d;

@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(24);
+select plan(32);
 
 select has_table('public', t, format('table public.%s exists', t))
   from unnest(array['profiles', 'subscriptions', 'workspaces', 'workspace_members', 'workspace_invitations',
@@ -11,6 +11,9 @@ select is((select count(*)::int from pg_class c join pg_namespace n on n.oid = c
 
 select has_column('public', 'projects', c, format('projects.%s exists', c))
   from unnest(array['status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
+select has_column('public', 'schedules', c, format('schedules.%s exists', c))
+  from unnest(array['code', 'notes', 'is_current', 'baseline', 'update_number', 'archived_at', 'activity_count']) as c;
+select has_view('public', 'schedule_items', 'view schedule_items exists');
 
 do $$
 declare v_owner uuid := tests.create_profile('owner@test.dev'); v_ws uuid;

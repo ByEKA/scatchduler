@@ -18,6 +18,26 @@ describe('toRepositoryError', () => {
       'This ID is already used in this workspace',
     ],
     [
+      pg('23505', 'duplicate key value violates unique constraint "schedules_project_code_uq"'),
+      'conflict',
+      'This code is already used in this project.',
+    ],
+    [
+      pg('23505', 'duplicate key value violates unique constraint "schedules_project_update_uq"'),
+      'conflict',
+      'This update number is already used in this project.',
+    ],
+    [
+      pg('23505', 'duplicate key value violates unique constraint "schedules_one_primary_uq"'),
+      'conflict',
+      'Another change was saved at the same time. Refresh and try again.',
+    ],
+    [
+      pg('23505', 'duplicate key value violates unique constraint "schedules_one_current_uq"'),
+      'conflict',
+      'Another change was saved at the same time. Refresh and try again.',
+    ],
+    [
       pg('23514', 'A workspace needs at least one owner.', 'app'),
       'validation',
       'A workspace needs at least one owner.',

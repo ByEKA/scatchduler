@@ -30,6 +30,22 @@ describe('seed', () => {
     }
   });
 
+  it('gives every seed schedule its code (spec §4.5)', () => {
+    const db = seed('default', now);
+    const projectCode = (id: string) => db.projects.find((p) => p.id === id)!.code;
+    expect(db.schedules.map((s) => [projectCode(s.projectId), s.name, s.code])).toEqual([
+      ['001', 'Main schedule', 'MS-01'],
+      ['003', 'Baseline', 'BL-01'],
+      ['003', 'Update 1', 'UP-01'],
+      ['003', 'Update 2', 'UP-02'],
+      ['004', 'Baseline', 'BL-01'],
+      ['004', 'Recovery plan', 'RP-01'],
+      ['005', 'Baseline', 'BL-01'],
+      ['T-01', 'Baseline rev. 3', 'BL-03'],
+      ['T-01', 'Look-ahead W42', 'LA-42'],
+    ]);
+  });
+
   it('stores status dates as local calendar dates', () => {
     // 05:00 UTC is 22:00 the evening before in America/Los_Angeles
     const db = seed('default', new Date('2026-10-14T05:00:00.000Z'));

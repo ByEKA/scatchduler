@@ -18,6 +18,7 @@ describe('ImportScheduleDialog', () => {
       new File(['x'], 'Rev7.XER'),
     );
     expect(screen.getByLabelText('Name')).toHaveValue('Rev7');
+    expect(screen.getByLabelText('Code')).toHaveValue('Rev7');
     await waitFor(() =>
       expect(screen.getByLabelText('Project')).toHaveTextContent('Riverside Office Tower'),
     );
@@ -26,7 +27,34 @@ describe('ImportScheduleDialog', () => {
     expect(dataLayer.store.read().schedules.find((s) => s.name === 'Rev7')).toMatchObject({
       source: 'import',
       sourceFileName: 'Rev7.XER',
+      code: 'Rev7',
     });
+  });
+
+  it('shows a code the project already uses under Code and focuses it', async () => {
+    const dataLayer = createTestDataLayer();
+    const { user } = renderWithProviders(<OpenDialog kind="importSchedule" />, {
+      route: '/home',
+      path: '/home',
+      dataLayer,
+    });
+    await user.upload(
+      await screen.findByLabelText('Schedule file', { selector: 'input' }),
+      new File(['x'], 'Rev7.xer'),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('Project')).toHaveTextContent('Riverside Office Tower'),
+    );
+    const code = screen.getByLabelText('Code');
+    await user.clear(code);
+    await user.type(code, 'MS-01');
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    expect(
+      await screen.findByText('This code is already used in this project.'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(code).toHaveFocus());
+    expect(screen.getByTestId('dialog')).toHaveTextContent('importSchedule');
+    expect(dataLayer.store.read().schedules.some((s) => s.name === 'Rev7')).toBe(false);
   });
 
   it('rejects unsupported files', async () => {

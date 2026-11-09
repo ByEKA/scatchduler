@@ -95,7 +95,10 @@ export function mapWorkspaceSummary(row: WorkspaceSummaryRow): WorkspaceSummary 
 
 // A `projects` row fits this shape too, so both project mappers share one conversion.
 function projectFrom(
-  row: Omit<ProjectSummaryRow, 'schedule_count' | 'total_schedule_count'>,
+  row: Omit<
+    ProjectSummaryRow,
+    'schedule_count' | 'total_schedule_count' | 'current_schedule_id' | 'current_schedule_name'
+  >,
   coverUrl: string | null,
 ): Project {
   return {
@@ -142,6 +145,7 @@ export function mapSchedule(row: ScheduleRow): Schedule {
     id: row.id,
     projectId: row.project_id,
     name: row.name,
+    code: row.code,
     statusDate: row.status_date,
     source: row.source as ScheduleSource,
     sourceFileName: row.source_file_name,

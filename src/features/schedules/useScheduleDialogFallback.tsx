@@ -17,12 +17,20 @@ export interface ScheduleDialogFallback {
   footer: NonNullable<FormDialogProps['footer']>;
 }
 
+/** One field of the loading skeleton. */
+export interface ScheduleDialogSkeletonField {
+  /** The control's height in px. */
+  height: number;
+  /** A one-line hint under the control, as under Code. */
+  hint?: boolean;
+}
+
 export interface ScheduleDialogFallbackOptions {
   /**
-   * Control heights of the form's fields in px, so the loading state is the form's size. The last
-   * field is Project, which has the "Create a new project" link under it.
+   * The form's fields, so the loading state is the form's size. The last field is Project, which
+   * has the "Create a new project" link under it.
    */
-  fieldHeights: readonly number[];
+  fields: readonly ScheduleDialogSkeletonField[];
   /** Focuses the form's first field. */
   focusForm: () => void;
 }
@@ -37,10 +45,7 @@ export interface ScheduleDialogFallbackOptions {
  * goes to the view's first control when the dialog opens and again when the view changes: the
  * form's first field, or "Create project". While loading or after an error, Radix picks it.
  */
-export function useScheduleDialogFallback({
-  fieldHeights,
-  focusForm,
-}: ScheduleDialogFallbackOptions): {
+export function useScheduleDialogFallback({ fields, focusForm }: ScheduleDialogFallbackOptions): {
   fallback: ScheduleDialogFallback | null;
   onOpenAutoFocus: (event: Event) => void;
 } {
@@ -86,11 +91,12 @@ export function useScheduleDialogFallback({
         <>
           {view === 'loading' && (
             <div aria-hidden="true" className="flex flex-col gap-4">
-              {fieldHeights.map((height, index) => (
+              {fields.map((field, index) => (
                 <div key={index} className="flex flex-col gap-1.5">
                   <Skeleton className="h-3 w-20" />
-                  <Skeleton className="w-full" style={{ height }} />
-                  {index === fieldHeights.length - 1 && <Skeleton className="h-4 w-32" />}
+                  <Skeleton className="w-full" style={{ height: field.height }} />
+                  {field.hint && <Skeleton className="h-4 w-72" />}
+                  {index === fields.length - 1 && <Skeleton className="h-4 w-32" />}
                 </div>
               ))}
             </div>

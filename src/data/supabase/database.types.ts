@@ -79,6 +79,18 @@ isOneToOne: false
       foreignKeyName: "schedule_shares_schedule_id_fkey"
       columns: ["schedule_id"]
 isOneToOne: false
+      referencedRelation: "project_summaries"
+      referencedColumns: ["current_schedule_id"]
+    },{
+      foreignKeyName: "schedule_shares_schedule_id_fkey"
+      columns: ["schedule_id"]
+isOneToOne: false
+      referencedRelation: "schedule_items"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "schedule_shares_schedule_id_fkey"
+      columns: ["schedule_id"]
+isOneToOne: false
       referencedRelation: "schedules"
       referencedColumns: ["id"]
     },{
@@ -115,14 +127,14 @@ isOneToOne: false
                   ]
                 },"schedules": {
                   Row: {
-                    "created_at": string,"id": string,"name": string,"project_id": string,"source": string,"source_file_name": string | null,"source_file_path": string | null,"status_date": string | null,"updated_at": string
+                    "activity_count": number,"archived_at": string | null,"baseline": string,"code": string | null,"created_at": string,"id": string,"is_current": boolean,"name": string,"notes": string | null,"project_id": string,"source": string,"source_file_name": string | null,"source_file_path": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"id"?: string,"name": string,"project_id": string,"source": string,"source_file_name"?: string | null,"source_file_path"?: string | null,"status_date"?: string | null,"updated_at"?: string
+                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"code"?: string | null,"created_at"?: string,"id"?: string,"is_current"?: boolean,"name": string,"notes"?: string | null,"project_id": string,"source": string,"source_file_name"?: string | null,"source_file_path"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"id"?: string,"name"?: string,"project_id"?: string,"source"?: string,"source_file_name"?: string | null,"source_file_path"?: string | null,"status_date"?: string | null,"updated_at"?: string
+                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"code"?: string | null,"created_at"?: string,"id"?: string,"is_current"?: boolean,"name"?: string,"notes"?: string | null,"project_id"?: string,"source"?: string,"source_file_name"?: string | null,"source_file_path"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -322,16 +334,10 @@ isOneToOne: false
           Views: {
             "project_summaries": {
                   Row: {
-                    "client_contact_email": string | null,"client_contact_name": string | null,"client_name": string | null,"code": string | null,"cover_image_path": string | null,"created_at": string | null,"description": string | null,"id": string | null,"location_address": string | null,"location_city": string | null,"location_country": string | null,"location_lat": number | null,"location_lng": number | null,"name": string | null,"planned_finish_date": string | null,"project_type": string | null,"schedule_count": number | null,"sector": string | null,"stage": string | null,"start_date": string | null,"status": string | null,"status_date": string | null,"total_schedule_count": number | null,"updated_at": string | null,"workspace_id": string | null
+                    "client_contact_email": string | null,"client_contact_name": string | null,"client_name": string | null,"code": string | null,"cover_image_path": string | null,"created_at": string | null,"current_schedule_id": string | null,"current_schedule_name": string | null,"description": string | null,"id": string | null,"location_address": string | null,"location_city": string | null,"location_country": string | null,"location_lat": number | null,"location_lng": number | null,"name": string | null,"planned_finish_date": string | null,"project_type": string | null,"schedule_count": number | null,"sector": string | null,"stage": string | null,"start_date": string | null,"status": string | null,"status_date": string | null,"total_schedule_count": number | null,"updated_at": string | null,"workspace_id": string | null
                   }
                   ComputedFields: never
-                  Insert: {
-                           "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string | null,"cover_image_path"?: string | null,"created_at"?: string | null,"description"?: string | null,"id"?: string | null,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"location_lat"?: number | null,"location_lng"?: number | null,"name"?: string | null,"planned_finish_date"?: string | null,"project_type"?: string | null,"schedule_count"?: never,"sector"?: string | null,"stage"?: string | null,"start_date"?: string | null,"status"?: string | null,"status_date"?: string | null,"total_schedule_count"?: never,"updated_at"?: string | null,"workspace_id"?: string | null
-                         }
-                        Update: {
-                           "client_contact_email"?: string | null,"client_contact_name"?: string | null,"client_name"?: string | null,"code"?: string | null,"cover_image_path"?: string | null,"created_at"?: string | null,"description"?: string | null,"id"?: string | null,"location_address"?: string | null,"location_city"?: string | null,"location_country"?: string | null,"location_lat"?: number | null,"location_lng"?: number | null,"name"?: string | null,"planned_finish_date"?: string | null,"project_type"?: string | null,"schedule_count"?: never,"sector"?: string | null,"stage"?: string | null,"start_date"?: string | null,"status"?: string | null,"status_date"?: string | null,"total_schedule_count"?: never,"updated_at"?: string | null,"workspace_id"?: string | null
-                         }
-                        Relationships: [
+                  Relationships: [
                     {
       foreignKeyName: "projects_workspace_id_fkey"
       columns: ["workspace_id"]
@@ -344,6 +350,38 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "workspaces"
       referencedColumns: ["id"]
+    }
+                  ]
+                },"schedule_items": {
+                  Row: {
+                    "activity_count": number | null,"archived_at": string | null,"baseline": string | null,"code": string | null,"created_at": string | null,"id": string | null,"is_current": boolean | null,"name": string | null,"notes": string | null,"project_id": string | null,"source": string | null,"source_file_name": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"code"?: string | null,"created_at"?: string | null,"id"?: string | null,"is_current"?: boolean | null,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
+                         }
+                        Update: {
+                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"code"?: string | null,"created_at"?: string | null,"id"?: string | null,"is_current"?: boolean | null,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
+                         }
+                        Relationships: [
+                    {
+      foreignKeyName: "schedules_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
+      referencedRelation: "project_summaries"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "schedules_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
+      referencedRelation: "projects"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "schedules_project_id_fkey"
+      columns: ["project_id"]
+isOneToOne: false
+      referencedRelation: "shared_with_me"
+      referencedColumns: ["project_id"]
     }
                   ]
                 },"shared_with_me": {
@@ -421,6 +459,9 @@ isOneToOne: false
               "bucket": string,"path": string
             }[]
                            },
+"delete_schedules":
+{ Args: { "p_schedule_ids": (string)[] }; Returns: string[]
+                           },
 "is_project_code_available":
 { Args: { "p_code": string,"p_workspace_id": string }; Returns: boolean
                            },
@@ -430,8 +471,17 @@ isOneToOne: false
 "save_invitation":
 { Args: { "p_email": string,"p_invited_by": string,"p_role": string,"p_user_id": string,"p_workspace_id": string }; Returns: string
                            },
+"set_current_schedule":
+{ Args: { "p_schedule_id": string }; Returns: undefined
+                           },
+"set_schedules_archived":
+{ Args: { "p_archived": boolean,"p_schedule_ids": (string)[] }; Returns: undefined
+                           },
 "update_member_role":
 { Args: { "p_role": string,"p_user_id": string,"p_workspace_id": string }; Returns: undefined
+                           },
+"update_schedule_details":
+{ Args: { "p_baseline": string,"p_code": string,"p_name": string,"p_notes": string,"p_schedule_id": string,"p_status_date": string,"p_update_number": number }; Returns: undefined
                            }
           }
           Enums: {

@@ -3,6 +3,7 @@ import type { ZodType } from 'zod';
 import {
   defaultProjectId,
   importScheduleSchema,
+  makeNewScheduleSchema,
   MAX_SCHEDULE_BYTES,
   newScheduleSchema,
   scheduleNameFromFile,
@@ -15,19 +16,19 @@ const issues = (schema: ZodType, value: unknown) => {
 
 describe('schedule schemas', () => {
   it('validates names and project', () => {
-    expect(issues(newScheduleSchema, { name: '   ', projectId: 'p' })).toEqual([
+    expect(issues(newScheduleSchema, { name: '   ', code: 'S01', projectId: 'p' })).toEqual([
       'Enter a schedule name',
     ]);
-    expect(issues(newScheduleSchema, { name: 'x'.repeat(81), projectId: 'p' })).toEqual([
-      'Use 80 characters or fewer',
-    ]);
-    expect(issues(newScheduleSchema, { name: 'Baseline', projectId: '' })).toEqual([
+    expect(
+      issues(newScheduleSchema, { name: 'x'.repeat(81), code: 'S01', projectId: 'p' }),
+    ).toEqual(['Use 80 characters or fewer']);
+    expect(issues(newScheduleSchema, { name: 'Baseline', code: 'S01', projectId: '' })).toEqual([
       'Choose a project',
     ]);
   });
 
   it('validates import files case-insensitively and by size', () => {
-    const base = { name: 'Baseline', projectId: 'p' };
+    const base = { name: 'Baseline', code: 'S01', projectId: 'p' };
     expect(issues(importScheduleSchema, { ...base, file: null })).toEqual([
       'Choose a file to import',
     ]);
@@ -42,6 +43,19 @@ describe('schedule schemas', () => {
     expect(issues(importScheduleSchema, { ...base, file: big })).toEqual([
       'File must be 20 MB or smaller',
     ]);
+  });
+
+  it('validates schedule codes and checks them against the project codes', () => {
+    const schema = makeNewScheduleSchema(['MS-01']);
+    const issues = (code: string) => {
+      const result = schema.safeParse({ name: 'Plan', code, projectId: 'p1' });
+      return result.success ? [] : result.error.issues.map((issue) => issue.message);
+    };
+    expect(issues('S01')).toEqual([]);
+    expect(issues('  ')).toEqual(['Enter a schedule code']);
+    expect(issues('a b')).toEqual(['Use letters, numbers, ., - or _']);
+    expect(issues('x'.repeat(25))).toEqual(['Use 24 characters or fewer']);
+    expect(issues(' ms-01 ')).toEqual(['This code is already used in this project']);
   });
 
   it('derives a schedule name from the file name', () => {

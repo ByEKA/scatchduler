@@ -148,6 +148,7 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
       const schedule = await f.repository.createSchedule({
         projectId: f.projectIds['006']!,
         name: 'Baseline',
+        code: 'S01',
       });
       expect(schedule).toMatchObject({
         source: 'blank',
@@ -165,14 +166,48 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
       const imported = await f.repository.importSchedule({
         projectId: f.projectIds['002']!,
         name: 'Rev 7',
+        code: 'REV-7',
         file: new File(['x'], 'rev7.XER'),
       });
       expect(imported).toMatchObject({ source: 'import', sourceFileName: 'rev7.XER' });
       for (const id of unknownIds()) {
         await expect(
-          f.repository.createSchedule({ projectId: id, name: 'X' }),
+          f.repository.createSchedule({ projectId: id, name: 'X', code: 'X' }),
         ).rejects.toMatchObject({ code: 'not_found', message: 'Project not found' });
       }
+    });
+
+    it('requires a schedule code that is unique in its project, ignoring case', async () => {
+      const f = await makeFixture();
+      const riverside = f.projectIds['001']!;
+      await expect(
+        f.repository.createSchedule({ projectId: riverside, name: 'X', code: '  ' }),
+      ).rejects.toMatchObject({
+        code: 'validation',
+        message: 'Enter a schedule code.',
+      });
+      await expect(
+        f.repository.createSchedule({ projectId: riverside, name: 'X', code: 'a b' }),
+      ).rejects.toMatchObject({ code: 'validation' });
+      const taken = { code: 'conflict', message: 'This code is already used in this project.' };
+      await expect(
+        f.repository.createSchedule({ projectId: riverside, name: 'X', code: ' ms-01 ' }),
+      ).rejects.toMatchObject(taken);
+      await expect(
+        f.repository.importSchedule({
+          projectId: riverside,
+          name: 'X',
+          code: 'MS-01',
+          file: new File(['x'], 'x.xer'),
+        }),
+      ).rejects.toMatchObject(taken);
+      expect(
+        await f.repository.createSchedule({
+          projectId: f.projectIds['002']!,
+          name: 'X',
+          code: ' ms-01 ',
+        }),
+      ).toMatchObject({ code: 'ms-01' });
     });
 
     it('lists schedules shared with me newest first', async () => {
@@ -408,7 +443,11 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           f.repository.createProject(makeNewProjectInput(team, { code: 'E-1' })),
         ).resolves.toBeDefined();
         await expect(
-          f.repository.createSchedule({ projectId: f.projectIds['T-01']!, name: 'Editor plan' }),
+          f.repository.createSchedule({
+            projectId: f.projectIds['T-01']!,
+            name: 'Editor plan',
+            code: 'ED-1',
+          }),
         ).resolves.toBeDefined();
         expect(await f.repository.listInvitations(team)).toEqual([]);
       });
@@ -420,12 +459,13 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           f.repository.createProject(makeNewProjectInput(f.workspaces.team!, { code: 'V-1' })),
         ).rejects.toMatchObject({ code: 'forbidden' });
         await expect(
-          f.repository.createSchedule({ projectId: tunnel, name: 'Nope' }),
+          f.repository.createSchedule({ projectId: tunnel, name: 'Nope', code: 'NOPE' }),
         ).rejects.toMatchObject({ code: 'forbidden' });
         await expect(
           f.repository.importSchedule({
             projectId: tunnel,
             name: 'Nope',
+            code: 'NOPE',
             file: new File(['x'], 'x.xer'),
           }),
         ).rejects.toMatchObject({ code: 'forbidden' });

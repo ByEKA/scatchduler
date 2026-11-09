@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ID } from '@/data/types';
+import { isCodeTaken } from '@/features/files/codes';
 
 /** The schedule files the import accepts, compared case-insensitively (spec §5.7). */
 export const SCHEDULE_EXTENSIONS = ['.xer', '.xml', '.csv'] as const;
@@ -35,19 +36,45 @@ const scheduleFile = z
       .max(MAX_SCHEDULE_BYTES, 'File must be 20 MB or smaller'),
   );
 
-export const newScheduleSchema = z.object({ name: scheduleName, projectId });
+/** The hint under every schedule Code field (P3 core spec §6.4). */
+export const SCHEDULE_CODE_HINT = 'Letters, numbers, ., - or _ · up to 24 characters';
 
-export const importScheduleSchema = z.object({ file: scheduleFile, name: scheduleName, projectId });
+/**
+ * A schedule code (P3 core spec §6.5, R8): required, letters, digits, `.`, `-` and `_`, at most
+ * 24 characters, and none of the project's `taken` codes, ignoring case. The pattern allows any
+ * length, so a long code reports only its length.
+ */
+function scheduleCode(taken: readonly string[]) {
+  return z
+    .string()
+    .trim()
+    .min(1, 'Enter a schedule code')
+    .regex(/^[A-Za-z0-9_.-]*$/, 'Use letters, numbers, ., - or _')
+    .max(24, 'Use 24 characters or fewer')
+    .refine((code) => !isCodeTaken(taken, code), 'This code is already used in this project');
+}
+
+/** New schedule's form; `taken` holds the codes of the chosen project's schedules. */
+export function makeNewScheduleSchema(taken: readonly string[]) {
+  return z.object({ name: scheduleName, code: scheduleCode(taken), projectId });
+}
+
+/** The P2 import dialog's form (the interim import path, P3 core spec §2.4). */
+export function makeImportScheduleSchema(taken: readonly string[]) {
+  return z.object({ file: scheduleFile, name: scheduleName, code: scheduleCode(taken), projectId });
+}
+
+// Until the files page knows a project's codes (Task 20), the dialogs check none and the server's
+// R8 check answers.
+export const newScheduleSchema = makeNewScheduleSchema([]);
+
+export const importScheduleSchema = makeImportScheduleSchema([]);
 
 export type NewScheduleValues = z.infer<typeof newScheduleSchema>;
 export type ImportScheduleValues = z.infer<typeof importScheduleSchema>;
 
-/** The file name without its last extension and outer spaces: "Baseline.v2.XER" → "Baseline.v2". */
-export function scheduleNameFromFile(fileName: string): string {
-  const dot = fileName.lastIndexOf('.');
-  // In ".xer" the only dot starts the name, so there is no extension to drop.
-  return (dot > 0 ? fileName.slice(0, dot) : fileName).trim();
-}
+// Defined in a leaf module, so codes.ts can use it without an import cycle.
+export { scheduleNameFromFile } from '@/features/schedules/file-name';
 
 /**
  * The project a schedule dialog starts with (spec §6.7): the one the dialog was opened for, else
@@ -63,7 +90,12 @@ export function defaultProjectId(
   return candidates.find((id) => id !== undefined && projects.some((p) => p.id === id)) ?? null;
 }
 
-/** The schedule page a new schedule opens on (spec §4.4). */
+/** The schedule page an imported schedule opens on (spec §4.4). */
 export function schedulePath(workspaceId: ID, projectId: ID, scheduleId: ID): string {
   return `/w/${workspaceId}/p/${projectId}/schedule?scheduleId=${scheduleId}`;
+}
+
+/** A project's files page, where a new schedule lands (P3 core spec D16). */
+export function filesPath(workspaceId: ID, projectId: ID): string {
+  return `/w/${workspaceId}/p/${projectId}/files`;
 }

@@ -1,5 +1,6 @@
 import { RepositoryError } from '@/data/errors';
 import { withLatency, type LatencyOptions } from '@/data/mock/latency';
+import { checkNewScheduleCode } from '@/data/mock/schedule-rules';
 import type { MockDb, MockInvitation, MockMember } from '@/data/mock/seed';
 import type { MockStore } from '@/data/mock/store';
 import type {
@@ -286,13 +287,11 @@ export class MockRepository implements DataRepository {
   }
 
   createSchedule(input: NewScheduleInput): Promise<Schedule> {
-    return this.run('write', () => this.addSchedule(input.projectId, input.name, 'blank', null));
+    return this.run('write', () => this.addSchedule(input, 'blank', null));
   }
 
   importSchedule(input: ImportScheduleInput): Promise<Schedule> {
-    return this.run('write', () =>
-      this.addSchedule(input.projectId, input.name, 'import', input.file.name),
-    );
+    return this.run('write', () => this.addSchedule(input, 'import', input.file.name));
   }
 
   listSharedWithMe(): Promise<SharedScheduleRow[]> {
@@ -536,15 +535,16 @@ export class MockRepository implements DataRepository {
   }
 
   /**
-   * Both schedule methods: an editor or owner of the project's workspace adds the schedule; it
-   * copies the project's status date and sets the project's `updatedAt` to now.
+   * Both schedule methods: an editor or owner of the project's workspace adds the schedule with a
+   * code the project doesn't use yet (R8, checked after the project and the role, as the
+   * database does); it copies the project's status date and sets the project's `updatedAt` to now.
    */
   private addSchedule(
-    projectId: ID,
-    name: string,
+    input: { projectId: ID; name: string; code: string },
     source: ScheduleSource,
     sourceFileName: string | null,
   ): Schedule {
+    const { projectId } = input;
     const timestamp = this.now().toISOString();
     return this.commit((db) => {
       const project = db.projects.find((p) => p.id === projectId);
@@ -552,10 +552,12 @@ export class MockRepository implements DataRepository {
       if (!hasRole(db, project.workspaceId, 'editor')) {
         throw new RepositoryError('forbidden', NO_PERMISSION);
       }
+      const code = checkNewScheduleCode(db.schedules, projectId, input.code);
       const schedule: Schedule = {
         id: crypto.randomUUID(),
         projectId,
-        name: name.trim(),
+        name: input.name.trim(),
+        code,
         statusDate: project.statusDate,
         source,
         sourceFileName,

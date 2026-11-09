@@ -123,12 +123,15 @@ describe('data hooks', () => {
       { wrapper: createQueryWrapper(dl) },
     );
     await waitFor(() => expect(result.current.recent.isSuccess).toBe(true));
-    await act(() => result.current.create.mutateAsync({ projectId: projectId('006'), name: 'B' }));
+    await act(() =>
+      result.current.create.mutateAsync({ projectId: projectId('006'), name: 'B', code: 'S01' }),
+    );
     await waitFor(() => expect(result.current.recent.data?.[0]?.code).toBe('006'));
     await act(() =>
       result.current.importSchedule.mutateAsync({
         projectId: projectId('005'),
         name: 'Rev 2',
+        code: 'REV-2',
         file: new File(['x'], 'rev2.xer'),
       }),
     );

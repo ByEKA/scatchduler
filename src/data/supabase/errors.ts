@@ -22,6 +22,19 @@ const DEFAULT_MESSAGES: Record<RepositoryErrorCode, string> = {
 };
 
 const CODE_TAKEN = 'This ID is already used in this workspace';
+const SAVED_MEANWHILE = 'Another change was saved at the same time. Refresh and try again.';
+
+/**
+ * Unique constraints whose 23505 the UI explains (P3 core spec §4.11). The current and primary
+ * indexes only fail when two writes race (R1, R5).
+ */
+const UNIQUE_VIOLATIONS: ReadonlyArray<readonly [constraint: string, message: string]> = [
+  ['projects_workspace_code_uq', CODE_TAKEN],
+  ['schedules_project_code_uq', 'This code is already used in this project.'],
+  ['schedules_project_update_uq', 'This update number is already used in this project.'],
+  ['schedules_one_primary_uq', SAVED_MEANWHILE],
+  ['schedules_one_current_uq', SAVED_MEANWHILE],
+];
 const WRONG_PASSWORD = 'Wrong email or password';
 const LINK_EXPIRED = 'This link has expired or was already used.';
 const WEAK_PASSWORD = 'Use at least 10 characters with letters and numbers';
@@ -141,10 +154,11 @@ function fromAuth(error: ErrorRecord): RepositoryError {
 function fromPostgres(error: ErrorRecord, code: string, notFound: string | undefined) {
   const message = stringField(error, 'message') ?? '';
   switch (code) {
-    case '23505':
-      return message.includes('projects_workspace_code_uq')
-        ? make('conflict', CODE_TAKEN, error)
-        : null;
+    case '23505': {
+      // Postgres names the constraint: `… unique constraint "schedules_project_code_uq"`.
+      const match = UNIQUE_VIOLATIONS.find(([constraint]) => message.includes(constraint));
+      return match ? make('conflict', match[1], error) : null;
+    }
     case '23514':
       return stringField(error, 'hint') === 'app' && message !== ''
         ? make('validation', message, error)

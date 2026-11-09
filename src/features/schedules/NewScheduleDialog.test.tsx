@@ -22,7 +22,7 @@ async function open(dataLayer = createTestDataLayer()) {
 }
 
 describe('NewScheduleDialog', () => {
-  it('creates a schedule for the current project and opens it', async () => {
+  it('creates a schedule for the current project and opens its project files', async () => {
     const dataLayer = createTestDataLayer();
     const db = dataLayer.store.read();
     const personal = db.workspaces[0]!;
@@ -34,11 +34,29 @@ describe('NewScheduleDialog', () => {
     await user.type(name, 'Look-ahead W43');
     await user.click(screen.getByRole('button', { name: 'Create schedule' }));
     expect(await screen.findByText('Schedule created')).toBeInTheDocument();
-    const created = dataLayer.store.read().schedules.find((s) => s.name === 'Look-ahead W43')!;
     expect(screen.getByTestId('location')).toHaveTextContent(
-      `/w/${personal.id}/p/${riverside.id}/schedule?scheduleId=${created.id}`,
+      `/w/${personal.id}/p/${riverside.id}/files`,
     );
     expect(screen.queryByRole('dialog', { name: 'New schedule' })).not.toBeInTheDocument();
+  });
+
+  it('suggests a code, checks it and shows a taken one under Code', async () => {
+    const { user } = await open();
+    const code = screen.getByLabelText('Code');
+    expect(code).toHaveValue('S01');
+    expect(
+      screen.getByText('Letters, numbers, ., - or _ · up to 24 characters'),
+    ).toBeInTheDocument();
+    await user.clear(code);
+    await user.click(screen.getByRole('button', { name: 'Create schedule' }));
+    expect(await screen.findByText('Enter a schedule code')).toBeInTheDocument();
+    await user.type(code, 'ms-01');
+    await user.click(screen.getByRole('button', { name: 'Create schedule' }));
+    expect(
+      await screen.findByText('This code is already used in this project.'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(code).toHaveFocus());
+    expect(screen.getByTestId('dialog')).toHaveTextContent('newSchedule');
   });
 
   it('submits once when the button is clicked twice', async () => {
@@ -172,7 +190,7 @@ describe('NewScheduleDialog', () => {
     const created = dataLayer.store.read().schedules.find((s) => s.name === 'New schedule')!;
     expect(created.projectId).toBe(harbor.id);
     expect(screen.getByTestId('location')).toHaveTextContent(
-      `/w/${personal.id}/p/${harbor.id}/schedule?scheduleId=${created.id}`,
+      `/w/${personal.id}/p/${harbor.id}/files`,
     );
   });
 

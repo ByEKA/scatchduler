@@ -185,7 +185,12 @@ export class SupabaseRepository implements DataRepository {
       const project = await this.projectRef(input.projectId);
       const { data, error } = await this.client
         .from('schedules')
-        .insert({ project_id: project.id, name: input.name.trim(), source: 'blank' })
+        .insert({
+          project_id: project.id,
+          name: input.name.trim(),
+          code: input.code.trim(),
+          source: 'blank',
+        })
         .select('*')
         .single();
       if (error) throw error;
@@ -208,6 +213,7 @@ export class SupabaseRepository implements DataRepository {
         .insert({
           project_id: project.id,
           name: input.name.trim(),
+          code: input.code.trim(),
           source: 'import',
           source_file_name: file.name,
           source_file_path: path,

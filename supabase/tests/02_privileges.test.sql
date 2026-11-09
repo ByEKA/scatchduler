@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(26);
+select plan(33);
 
 select is_empty($$ select table_name from information_schema.role_table_grants where grantee = 'anon' and table_schema = 'public' $$,
   'anon has no privileges on public tables');
@@ -25,6 +25,13 @@ select function_privs_are('public', 'create_team_workspace', array['text'], 'aut
 select function_privs_are('public', 'create_team_workspace', array['text'], 'anon', array[]::text[], 'anon cannot');
 select column_privs_are('public', 'projects', c, 'authenticated', array['INSERT', 'SELECT', 'UPDATE'], format('projects.%s is set and edited', c))
   from unnest(array['status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
+select table_privs_are('public', 'schedules', 'authenticated', array['DELETE', 'SELECT'], 'schedules: select and delete at table level; columns for insert and update');
+select column_privs_are('public', 'schedules', 'code', 'authenticated', array['INSERT', 'SELECT', 'UPDATE'], 'schedules.code is set and edited');
+select column_privs_are('public', 'schedules', 'is_current', 'authenticated', array['SELECT'], 'is_current changes only through set_current_schedule');
+select column_privs_are('public', 'schedules', 'project_id', 'authenticated', array['INSERT', 'SELECT'], 'a schedule never moves to another project');
+select column_privs_are('public', 'schedules', 'updated_at', 'authenticated', array['SELECT'], 'schedules.updated_at is never written by users');
+select table_privs_are('public', 'schedule_items', 'authenticated', array['SELECT'], 'schedule_items is readable by signed-in users');
+select table_privs_are('public', 'schedule_items', 'anon', array[]::text[], 'anon cannot read schedule_items');
 select is_empty($$
   select n.nspname || '.' || p.proname || '(' || oidvectortypes(p.proargtypes) || ')'
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -35,9 +42,12 @@ select set_eq($$
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname in ('public', 'app') and has_function_privilege('authenticated', p.oid, 'execute') $$,
   $$ values ('app.my_project_ids(text)'), ('app.my_workspace_ids(text)'), ('public.create_team_workspace(text)'),
-            ('public.delete_project(uuid)'), ('public.is_project_code_available(uuid, text)'), ('public.remove_member(uuid, uuid)'),
-            ('public.update_member_role(uuid, uuid, text)') $$,
-  'signed-in users can execute exactly the five RPCs and the two RLS helpers');
+            ('public.delete_project(uuid)'), ('public.delete_schedules(uuid[])'),
+            ('public.is_project_code_available(uuid, text)'), ('public.remove_member(uuid, uuid)'),
+            ('public.set_current_schedule(uuid)'), ('public.set_schedules_archived(uuid[], boolean)'),
+            ('public.update_member_role(uuid, uuid, text)'),
+            ('public.update_schedule_details(uuid, text, text, date, text, text, integer)') $$,
+  'signed-in users can execute exactly the nine RPCs and the two RLS helpers');
 
 select * from finish();
 rollback;

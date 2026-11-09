@@ -41,7 +41,7 @@ test('a schedule can be created from the banner', async ({ page }) => {
   await page.getByLabel('Name', { exact: true }).fill('Look-ahead W43');
   await page.getByRole('button', { name: 'Create schedule' }).click();
   await expect(page.getByText('Schedule created')).toBeVisible();
-  await expect(page).toHaveURL(/\/schedule\?scheduleId=/);
+  await expect(page).toHaveURL(/\/p\/[^/]+\/files$/);
 });
 
 test('a project can be created through the wizard', async ({ page }) => {
@@ -64,6 +64,7 @@ test('a schedule file can be imported', async ({ page }) => {
     buffer: Buffer.from('x'),
   });
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Rev7');
+  await expect(page.getByLabel('Code', { exact: true })).toHaveValue('Rev7');
   await page.getByRole('button', { name: 'Import', exact: true }).click();
   await expect(page.getByText('Schedule imported')).toBeVisible();
   await expect(page).toHaveURL(/\/schedule\?scheduleId=/);

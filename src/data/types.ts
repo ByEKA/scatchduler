@@ -97,6 +97,7 @@ export interface Schedule {
   id: ID;
   projectId: ID;
   name: string;
+  code: string | null; // required from Phase 3 core on (R8); P2-era rows null until edited
   statusDate: ISODate | null;
   source: ScheduleSource;
   sourceFileName: string | null;

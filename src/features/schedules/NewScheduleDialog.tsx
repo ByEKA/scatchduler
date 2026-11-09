@@ -7,13 +7,16 @@ import { toast } from 'sonner';
 import { FormDialog } from '@/components/common/FormDialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RepositoryError } from '@/data/errors';
 import type { ID } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { suggestNewScheduleCode } from '@/features/files/codes';
 import { ProjectField } from '@/features/schedules/ProjectCombobox';
 import {
   defaultProjectId,
+  filesPath,
   newScheduleSchema,
-  schedulePath,
+  SCHEDULE_CODE_HINT,
   type NewScheduleValues,
 } from '@/features/schedules/schedule-schema';
 import { useScheduleDialogFallback } from '@/features/schedules/useScheduleDialogFallback';
@@ -22,9 +25,10 @@ import { useCreateSchedule } from '@/hooks/useSchedules';
 import { errorMessage } from '@/lib/format';
 
 /**
- * Creates a blank schedule and opens its page (spec §6.7). The project starts as `projectId`,
- * else the current project, else the workspace's first project; without projects the dialog asks
- * for one first.
+ * Creates a blank schedule and opens its project's files page (spec §6.7; P3 core spec §6.4,
+ * D16). The project starts as `projectId`, else the current project, else the workspace's first
+ * project; without projects the dialog asks for one first. The code starts as the first free
+ * `S` code; until the dialog knows the project's codes (Task 20), the server answers a taken one.
  */
 export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactElement {
   const { closeDialog } = useDialogs();
@@ -33,6 +37,9 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
   const createSchedule = useCreateSchedule();
   const nameId = useId();
   const nameErrorId = useId();
+  const codeId = useId();
+  const codeHintId = useId();
+  const codeErrorId = useId();
   // Drops a second submit that arrives before the pending state has rendered.
   const submittingRef = useRef(false);
   const initialProjectId =
@@ -43,14 +50,19 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
     handleSubmit,
     getValues,
     resetField,
+    setError,
     setFocus,
     formState: { errors, isDirty, isSubmitting },
   } = useForm({
     resolver: zodResolver(newScheduleSchema),
-    defaultValues: { name: 'New schedule', projectId: initialProjectId ?? '' },
+    defaultValues: {
+      name: 'New schedule',
+      code: suggestNewScheduleCode([]),
+      projectId: initialProjectId ?? '',
+    },
   });
   const { fallback, onOpenAutoFocus } = useScheduleDialogFallback({
-    fieldHeights: [36, 36],
+    fields: [{ height: 36 }, { height: 36, hint: true }, { height: 36 }],
     // The default name is selected, so typing replaces it.
     focusForm: () => setFocus('name', { shouldSelect: true }),
   });
@@ -77,11 +89,16 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
       closeDialog();
       // The picker offers only these projects, so the new schedule's project is among them.
       const parent = projects.find((p) => p.id === schedule.projectId);
-      if (parent) void navigate(schedulePath(parent.workspaceId, parent.id, schedule.id));
+      if (parent) void navigate(filesPath(parent.workspaceId, parent.id));
     } catch (error) {
       // Only a failure re-arms the form; after a success the dialog is closing.
       submittingRef.current = false;
-      toast.error(errorMessage(error));
+      // The project already uses the code (R8): the answer goes under Code.
+      if (error instanceof RepositoryError && error.code === 'conflict') {
+        setError('code', { type: 'conflict', message: error.message }, { shouldFocus: true });
+      } else {
+        toast.error(errorMessage(error));
+      }
     }
   }
 
@@ -90,6 +107,7 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
   }
 
   const nameError = errors.name?.message;
+  const codeError = errors.code?.message;
 
   return (
     <FormDialog
@@ -125,6 +143,30 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
             {nameError && (
               <p id={nameErrorId} className="text-xs text-destructive">
                 {nameError}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={codeId} className="text-xs font-semibold">
+              Code
+            </Label>
+            <Input
+              id={codeId}
+              autoComplete="off"
+              spellCheck={false}
+              aria-required="true"
+              aria-invalid={codeError ? true : undefined}
+              aria-describedby={codeError ? `${codeHintId} ${codeErrorId}` : codeHintId}
+              readOnly={isPending}
+              className="font-mono"
+              {...register('code')}
+            />
+            <p id={codeHintId} className="text-xs text-muted-foreground">
+              {SCHEDULE_CODE_HINT}
+            </p>
+            {codeError && (
+              <p id={codeErrorId} className="text-xs text-destructive">
+                {codeError}
               </p>
             )}
           </div>

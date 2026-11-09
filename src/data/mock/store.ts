@@ -8,7 +8,7 @@ import { readKey, writeKey, type StorageLike } from '@/lib/storage';
  */
 export const MOCK_DB_KEY = 'mock-db.v1';
 
-const MOCK_DB_VERSION: MockDb['version'] = 2;
+const MOCK_DB_VERSION: MockDb['version'] = 3;
 
 export interface MockStore {
   /** A deep copy of the current database. */
@@ -51,7 +51,8 @@ function readStored(storage: StorageLike | null): MockDb | null {
     return null;
   }
   // The version is the shape contract: a document of the current version is taken to have the
-  // MockDb shape. Older versions lack fields the repository needs (version 1 has no members).
+  // MockDb shape. Older versions lack fields the repository needs (version 1 has no members,
+  // version 2 no schedule codes).
   if (
     typeof value !== 'object' ||
     value === null ||
