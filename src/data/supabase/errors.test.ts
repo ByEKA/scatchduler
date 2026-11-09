@@ -48,6 +48,7 @@ describe('toRepositoryError', () => {
       "Some values aren't valid. Check the form and try again.",
     ],
     [pg('42501', 'new row violates row-level security policy'), 'forbidden', expect.any(String)],
+    [pg('P0002', 'Project not found', 'app'), 'not_found', 'Project not found'],
     [pg('PGRST301', 'JWT expired'), 'unauthorized', expect.any(String)],
     [
       new AuthApiError('Invalid login credentials', 400, 'invalid_credentials'),

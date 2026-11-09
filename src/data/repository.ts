@@ -91,6 +91,13 @@ export interface DataRepository {
    * none, and sets `updatedAt` to now.
    */
   updateProject(input: UpdateProjectInput): Promise<Project>;
+  /**
+   * Owners only (R10, R12): everyone else, share recipients included, 'forbidden'; unknown (or
+   * hidden) projects 'not_found' "Project not found". Deletes the project with its schedules and
+   * their shares in one write, keeps its tasks without a project, and then removes its stored
+   * originals and cover (best effort).
+   */
+  deleteProject(projectId: ID): Promise<void>;
 
   /**
    * Both set the parent project's updatedAt to now. A blank or malformed code rejects

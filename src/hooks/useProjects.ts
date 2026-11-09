@@ -116,3 +116,29 @@ export function useUpdateProject(): UseMutationResult<
       ]),
   });
 }
+
+export function useDeleteProject(): UseMutationResult<
+  void,
+  Error,
+  { workspaceId: ID; projectId: ID }
+> {
+  const repository = useRepository();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId }: { workspaceId: ID; projectId: ID }) =>
+      repository.deleteProject(projectId),
+    // The deleted project's own query goes first, so the refresh below doesn't refetch it.
+    onSuccess: (_result, { workspaceId, projectId }) => {
+      queryClient.removeQueries({ queryKey: queryKeys.project(workspaceId, projectId) });
+    },
+    // Also after a failure: another owner may have deleted the project already. The project
+    // prefix covers both lists and the ID checks; its schedules and their shares went with it.
+    onSettled: (_result, _error, { workspaceId }) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects(workspaceId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.allSchedules() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.sharedWithMe() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() }),
+      ]),
+  });
+}

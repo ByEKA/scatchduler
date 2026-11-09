@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { RepositoryError } from '@/data/errors';
 import {
   useCreateProject,
+  useDeleteProject,
   useProject,
   useProjectCodeAvailable,
   useRecentProjects,
@@ -183,6 +184,24 @@ describe('data hooks', () => {
       }),
     );
     await waitFor(() => expect(result.current.project.data?.name).toBe('Metro Line 2'));
+  });
+
+  it('useDeleteProject drops the project from the workspace lists', async () => {
+    const dl = createTestDataLayer();
+    const db = dl.store.read();
+    const workspaceId = db.workspaces[0]!.id;
+    const metro = db.projects.find((p) => p.code === '002')!;
+    const { result } = renderHook(
+      () => ({ recent: useRecentProjects(workspaceId), remove: useDeleteProject() }),
+      {
+        wrapper: createQueryWrapper(dl),
+      },
+    );
+    await waitFor(() => expect(result.current.recent.data?.map((p) => p.code)).toContain('002'));
+    await act(() => result.current.remove.mutateAsync({ workspaceId, projectId: metro.id }));
+    await waitFor(() =>
+      expect(result.current.recent.data?.map((p) => p.code)).not.toContain('002'),
+    );
   });
 
   it('useProjectCodeAvailable stays idle for malformed IDs', () => {

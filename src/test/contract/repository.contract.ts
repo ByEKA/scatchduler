@@ -782,5 +782,44 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         }
       });
     });
+
+    describe('project deletion', () => {
+      it('lets only owners delete a project, with its schedules and their shares', async () => {
+        for (const teamRole of ['editor', 'viewer'] as const) {
+          const other = await makeFixture({ teamRole });
+          await expect(
+            other.repository.deleteProject(other.projectIds['T-01']!),
+          ).rejects.toMatchObject({ code: 'forbidden' });
+        }
+        const f = await makeFixture();
+        await f.repository.deleteProject(f.projectIds['T-01']!);
+        await expect(f.repository.getProject(f.projectIds['T-01']!)).rejects.toMatchObject({
+          code: 'not_found',
+          message: 'Project not found',
+        });
+        expect(await f.repository.listProjects(f.workspaces.team!)).toEqual([]);
+        expect(await f.repository.listSharedWithMe()).toEqual([]);
+        expect((await f.repository.listPendingTasks()).map((t) => t.title)).toContain(
+          'Review look-ahead schedule',
+        );
+      });
+
+      it('refuses deletion to share recipients and of unknown projects', async () => {
+        const f = await makeFixture();
+        await f.repository.removeMember({
+          workspaceId: f.workspaces.team!,
+          userId: f.users.current.id,
+        });
+        await expect(f.repository.deleteProject(f.projectIds['T-01']!)).rejects.toMatchObject({
+          code: 'forbidden',
+        });
+        for (const id of unknownIds()) {
+          await expect(f.repository.deleteProject(id)).rejects.toMatchObject({
+            code: 'not_found',
+            message: 'Project not found',
+          });
+        }
+      });
+    });
   });
 }

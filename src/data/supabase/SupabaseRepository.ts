@@ -255,6 +255,27 @@ export class SupabaseRepository implements DataRepository {
     });
   }
 
+  /**
+   * `delete_project` checks visibility and the owner role, deletes the project (cascading to its
+   * schedules and their shares) and returns the stored objects; they are removed afterwards, one
+   * call per bucket, and a failed removal is ignored (R12; SQL can't delete storage objects, V7).
+   */
+  async deleteProject(projectId: ID): Promise<void> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('delete_project', {
+        p_project_id: asUuid(projectId),
+      });
+      if (error) throw toRepositoryError(error, { notFound: PROJECT_NOT_FOUND });
+      const byBucket = new Map<string, string[]>();
+      for (const { bucket, path } of data) {
+        byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), path]);
+      }
+      await Promise.all(
+        [...byBucket].map(([bucket, paths]) => this.removeQuietly(bucket, ...paths)),
+      );
+    });
+  }
+
   async createSchedule(input: NewScheduleInput): Promise<Schedule> {
     return this.run(async () => {
       const project = await this.projectRef(input.projectId);
@@ -504,12 +525,15 @@ export class SupabaseRepository implements DataRepository {
     return result.data;
   }
 
-  /** Best-effort removal of an object nothing points at any more; its own errors are ignored. */
-  private async removeQuietly(bucket: string, path: string): Promise<void> {
+  /**
+   * Best-effort removal, in one call, of objects nothing points at any more; its own errors are
+   * ignored.
+   */
+  private async removeQuietly(bucket: string, ...paths: string[]): Promise<void> {
     try {
-      await this.client.storage.from(bucket).remove([path]);
+      await this.client.storage.from(bucket).remove(paths);
     } catch {
-      // The object stays; nothing points at it.
+      // The objects stay; nothing points at them.
     }
   }
 }

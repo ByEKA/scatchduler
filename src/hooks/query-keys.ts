@@ -27,6 +27,8 @@ export const queryKeys = {
   /** One project with its summary (P3 core spec §4.4). */
   project: (workspaceId: ID | undefined, projectId: ID | undefined) =>
     ['projects', workspaceId, 'detail', projectId] as const,
+  /** Prefix of every schedule query in every project (P3 core spec §4.4). */
+  allSchedules: () => ['schedules'] as const,
   /** The members of one workspace (P2 spec §6.3). */
   members: (workspaceId: ID) => ['members', workspaceId] as const,
   /** Prefix of every member query; a profile change refreshes them all. */

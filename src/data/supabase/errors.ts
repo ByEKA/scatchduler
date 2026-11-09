@@ -167,6 +167,11 @@ function fromPostgres(error: ErrorRecord, code: string, notFound: string | undef
       return make('forbidden', undefined, error);
     case 'PGRST116':
       return make('not_found', notFound, error);
+    case 'P0002':
+      // `no_data_found` raised by an RPC for a row its caller can't see (P3 core spec §4.11).
+      return stringField(error, 'hint') === 'app' && message !== ''
+        ? make('not_found', message, error)
+        : make('not_found', notFound, error);
     default:
       return POSTGREST_JWT_CODES.has(code) ? make('unauthorized', undefined, error) : null;
   }

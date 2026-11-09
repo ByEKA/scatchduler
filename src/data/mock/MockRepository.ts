@@ -428,6 +428,29 @@ export class MockRepository implements DataRepository {
     });
   }
 
+  deleteProject(projectId: ID): Promise<void> {
+    return this.run('write', () => {
+      // One store write, as the database's single transaction (R12): the project, its schedules
+      // and their shares go; its tasks stay without a project (`on delete set null`).
+      this.commit((db) => {
+        const project = db.projects.find((p) => p.id === projectId);
+        if (!project) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
+        if (!hasRole(db, project.workspaceId, 'owner')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        const scheduleIds = new Set(
+          db.schedules.filter((s) => s.projectId === project.id).map((s) => s.id),
+        );
+        db.shares = db.shares.filter((share) => !scheduleIds.has(share.scheduleId));
+        db.schedules = db.schedules.filter((s) => !scheduleIds.has(s.id));
+        db.projects = db.projects.filter((p) => p !== project);
+        for (const task of db.tasks) {
+          if (task.projectId === project.id) task.projectId = null;
+        }
+      });
+    });
+  }
+
   createSchedule(input: NewScheduleInput): Promise<Schedule> {
     return this.run('write', () => this.addSchedule(input, 'blank', null));
   }

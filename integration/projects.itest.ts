@@ -37,4 +37,44 @@ describe('projects on the local stack', () => {
     expect(await stored('project-covers', second)).toBe(true);
     expect(await stored('project-covers', first)).toBe(false);
   });
+
+  it('removes the stored originals and the cover of a deleted project, P2-era imports included', async () => {
+    const f = await makeSupabaseRepositoryFixture();
+    const project = await f.repository.createProject(
+      makeNewProjectInput(f.workspaces.personal, { code: 'DL1', coverImage: jpeg('c.jpg') }),
+    );
+    const imported = await f.repository.importSchedule({
+      projectId: project.id,
+      name: 'Rev 1',
+      code: 'R1',
+      file: new File(['ERMHDR'], 'rev1.xer'),
+    });
+    const oldPath = `${f.workspaces.personal}/${project.id}/${crypto.randomUUID()}.xer`;
+    await admin.storage.from('schedule-imports').upload(oldPath, new Blob(['ERMHDR']));
+    await admin.from('schedules').insert({
+      project_id: project.id,
+      name: 'P2 era',
+      source: 'import',
+      source_format: 'xer',
+      source_file_name: 'old.xer',
+      source_file_path: oldPath,
+    });
+    const { data } = await admin
+      .from('schedules')
+      .select('source_file_path')
+      .eq('id', imported.id)
+      .single();
+    const paths = [data!.source_file_path!, oldPath];
+    const cover = await coverPath(project.id);
+    expect(await Promise.all(paths.map((p) => stored('schedule-imports', p)))).toEqual([
+      true,
+      true,
+    ]);
+    await f.repository.deleteProject(project.id);
+    expect(await Promise.all(paths.map((p) => stored('schedule-imports', p)))).toEqual([
+      false,
+      false,
+    ]);
+    expect(await stored('project-covers', cover)).toBe(false);
+  });
 });
