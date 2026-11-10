@@ -128,6 +128,9 @@ Minor findings the task reviews left open, for the batched cleanup after the pla
 | Task 7 | Update number 1.5 | The mock gives validation; Supabase's int parameter fails with 22P02 → unknown. The Task 21 form checks whole numbers. |
 | Task 8 | Mock archive rules not pinned | No mock test for re-archiving keeping the first `archivedAt`, nor for a restore moving `updatedAt` (R11); pgTAP 09 pins both on the database. |
 | Task 8 | Distinct ids and the archive hook untested | `deleteSchedules([id, id])` works on both adapters but no test pins it; `useSetSchedulesArchived` has no hook test. |
+| Task 9 | `MM/DD/YYYY` accepts only `/` | `03-15-2026` fails under every format, even when chosen by hand. One line in the `dates.ts` format table adds `-`; check the guess order so day-first files aren't guessed month-first. |
+| Task 9 | `detect.ts` root-attribute regex is quadratic | Bounded by the 64 KB head (3.5 s worst case, under the 30 s watchdog). Make it linear if it ever shows. |
+| Task 9 | UTF-8 with a byte-order mark can get `ENCODING_INVALID_BYTES` | Its copy says "choose another encoding", but a byte-order mark can't be overridden (§5.4). Tasks 22–23 decide where the override is offered. |
 | Task 8 | Over 500 ids with several non-UUIDs | The mock says "Select 500 schedules or fewer."; Supabase collapses non-UUIDs to one id and says "Some schedules are no longer available.". The UI passes one id (D13). |
 
 ## Owner tasks

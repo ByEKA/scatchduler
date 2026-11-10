@@ -23,6 +23,7 @@ Product context for later phases (read when designing them):
 
 - `docs/product/app-map.md` — every module of the full product, the domain model, the scheduling-engine rules and how modules depend on each other
 - `docs/product/roadmap.md` — phases P2–P7 and the improvement options
+- `docs/product/ops-study.md` — what we learned from Open Planner Studio (LGPL-3.0): a rules reference only; never copy its code (P3 core spec D58)
 
 If code and spec disagree, the spec wins. The plan's exact names, labels and copy strings (as pinned in its tests) count as part of the spec. If the spec looks wrong, or a task's tests can't pass without changing it, stop and ask the owner; never change the spec silently.
 
