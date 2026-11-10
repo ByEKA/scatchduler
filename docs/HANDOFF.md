@@ -117,7 +117,18 @@ Minor findings the task reviews left open, for the batched cleanup after the pla
 | Task 4 | The storage path rule accepts lower-case UUIDs only | Both producers emit lower case; keep it so for any new writer. |
 | Task 5 | Mock and Supabase differ on coordinates past six decimals or out of numeric range | The mock checks the range before rounding (binary `toFixed`); Postgres casts to `numeric(8,6)`/`numeric(9,6)` first, and an overflow (22003) maps to `unknown`. The wizard (Task 16) range-checks input. Fix: round before the range check in the mock; mapping 22003 to `validation` is the owner's call (outside spec §4.11). |
 | Task 5 | Untested paths | `updateProject`'s value checks on the mock; Supabase removing a new cover after a failed update; cover `'remove'` deleting the old object; `useUpdateProject` shrinking a File cover. |
-| Task 5 | Stale mock data in development browsers | `MOCK_DB_VERSION` stays 3 (plan pin), so a browser that saved mock data during Tasks 3–4 lacks the new project attributes. Run `window.__resetMockDb()` before visual checks. |
+| Tasks 5, 7 | Stale mock data in development browsers | `MOCK_DB_VERSION` stays 3 (plan pin), so a browser that saved mock data during Tasks 3–6 lacks the new project attributes and schedule fields (`archivedAt`, `isCurrent`, baseline, notes); its projects show 0 schedules. Run `window.__resetMockDb()` before visual checks. |
+| Task 6 | Mock project deletion not checked in the store | No test reads the mock store after `deleteProject` (schedules, shares, `task.projectId = null`); `listSharedWithMe` hides orphans anyway. Add a `MockRepository.test.ts` case. |
+| Task 6 | `useDeleteProject` cache effects only partly tested | The hook test checks only the projects list; add assertions for removing `project(ws, id)` and the `allSchedules`/`sharedWithMe`/`workspaces` invalidations. |
+| Task 6 | Storage bulk delete caps at 1000 objects | `deleteProject` (and Task 8's `deleteSchedules`) send one `remove(paths)` per bucket (plan pin); over 1000 objects the request is refused and every object is orphaned. Far off; owner's call: accept, or chunk by 1000. |
+| Task 6 | Two owners deleting the same project at once | The second call waits at the row lock, deletes 0 rows and raises 42501, so the user sees "You don't have permission to do that." instead of "Project not found". Fix in a new migration: raise P0002 when the delete affects 0 rows after the lock. |
+| Task 7 | Interim import: the adapters refuse unsupported files differently | The mock accepts `.xlsx` and refuses others after the role check with the generic copy; Supabase refuses anything but `.xer`/`.xml`/`.csv` first with "Use a .xer, .xml or .csv file.". The UI can't reach it; Task 23 removes the path. |
+| Task 7 | Schedule hooks' cache refresh untested | No test for `useUpdateScheduleDetails`, nor for `useCreateSchedule`/`useImportSchedule` refreshing `allSchedules()` and `sharedWithMe()`. |
+| Task 7 | Seed R6 not pinned | No test checks that each seeded project's status date equals its current schedule's, nor the spec §4.5 notes and update numbers; Supabase's sync trigger would hide a drift the mock shows. |
+| Task 7 | Update number 1.5 | The mock gives validation; Supabase's int parameter fails with 22P02 → unknown. The Task 21 form checks whole numbers. |
+| Task 8 | Mock archive rules not pinned | No mock test for re-archiving keeping the first `archivedAt`, nor for a restore moving `updatedAt` (R11); pgTAP 09 pins both on the database. |
+| Task 8 | Distinct ids and the archive hook untested | `deleteSchedules([id, id])` works on both adapters but no test pins it; `useSetSchedulesArchived` has no hook test. |
+| Task 8 | Over 500 ids with several non-UUIDs | The mock says "Select 500 schedules or fewer."; Supabase collapses non-UUIDs to one id and says "Some schedules are no longer available.". The UI passes one id (D13). |
 
 ## Owner tasks
 
