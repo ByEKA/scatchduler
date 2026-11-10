@@ -1,12 +1,15 @@
 import { RepositoryError } from '@/data/errors';
 import { withLatency, type LatencyOptions } from '@/data/mock/latency';
 import {
+  applyArchived,
   applyDetails,
+  checkDeleteKeepsCurrent,
   checkNewScheduleCode,
   checkProjectStatusDate,
   compareSchedules,
   currentScheduleOf,
   makeCurrent,
+  resolveScheduleSet,
   SCHEDULES_GONE,
   syncProjectStatusDate,
 } from '@/data/mock/schedule-rules';
@@ -529,6 +532,32 @@ export class MockRepository implements DataRepository {
     });
   }
 
+  setSchedulesArchived(input: { scheduleIds: ID[]; archived: boolean }): Promise<void> {
+    return this.run('write', () => {
+      const timestamp = this.now().toISOString();
+      this.commit((db) => {
+        const set = this.scheduleSetFor(db, input.scheduleIds, 'editor');
+        if (set) applyArchived(set.found, input.archived, timestamp);
+      });
+    });
+  }
+
+  deleteSchedules(scheduleIds: ID[]): Promise<void> {
+    return this.run('write', () => {
+      // One store write, as the database's single statement: R3 is checked on the state the
+      // whole delete leaves, then the schedules and their shares go.
+      this.commit((db) => {
+        const set = this.scheduleSetFor(db, scheduleIds, 'owner');
+        if (!set) return;
+        const deleted = set.found.map((s) => s.id);
+        checkDeleteKeepsCurrent(db.schedules, set.projectId, deleted);
+        const ids = new Set(deleted);
+        db.shares = db.shares.filter((share) => !ids.has(share.scheduleId));
+        db.schedules = db.schedules.filter((s) => !ids.has(s.id));
+      });
+    });
+  }
+
   listSharedWithMe(): Promise<SharedScheduleRow[]> {
     return this.run('read', () => {
       const db = this.store.read();
@@ -782,6 +811,26 @@ export class MockRepository implements DataRepository {
       throw new RepositoryError('forbidden', NO_PERMISSION);
     }
     return project;
+  }
+
+  /**
+   * The schedules an archive (`'editor'`) or a delete (`'owner'`) names, in the order of the
+   * database's array RPCs: R9's count, one project and every id found, then the caller's role in
+   * the project's workspace ('forbidden' without it). `null` for an empty list.
+   */
+  private scheduleSetFor(
+    db: MockDb,
+    scheduleIds: readonly ID[],
+    minRole: Role,
+  ): { projectId: ID; found: Schedule[] } | null {
+    const set = resolveScheduleSet(db.schedules, scheduleIds);
+    if (!set) return null;
+    const project = db.projects.find((p) => p.id === set.projectId);
+    if (!project) throw new RepositoryError('validation', SCHEDULES_GONE);
+    if (!hasRole(db, project.workspaceId, minRole)) {
+      throw new RepositoryError('forbidden', NO_PERMISSION);
+    }
+    return set;
   }
 
   /**

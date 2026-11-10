@@ -175,6 +175,76 @@ export function applyDetails(
   return schedule;
 }
 
+/** R9: the most schedules one archive or delete takes. */
+const MAX_SCHEDULE_SET = 500;
+
+/**
+ * R9 for `setSchedulesArchived` and `deleteSchedules`, in the order the database checks: `null`
+ * for an empty list (nothing to do); then, over the distinct ids, more than 500 is 'validation'
+ * "Select 500 schedules or fewer.", found schedules of more than one project "Select schedules
+ * from one project.", and fewer found than ids "Some schedules are no longer available. Refresh
+ * and try again.". Returns the project and the found schedules.
+ */
+export function resolveScheduleSet(
+  schedules: readonly Schedule[],
+  scheduleIds: readonly ID[],
+): { projectId: ID; found: Schedule[] } | null {
+  const ids = new Set(scheduleIds);
+  if (ids.size === 0) return null;
+  if (ids.size > MAX_SCHEDULE_SET) {
+    throw new RepositoryError('validation', 'Select 500 schedules or fewer.');
+  }
+  const found = schedules.filter((s) => ids.has(s.id));
+  const projectIds = new Set(found.map((s) => s.projectId));
+  if (projectIds.size > 1) {
+    throw new RepositoryError('validation', 'Select schedules from one project.');
+  }
+  const [projectId] = projectIds;
+  if (projectId === undefined || found.length < ids.size) {
+    throw new RepositoryError('validation', SCHEDULES_GONE);
+  }
+  return { projectId, found };
+}
+
+/**
+ * Archives or restores the schedules `resolveScheduleSet` found. Archiving checks R2 on every one
+ * first, so a set that names the current schedule changes nothing; an archived schedule keeps its
+ * first archive time and a restored one gets `null`. Every named schedule gets `updatedAt` `now`,
+ * even when its archive state stays (R11).
+ */
+export function applyArchived(found: Schedule[], archived: boolean, now: ISODateTime): void {
+  if (archived && found.some((s) => s.isCurrent)) {
+    throw new RepositoryError(
+      'validation',
+      'Make another schedule current before archiving this one.',
+    );
+  }
+  for (const schedule of found) {
+    schedule.archivedAt = archived ? (schedule.archivedAt ?? now) : null;
+    schedule.updatedAt = now;
+  }
+}
+
+/**
+ * R3 on the state the whole delete leaves: when the project would keep schedules, one of them
+ * must be its current one, so the current schedule goes only together with every other schedule
+ * of its project (or alone when it is the only one).
+ */
+export function checkDeleteKeepsCurrent(
+  schedules: readonly Schedule[],
+  projectId: ID,
+  deletedIds: readonly ID[],
+): void {
+  const deleted = new Set(deletedIds);
+  const left = schedules.filter((s) => s.projectId === projectId && !deleted.has(s.id));
+  if (left.length > 0 && !left.some((s) => s.isCurrent)) {
+    throw new RepositoryError(
+      'validation',
+      'Make another schedule current before deleting this one.',
+    );
+  }
+}
+
 /**
  * R6: while the project has a current schedule, its status date is that schedule's. Run after any
  * write that makes a schedule current or changes the current one's status date; the project's

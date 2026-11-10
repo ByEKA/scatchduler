@@ -1047,5 +1047,132 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         ).rejects.toMatchObject({ code: 'forbidden' });
       });
     });
+
+    describe('archive and delete', () => {
+      it('archives and restores schedules, never the current one', async () => {
+        const f = await makeFixture();
+        const harbor = f.projectIds['003']!;
+        const listed = await f.repository.listSchedules(harbor);
+        const update1 = listed.find((s) => s.code === 'UP-01')!;
+        const find = async () =>
+          (await f.repository.listSchedules(harbor)).find((s) => s.code === 'UP-01')!;
+        await f.repository.setSchedulesArchived({ scheduleIds: [update1.id], archived: true });
+        const archived = await find();
+        expect(archived.archivedAt).toEqual(expect.any(String));
+        expect(Date.parse(archived.updatedAt)).toBeGreaterThan(Date.parse(update1.updatedAt));
+        expect(await f.repository.getProject(harbor)).toMatchObject({
+          scheduleCount: 2,
+          totalScheduleCount: 3,
+        });
+        await f.repository.setSchedulesArchived({ scheduleIds: [update1.id], archived: false });
+        expect((await find()).archivedAt).toBeNull();
+        await expect(
+          f.repository.setSchedulesArchived({
+            scheduleIds: [listed.find((s) => s.isCurrent)!.id],
+            archived: true,
+          }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Make another schedule current before archiving this one.',
+        });
+      });
+
+      it('checks the size, the project and the existence of a set, all or nothing', async () => {
+        const f = await makeFixture();
+        const [update2, update1] = await f.repository.listSchedules(f.projectIds['003']!);
+        const [recovery] = await f.repository.listSchedules(f.projectIds['004']!);
+        const tooMany = Array.from({ length: 501 }, () => crypto.randomUUID());
+        await expect(
+          f.repository.setSchedulesArchived({ scheduleIds: tooMany, archived: true }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Select 500 schedules or fewer.',
+        });
+        await expect(
+          f.repository.setSchedulesArchived({
+            scheduleIds: [update1!.id, recovery!.id],
+            archived: true,
+          }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Select schedules from one project.',
+        });
+        await expect(
+          f.repository.deleteSchedules([update1!.id, crypto.randomUUID()]),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Some schedules are no longer available. Refresh and try again.',
+        });
+        await expect(
+          f.repository.setSchedulesArchived({
+            scheduleIds: [update1!.id, update2!.id],
+            archived: true,
+          }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Make another schedule current before archiving this one.',
+        });
+        expect(
+          (await f.repository.listSchedules(f.projectIds['003']!)).every(
+            (s) => s.archivedAt === null,
+          ),
+        ).toBe(true);
+        await expect(
+          f.repository.setSchedulesArchived({ scheduleIds: [], archived: true }),
+        ).resolves.toBeUndefined();
+      });
+
+      it('deletes schedules as sets, never the current one while others stay', async () => {
+        const f = await makeFixture();
+        const harbor = f.projectIds['003']!;
+        const [update2, update1, baseline] = await f.repository.listSchedules(harbor);
+        const keepCurrent = {
+          code: 'validation',
+          message: 'Make another schedule current before deleting this one.',
+        };
+        await expect(f.repository.deleteSchedules([update2!.id])).rejects.toMatchObject(
+          keepCurrent,
+        );
+        await expect(
+          f.repository.deleteSchedules([update2!.id, update1!.id]),
+        ).rejects.toMatchObject(keepCurrent);
+        await f.repository.deleteSchedules([baseline!.id]);
+        expect((await f.repository.listSchedules(harbor)).map((s) => s.code)).toEqual([
+          'UP-02',
+          'UP-01',
+        ]);
+        await f.repository.deleteSchedules([update1!.id, update2!.id]);
+        expect(await f.repository.listSchedules(harbor)).toEqual([]);
+        expect(await f.repository.getProject(harbor)).toMatchObject({
+          scheduleCount: 0,
+          totalScheduleCount: 0,
+          currentSchedule: null,
+        });
+        const [, rev3] = await f.repository.listSchedules(f.projectIds['T-01']!);
+        await f.repository.deleteSchedules([rev3!.id]);
+        expect((await f.repository.listSharedWithMe()).map((r) => r.scheduleName)).toEqual([
+          'Look-ahead W42',
+        ]);
+      });
+
+      it('lets editors archive and only owners delete', async () => {
+        const editor = await makeFixture({ teamRole: 'editor' });
+        const [, rev3] = await editor.repository.listSchedules(editor.projectIds['T-01']!);
+        await expect(editor.repository.deleteSchedules([rev3!.id])).rejects.toMatchObject({
+          code: 'forbidden',
+        });
+        await expect(
+          editor.repository.setSchedulesArchived({ scheduleIds: [rev3!.id], archived: true }),
+        ).resolves.toBeUndefined();
+        const viewer = await makeFixture({ teamRole: 'viewer' });
+        const [, viewerRev3] = await viewer.repository.listSchedules(viewer.projectIds['T-01']!);
+        await expect(
+          viewer.repository.setSchedulesArchived({ scheduleIds: [viewerRev3!.id], archived: true }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        await expect(viewer.repository.deleteSchedules([viewerRev3!.id])).rejects.toMatchObject({
+          code: 'forbidden',
+        });
+      });
+    });
   });
 }

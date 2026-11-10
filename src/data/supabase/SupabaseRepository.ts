@@ -378,6 +378,32 @@ export class SupabaseRepository implements DataRepository {
     });
   }
 
+  /** `set_schedules_archived` checks R9 and the editor role, then archives or restores (R2, R11). */
+  async setSchedulesArchived(input: { scheduleIds: ID[]; archived: boolean }): Promise<void> {
+    return this.run(async () => {
+      const { error } = await this.client.rpc('set_schedules_archived', {
+        p_schedule_ids: input.scheduleIds.map(asUuid),
+        p_archived: input.archived,
+      });
+      if (error) throw error;
+    });
+  }
+
+  /**
+   * `delete_schedules` checks R9 and the owner role, deletes the schedules (their shares cascade;
+   * R3 by the statement trigger) and returns their stored originals, which are removed afterwards
+   * in one call; a failed removal is ignored (SQL can't delete storage objects, V7).
+   */
+  async deleteSchedules(scheduleIds: ID[]): Promise<void> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('delete_schedules', {
+        p_schedule_ids: scheduleIds.map(asUuid),
+      });
+      if (error) throw error;
+      if (data.length > 0) await this.removeQuietly(IMPORTS, ...data);
+    });
+  }
+
   async listSharedWithMe(): Promise<SharedScheduleRow[]> {
     return this.run(async () => {
       const { data, error } = await this.client

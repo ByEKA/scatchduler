@@ -137,6 +137,24 @@ export interface DataRepository {
    * project takes the schedule's status date (R6).
    */
   setCurrentSchedule(scheduleId: ID): Promise<void>;
+  /**
+   * Editors and owners archive or restore 1–500 schedules of one project, all or nothing (R9):
+   * more than 500 distinct ids are 'validation' "Select 500 schedules or fewer.", schedules of
+   * more than one project "Select schedules from one project.", an id that names no schedule
+   * "Some schedules are no longer available. Refresh and try again."; viewers 'forbidden'. The
+   * current schedule is never archived (R2). An archived schedule keeps its first archive time,
+   * a restored one gets `archivedAt: null`, and every named schedule gets `updatedAt` now (R11).
+   * An empty list does nothing.
+   */
+  setSchedulesArchived(input: { scheduleIds: ID[]; archived: boolean }): Promise<void>;
+  /**
+   * Owners only (R10; editors and viewers 'forbidden') delete 1–500 schedules of one project with
+   * their shares, all or nothing, with R9's checks and copy as in `setSchedulesArchived`. A delete
+   * never leaves the project with schedules but no current one (R3, checked on the state after
+   * the whole delete). The stored originals are removed afterwards (best effort). An empty list
+   * does nothing.
+   */
+  deleteSchedules(scheduleIds: ID[]): Promise<void>;
 
   /** sharedAt descending. */
   listSharedWithMe(): Promise<SharedScheduleRow[]>;

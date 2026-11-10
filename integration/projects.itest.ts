@@ -77,4 +77,46 @@ describe('projects on the local stack', () => {
     ]);
     expect(await stored('project-covers', cover)).toBe(false);
   });
+
+  it('removes the stored originals of deleted schedules, P2-era imports included', async () => {
+    const f = await makeSupabaseRepositoryFixture();
+    const metro = f.projectIds['002']!;
+    const kept = await f.repository.importSchedule({
+      projectId: metro,
+      name: 'Kept',
+      code: 'K1',
+      file: new File(['ERMHDR'], 'kept.xer'),
+    });
+    const gone = await f.repository.importSchedule({
+      projectId: metro,
+      name: 'Gone',
+      code: 'G1',
+      file: new File(['ERMHDR'], 'gone.xer'),
+    });
+    const oldPath = `${f.workspaces.personal}/${metro}/${crypto.randomUUID()}.csv`;
+    await admin.storage.from('schedule-imports').upload(oldPath, new Blob(['a;b']));
+    const { data: old } = await admin
+      .from('schedules')
+      .insert({
+        project_id: metro,
+        name: 'P2 era',
+        code: 'OLD',
+        source: 'import',
+        source_format: 'csv',
+        source_file_name: 'old.csv',
+        source_file_path: oldPath,
+      })
+      .select('id')
+      .single();
+    const pathOf = async (id: string) =>
+      (await admin.from('schedules').select('source_file_path').eq('id', id).single()).data!
+        .source_file_path!;
+    const [keptPath, gonePath] = [await pathOf(kept.id), await pathOf(gone.id)];
+    await f.repository.deleteSchedules([gone.id, old!.id]);
+    expect([
+      await stored('schedule-imports', keptPath),
+      await stored('schedule-imports', gonePath),
+      await stored('schedule-imports', oldPath),
+    ]).toEqual([true, false, false]);
+  });
 });

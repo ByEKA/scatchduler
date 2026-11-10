@@ -69,3 +69,28 @@ export function useSetCurrentSchedule(): UseMutationResult<void, Error, ID> {
     onSettled: () => refreshAfterScheduleWrite(queryClient),
   });
 }
+
+/** Archives or restores schedules of one project (R2, R9, R11). */
+export function useSetSchedulesArchived(): UseMutationResult<
+  void,
+  Error,
+  { scheduleIds: ID[]; archived: boolean }
+> {
+  const repository = useRepository();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { scheduleIds: ID[]; archived: boolean }) =>
+      repository.setSchedulesArchived(input),
+    onSettled: () => refreshAfterScheduleWrite(queryClient),
+  });
+}
+
+/** Deletes schedules of one project with their stored originals (owners; R3, R9). */
+export function useDeleteSchedules(): UseMutationResult<void, Error, ID[]> {
+  const repository = useRepository();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (scheduleIds: ID[]) => repository.deleteSchedules(scheduleIds),
+    onSettled: () => refreshAfterScheduleWrite(queryClient),
+  });
+}

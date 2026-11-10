@@ -10,7 +10,12 @@ import {
   useUpdateProject,
 } from '@/hooks/useProjects';
 import { useProjectSchedules } from '@/hooks/useProjectSchedules';
-import { useCreateSchedule, useImportSchedule, useSetCurrentSchedule } from '@/hooks/useSchedules';
+import {
+  useCreateSchedule,
+  useDeleteSchedules,
+  useImportSchedule,
+  useSetCurrentSchedule,
+} from '@/hooks/useSchedules';
 import { usePendingTasks, useSetTaskDone } from '@/hooks/useTasks';
 import { useCreateTeamWorkspace, useWorkspaces } from '@/hooks/useWorkspaces';
 import { createTestDataLayer, makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
@@ -225,6 +230,26 @@ describe('data hooks', () => {
       expect(result.current.project.data?.currentSchedule?.name).toBe('Update 1'),
     );
     expect(result.current.schedules.data!.find((s) => s.isCurrent)?.code).toBe('UP-01');
+  });
+
+  it('deleting a schedule refreshes the schedule list and the project counts', async () => {
+    const dl = createTestDataLayer();
+    const db = dl.store.read();
+    const workspaceId = db.workspaces[0]!.id;
+    const harbor = db.projects.find((p) => p.code === '003')!;
+    const { result } = renderHook(
+      () => ({
+        schedules: useProjectSchedules(harbor.id),
+        project: useProject(workspaceId, harbor.id),
+        remove: useDeleteSchedules(),
+      }),
+      { wrapper: createQueryWrapper(dl) },
+    );
+    await waitFor(() => expect(result.current.schedules.data).toHaveLength(3));
+    const baseline = result.current.schedules.data!.find((s) => s.code === 'BL-01')!;
+    await act(() => result.current.remove.mutateAsync([baseline.id]));
+    await waitFor(() => expect(result.current.project.data?.totalScheduleCount).toBe(2));
+    expect(result.current.schedules.data!.map((s) => s.code)).toEqual(['UP-02', 'UP-01']);
   });
 
   it('useProjectCodeAvailable stays idle for malformed IDs', () => {
