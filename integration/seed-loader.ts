@@ -184,23 +184,29 @@ export async function loadSeed(
       'inserting projects',
     );
   }
-  if (db.schedules.length > 0) {
-    check(
-      await admin.from('schedules').insert(
-        db.schedules.map((s) => ({
-          id: s.id,
-          project_id: s.projectId,
-          name: s.name,
-          code: s.code,
-          status_date: s.statusDate,
-          source: s.source,
-          source_file_name: s.sourceFileName,
-          created_at: s.createdAt,
-          updated_at: s.updatedAt,
-        })),
-      ),
-      'inserting schedules',
-    );
+  // The insert trigger makes a project's first schedule current (R1) and ignores `is_current`, so
+  // each project's current schedule goes in first, in a statement of its own. The admin client
+  // skips the user guards; R5 and R6 hold for it too, and the seed already follows them.
+  const scheduleRow = (s: (typeof db.schedules)[number]) => ({
+    id: s.id,
+    project_id: s.projectId,
+    name: s.name,
+    code: s.code,
+    notes: s.notes,
+    status_date: s.statusDate,
+    source: s.source,
+    source_file_name: s.sourceFileName,
+    baseline: s.baseline,
+    update_number: s.updateNumber,
+    archived_at: s.archivedAt,
+    created_at: s.createdAt,
+    updated_at: s.updatedAt,
+  });
+  for (const [batch, step] of [
+    [db.schedules.filter((s) => s.isCurrent), 'inserting current schedules'],
+    [db.schedules.filter((s) => !s.isCurrent), 'inserting other schedules'],
+  ] as const) {
+    if (batch.length > 0) check(await admin.from('schedules').insert(batch.map(scheduleRow)), step);
   }
   if (db.shares.length > 0) {
     check(

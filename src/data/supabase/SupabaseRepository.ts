@@ -9,6 +9,7 @@ import type {
   NewScheduleInput,
   NewTeamWorkspaceInput,
   UpdateProjectInput,
+  UpdateScheduleDetailsInput,
 } from '@/data/repository';
 import { compareMembers, compareWorkspaces } from '@/data/sort';
 import type { AppSupabaseClient } from '@/data/supabase/client';
@@ -18,7 +19,7 @@ import {
   mapMember,
   mapProject,
   mapProjectSummary,
-  mapSchedule,
+  mapScheduleItem,
   mapSharedRow,
   mapSubscription,
   mapTask,
@@ -287,10 +288,10 @@ export class SupabaseRepository implements DataRepository {
           code: input.code.trim(),
           source: 'blank',
         })
-        .select('*')
+        .select('id')
         .single();
       if (error) throw error;
-      return mapSchedule(data);
+      return this.scheduleItem(data.id);
     });
   }
 
@@ -320,13 +321,60 @@ export class SupabaseRepository implements DataRepository {
           source_file_path: path,
           source_file_size: file.size,
         })
-        .select('*')
+        .select('id')
         .single();
       if (error) {
         await this.removeQuietly(IMPORTS, path);
         throw error;
       }
-      return mapSchedule(data);
+      return this.scheduleItem(data.id);
+    });
+  }
+
+  async listSchedules(projectId: ID): Promise<Schedule[]> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('schedule_items')
+        .select('*')
+        .eq('project_id', asUuid(projectId))
+        .order('status_date', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .order('id');
+      if (error) throw error;
+      return data.map(mapScheduleItem);
+    });
+  }
+
+  /**
+   * `update_schedule_details` checks the schedule (R9's copy when it can't be read), the role and
+   * the code, and saves in one update (R5 by trigger); the saved row is read back afterwards. Text
+   * is trimmed here as the mock trims it (Postgres `trim` removes spaces only).
+   */
+  async updateScheduleDetails(input: UpdateScheduleDetailsInput): Promise<Schedule> {
+    return this.run(async () => {
+      const scheduleId = asUuid(input.scheduleId);
+      const { error } = await this.client.rpc('update_schedule_details', {
+        p_schedule_id: scheduleId,
+        p_name: input.name.trim(),
+        p_code: input.code.trim(),
+        // The generated types mark every argument as required text or number; these three take
+        // null, which clears the value.
+        p_status_date: input.statusDate as string,
+        p_notes: (input.notes?.trim() ?? null) as string,
+        p_baseline: input.baseline,
+        p_update_number: input.updateNumber as number,
+      });
+      if (error) throw error;
+      return this.scheduleItem(scheduleId);
+    });
+  }
+
+  async setCurrentSchedule(scheduleId: ID): Promise<void> {
+    return this.run(async () => {
+      const { error } = await this.client.rpc('set_current_schedule', {
+        p_schedule_id: asUuid(scheduleId),
+      });
+      if (error) throw error;
     });
   }
 
@@ -482,6 +530,17 @@ export class SupabaseRepository implements DataRepository {
     if (error) throw toRepositoryError(error, { notFound: PROJECT_NOT_FOUND });
     if (data === null) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
     return data;
+  }
+
+  /** One schedule as `schedule_items` shows it, read after a write. */
+  private async scheduleItem(scheduleId: ID): Promise<Schedule> {
+    const { data, error } = await this.client
+      .from('schedule_items')
+      .select('*')
+      .eq('id', scheduleId)
+      .single();
+    if (error) throw error;
+    return mapScheduleItem(data);
   }
 
   /** A signed URL for the cover at `path`, or `null` without a cover. */

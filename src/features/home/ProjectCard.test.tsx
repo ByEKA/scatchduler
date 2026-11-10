@@ -12,6 +12,8 @@ function summary(code: string, patch: Partial<ProjectSummary> = {}): ProjectSumm
   return {
     ...project,
     scheduleCount: db.schedules.filter((s) => s.projectId === project.id).length,
+    totalScheduleCount: db.schedules.filter((s) => s.projectId === project.id).length,
+    currentSchedule: null,
     ...patch,
   };
 }

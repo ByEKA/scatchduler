@@ -1,6 +1,7 @@
 import { addDays, format, subDays } from 'date-fns';
 import type { Session } from '@/data/auth';
 import type {
+  BaselineFlag,
   ID,
   ISODate,
   ISODateTime,
@@ -86,6 +87,40 @@ const WORKSPACE_AGE_MS: Record<WorkspaceKind, number> = {
   team: 30 * DAY_MS,
 };
 
+/** One seed schedule (spec §4.5); every seed schedule is blank, with no activities. */
+interface SeedSchedule {
+  name: string;
+  code: string;
+  /** Days before the seed time, or `null` for a schedule without a status date. */
+  statusDaysBefore: number | null;
+  isCurrent: boolean;
+  baseline: BaselineFlag;
+  updateNumber: number | null;
+  notes: string | null;
+  /** Days before the seed time the schedule was archived, or `null` when it isn't. */
+  archivedDaysAgo: number | null;
+}
+
+/** A seed schedule with the tags it doesn't name left at their defaults. */
+function seedSchedule(
+  name: string,
+  code: string,
+  statusDaysBefore: number | null,
+  tags: Partial<Omit<SeedSchedule, 'name' | 'code' | 'statusDaysBefore'>> = {},
+): SeedSchedule {
+  return {
+    name,
+    code,
+    statusDaysBefore,
+    isCurrent: false,
+    baseline: 'none',
+    updateNumber: null,
+    notes: null,
+    archivedDaysAgo: null,
+    ...tags,
+  };
+}
+
 interface SeedProject {
   code: string;
   name: string;
@@ -101,8 +136,11 @@ interface SeedProject {
   city: string | null;
   /** Latitude and longitude, or `null` for a project without coordinates. */
   coordinates: readonly [number, number] | null;
-  /** The project's schedules in creation order, each with its code (spec §4.5). */
-  schedules: Array<{ name: string; code: string }>;
+  /**
+   * The project's schedules in creation order, with their codes and tags (spec §4.5). A project
+   * with schedules has exactly one current schedule, whose status date is the project's (R1, R6).
+   */
+  schedules: SeedSchedule[];
 }
 
 /** Every seed project's country (spec §4.5). */
@@ -123,7 +161,7 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     clientName: 'Riverside Holding',
     city: 'Istanbul',
     coordinates: [41.0151, 28.9795],
-    schedules: [{ name: 'Main schedule', code: 'MS-01' }],
+    schedules: [seedSchedule('Main schedule', 'MS-01', 2, { isCurrent: true })],
   },
   {
     code: '002',
@@ -154,9 +192,13 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     city: 'Izmir',
     coordinates: [38.4192, 27.1287],
     schedules: [
-      { name: 'Baseline', code: 'BL-01' },
-      { name: 'Update 1', code: 'UP-01' },
-      { name: 'Update 2', code: 'UP-02' },
+      seedSchedule('Baseline', 'BL-01', 60, { baseline: 'primary' }),
+      seedSchedule('Update 1', 'UP-01', 30, { updateNumber: 1 }),
+      seedSchedule('Update 2', 'UP-02', 7, {
+        isCurrent: true,
+        updateNumber: 2,
+        notes: 'Includes the revised crane plan.',
+      }),
     ],
   },
   {
@@ -173,8 +215,12 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     city: 'Istanbul',
     coordinates: null,
     schedules: [
-      { name: 'Baseline', code: 'BL-01' },
-      { name: 'Recovery plan', code: 'RP-01' },
+      seedSchedule('Baseline', 'BL-01', 120, { baseline: 'primary' }),
+      seedSchedule('Recovery plan', 'RP-01', 14, {
+        isCurrent: true,
+        notes: 'Agreed with the client on site.',
+      }),
+      seedSchedule('Recovery plan draft', 'RP-00', 30, { archivedDaysAgo: 10 }),
     ],
   },
   {
@@ -190,7 +236,7 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     clientName: 'Regional Roads Office',
     city: 'Bursa',
     coordinates: [40.1828, 29.0663],
-    schedules: [{ name: 'Baseline', code: 'BL-01' }],
+    schedules: [seedSchedule('Baseline', 'BL-01', null, { isCurrent: true, baseline: 'primary' })],
   },
   {
     code: '006',
@@ -221,8 +267,8 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     city: 'Istanbul',
     coordinates: [41.0422, 29.0083],
     schedules: [
-      { name: 'Baseline rev. 3', code: 'BL-03' },
-      { name: 'Look-ahead W42', code: 'LA-42' },
+      seedSchedule('Baseline rev. 3', 'BL-03', 90, { baseline: 'primary' }),
+      seedSchedule('Look-ahead W42', 'LA-42', 3, { isCurrent: true }),
     ],
   },
 ];
@@ -335,17 +381,31 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
       updatedAt,
     };
     db.projects.push(project);
-    for (const { name, code } of row.schedules) {
+    for (const schedule of row.schedules) {
+      // Created with the project's last update; an archived schedule was last modified when it
+      // was archived (R11).
+      const archivedAt =
+        schedule.archivedDaysAgo === null ? null : msAgo(schedule.archivedDaysAgo * DAY_MS);
       db.schedules.push({
         id: crypto.randomUUID(),
         projectId: project.id,
-        name,
-        code,
-        statusDate,
+        name: schedule.name,
+        code: schedule.code,
+        notes: schedule.notes,
+        statusDate:
+          schedule.statusDaysBefore === null ? null : daysBefore(schedule.statusDaysBefore),
         source: 'blank',
         sourceFileName: null,
+        sourceFormat: null,
+        isCurrent: schedule.isCurrent,
+        baseline: schedule.baseline,
+        updateNumber: schedule.updateNumber,
+        archivedAt,
+        activityCount: 0,
+        hasImportReport: false,
+        hasImportMapping: false,
         createdAt: updatedAt,
-        updatedAt,
+        updatedAt: archivedAt ?? updatedAt,
       });
     }
   }

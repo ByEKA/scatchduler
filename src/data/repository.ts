@@ -1,4 +1,5 @@
 import type {
+  BaselineFlag,
   ID,
   ISODate,
   InviteResult,
@@ -59,6 +60,17 @@ export interface ImportScheduleInput {
   file: File; // Phase 1: metadata only; Phase 2: uploaded to Storage
 }
 
+/** One save of the Schedule details dialog. */
+export interface UpdateScheduleDetailsInput {
+  scheduleId: ID;
+  name: string;
+  code: string;
+  statusDate: ISODate | null;
+  notes: string | null;
+  baseline: BaselineFlag;
+  updateNumber: number | null;
+}
+
 export interface NewTeamWorkspaceInput {
   name: string;
 }
@@ -88,7 +100,8 @@ export interface DataRepository {
    * Editors and owners; viewers 'forbidden', unknown (or hidden) projects 'not_found'. Checks the
    * values as `createProject` does; a code another project of the workspace has is 'conflict'
    * "This ID is already used in this workspace". Leaves the status date alone when the input has
-   * none, and sets `updatedAt` to now.
+   * none; while the project has a current schedule, a status date different from that schedule's
+   * is 'validation' "The status date follows the current schedule." (R6). Sets `updatedAt` to now.
    */
   updateProject(input: UpdateProjectInput): Promise<Project>;
   /**
@@ -101,10 +114,29 @@ export interface DataRepository {
 
   /**
    * Both set the parent project's updatedAt to now. A blank or malformed code rejects
-   * 'validation', a code the project already uses (ignoring case) 'conflict' (R8).
+   * 'validation', a code the project already uses (ignoring case) 'conflict' (R8). The first
+   * schedule of a project becomes its current one (R1).
    */
   createSchedule(input: NewScheduleInput): Promise<Schedule>;
   importSchedule(input: ImportScheduleInput): Promise<Schedule>;
+  /**
+   * The project's schedules, archived included: status date descending with undated ones last,
+   * then newest created, then by id. An unknown (or hidden) project gives `[]`.
+   */
+  listSchedules(projectId: ID): Promise<Schedule[]>;
+  /**
+   * Editors and owners (viewers 'forbidden'); an unknown schedule is 'validation' "Some schedules
+   * are no longer available. Refresh and try again.". Saves name, code (R8), status date, notes,
+   * baseline (R5) and update number (R7) and sets `updatedAt` to now (R11); when the schedule is
+   * current, the project's status date follows it (R6).
+   */
+  updateScheduleDetails(input: UpdateScheduleDetailsInput): Promise<Schedule>;
+  /**
+   * Editors and owners move the project's current flag to this schedule (R1); an archived one is
+   * refused (R4), an unknown one as in `updateScheduleDetails`. `updatedAt` stays (R11); the
+   * project takes the schedule's status date (R6).
+   */
+  setCurrentSchedule(scheduleId: ID): Promise<void>;
 
   /** sharedAt descending. */
   listSharedWithMe(): Promise<SharedScheduleRow[]>;

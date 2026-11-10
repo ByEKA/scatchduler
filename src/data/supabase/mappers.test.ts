@@ -3,6 +3,7 @@ import type { UpdateProjectInput } from '@/data/repository';
 import {
   mapMember,
   mapProjectSummary,
+  mapScheduleItem,
   mapSharedRow,
   toProjectInsert,
   toProjectUpdate,
@@ -36,9 +37,9 @@ describe('mappers', () => {
       location_lat: 41.0151,
       location_lng: 28.9795,
       schedule_count: 2,
-      total_schedule_count: 2,
-      current_schedule_id: null,
-      current_schedule_name: null,
+      total_schedule_count: 3,
+      current_schedule_id: 's2',
+      current_schedule_name: 'Update 2',
     };
     expect(mapProjectSummary(row, 'https://signed/url')).toEqual({
       id: 'p1',
@@ -67,6 +68,52 @@ describe('mappers', () => {
       createdAt: '2026-10-14T09:30:00.123Z',
       updatedAt: '2026-10-14T09:31:00.000Z',
       scheduleCount: 2,
+      totalScheduleCount: 3,
+      currentSchedule: { id: 's2', name: 'Update 2' },
+    });
+  });
+
+  it('maps a schedule item with its tags', () => {
+    expect(
+      mapScheduleItem({
+        id: 's1',
+        project_id: 'p1',
+        name: 'Update 2',
+        code: 'UP-02',
+        notes: null,
+        status_date: '2026-10-07',
+        source: 'import',
+        source_file_name: 'u2.xer',
+        source_format: 'xer',
+        is_current: true,
+        baseline: 'primary',
+        update_number: 2,
+        archived_at: null,
+        activity_count: 12,
+        has_import_report: true,
+        has_import_mapping: false,
+        created_at: '2026-10-01T08:00:00+00:00',
+        updated_at: '2026-10-02T08:00:00.5+00:00',
+      }),
+    ).toEqual({
+      id: 's1',
+      projectId: 'p1',
+      name: 'Update 2',
+      code: 'UP-02',
+      notes: null,
+      statusDate: '2026-10-07',
+      source: 'import',
+      sourceFileName: 'u2.xer',
+      sourceFormat: 'xer',
+      isCurrent: true,
+      baseline: 'primary',
+      updateNumber: 2,
+      archivedAt: null,
+      activityCount: 12,
+      hasImportReport: true,
+      hasImportMapping: false,
+      createdAt: '2026-10-01T08:00:00.000Z',
+      updatedAt: '2026-10-02T08:00:00.500Z',
     });
   });
 

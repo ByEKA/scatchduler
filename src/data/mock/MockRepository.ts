@@ -1,6 +1,15 @@
 import { RepositoryError } from '@/data/errors';
 import { withLatency, type LatencyOptions } from '@/data/mock/latency';
-import { checkNewScheduleCode } from '@/data/mock/schedule-rules';
+import {
+  applyDetails,
+  checkNewScheduleCode,
+  checkProjectStatusDate,
+  compareSchedules,
+  currentScheduleOf,
+  makeCurrent,
+  SCHEDULES_GONE,
+  syncProjectStatusDate,
+} from '@/data/mock/schedule-rules';
 import type { MockDb, MockInvitation, MockMember } from '@/data/mock/seed';
 import type { MockStore } from '@/data/mock/store';
 import type {
@@ -10,11 +19,13 @@ import type {
   NewScheduleInput,
   NewTeamWorkspaceInput,
   UpdateProjectInput,
+  UpdateScheduleDetailsInput,
 } from '@/data/repository';
 import { compareIds, compareMembers, compareWorkspaces, newestFirst } from '@/data/sort';
 import type {
   ID,
   ISODateTime,
+  ImportFormat,
   InviteResult,
   Project,
   ProjectAttributes,
@@ -86,11 +97,15 @@ function readAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
-/** The project with its schedule count. */
+/** The project with its schedule counts (archived schedules counted apart) and current schedule. */
 function projectSummary(db: MockDb, project: Project): ProjectSummary {
+  const schedules = db.schedules.filter((schedule) => schedule.projectId === project.id);
+  const current = currentScheduleOf(schedules, project.id);
   return {
     ...project,
-    scheduleCount: db.schedules.filter((schedule) => schedule.projectId === project.id).length,
+    scheduleCount: schedules.filter((schedule) => schedule.archivedAt === null).length,
+    totalScheduleCount: schedules.length,
+    currentSchedule: current ? { id: current.id, name: current.name } : null,
   };
 }
 
@@ -209,6 +224,25 @@ function storedLocation(location: ProjectLocation): ProjectLocation {
     latitude: roundCoordinate(location.latitude),
     longitude: roundCoordinate(location.longitude),
   };
+}
+
+/**
+ * The interim import path (spec §2.4): an imported file's format from its extension. `null` for
+ * any other file, which the database's source-format check would refuse.
+ */
+function importFormatOf(fileName: string): ImportFormat | null {
+  switch (/\.[^.]+$/.exec(fileName)?.[0].toLowerCase()) {
+    case '.xer':
+      return 'xer';
+    case '.xml':
+      return 'mspdi';
+    case '.csv':
+      return 'csv';
+    case '.xlsx':
+      return 'xlsx';
+    default:
+      return null;
+  }
 }
 
 /** An invitable email after trimming and lowercasing; the Edge Function checks the same shape. */
@@ -400,6 +434,11 @@ export class MockRepository implements DataRepository {
         if (!hasRole(db, project.workspaceId, 'editor')) {
           throw new RepositoryError('forbidden', NO_PERMISSION);
         }
+        // Left out, the status date stays as it is; given, it must be the current schedule's
+        // (R6). The database's guard trigger runs before the column checks, so this comes first.
+        const statusDate =
+          input.statusDate === undefined ? undefined : optionalText(input.statusDate);
+        if (statusDate !== undefined) checkProjectStatusDate(project, db.schedules, statusDate);
         checkProjectValues(input.attributes, input.location);
         const code = input.code.trim();
         const key = codeKey(code);
@@ -417,8 +456,7 @@ export class MockRepository implements DataRepository {
         project.name = input.name.trim();
         project.description = optionalText(input.description);
         if (input.cover !== 'keep') project.coverImageUrl = newCoverUrl;
-        // Left out, the status date stays as it is (R6).
-        if (input.statusDate !== undefined) project.statusDate = optionalText(input.statusDate);
+        if (statusDate !== undefined) project.statusDate = statusDate;
         project.attributes = storedAttributes(input.attributes);
         project.client = storedClient(input.client);
         project.location = storedLocation(input.location);
@@ -457,6 +495,38 @@ export class MockRepository implements DataRepository {
 
   importSchedule(input: ImportScheduleInput): Promise<Schedule> {
     return this.run('write', () => this.addSchedule(input, 'import', input.file.name));
+  }
+
+  listSchedules(projectId: ID): Promise<Schedule[]> {
+    return this.run('read', () =>
+      // No membership filter, as in getProject (spec D34).
+      this.store
+        .read()
+        .schedules.filter((schedule) => schedule.projectId === projectId)
+        .sort(compareSchedules),
+    );
+  }
+
+  updateScheduleDetails(input: UpdateScheduleDetailsInput): Promise<Schedule> {
+    return this.run('write', () => {
+      const timestamp = this.now().toISOString();
+      return this.commit((db) => {
+        const project = this.editableProjectOf(db, input.scheduleId);
+        const schedule = applyDetails(db.schedules, input, timestamp);
+        syncProjectStatusDate(project, db.schedules);
+        return schedule;
+      });
+    });
+  }
+
+  setCurrentSchedule(scheduleId: ID): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        const project = this.editableProjectOf(db, scheduleId);
+        makeCurrent(db.schedules, scheduleId);
+        syncProjectStatusDate(project, db.schedules);
+      });
+    });
   }
 
   listSharedWithMe(): Promise<SharedScheduleRow[]> {
@@ -700,9 +770,26 @@ export class MockRepository implements DataRepository {
   }
 
   /**
+   * The project of a schedule an editor or owner is about to change: an unknown schedule is R9's
+   * 'validation', a caller without the editor role 'forbidden' (the order of the database's
+   * schedule RPCs).
+   */
+  private editableProjectOf(db: MockDb, scheduleId: ID): Project {
+    const schedule = db.schedules.find((s) => s.id === scheduleId);
+    const project = db.projects.find((p) => p.id === schedule?.projectId);
+    if (!project) throw new RepositoryError('validation', SCHEDULES_GONE);
+    if (!hasRole(db, project.workspaceId, 'editor')) {
+      throw new RepositoryError('forbidden', NO_PERMISSION);
+    }
+    return project;
+  }
+
+  /**
    * Both schedule methods: an editor or owner of the project's workspace adds the schedule with a
    * code the project doesn't use yet (R8, checked after the project and the role, as the
    * database does); it copies the project's status date and sets the project's `updatedAt` to now.
+   * The project's first schedule becomes current (R1), which keeps the project's status date (R6).
+   * An import takes its format from the file's extension (the interim path, spec §2.4).
    */
   private addSchedule(
     input: { projectId: ID; name: string; code: string },
@@ -718,18 +805,32 @@ export class MockRepository implements DataRepository {
         throw new RepositoryError('forbidden', NO_PERMISSION);
       }
       const code = checkNewScheduleCode(db.schedules, projectId, input.code);
+      const sourceFormat = sourceFileName === null ? null : importFormatOf(sourceFileName);
+      if (source === 'import' && sourceFormat === null) {
+        throw new RepositoryError('validation', INVALID_VALUES);
+      }
       const schedule: Schedule = {
         id: crypto.randomUUID(),
         projectId,
         name: input.name.trim(),
         code,
+        notes: null,
         statusDate: project.statusDate,
         source,
         sourceFileName,
+        sourceFormat,
+        isCurrent: !db.schedules.some((s) => s.projectId === projectId),
+        baseline: 'none',
+        updateNumber: null,
+        archivedAt: null,
+        activityCount: 0,
+        hasImportReport: false,
+        hasImportMapping: false,
         createdAt: timestamp,
         updatedAt: timestamp,
       };
       db.schedules.push(schedule);
+      syncProjectStatusDate(project, db.schedules);
       project.updatedAt = timestamp;
       return schedule;
     });

@@ -110,19 +110,35 @@ export interface Project {
 }
 
 export interface ProjectSummary extends Project {
-  scheduleCount: number;
+  scheduleCount: number; // schedules that aren't archived
+  totalScheduleCount: number; // archived included (the Delete project dialog)
+  currentSchedule: { id: ID; name: string } | null;
 }
 
 export type ScheduleSource = 'blank' | 'import';
 
+export type ImportFormat = 'xer' | 'mspdi' | 'xlsx' | 'csv';
+
+export type BaselineFlag = 'none' | 'baseline' | 'primary';
+
+/** The app map's ScheduleVersion (P3 full D2); the UI says "schedule" everywhere. */
 export interface Schedule {
   id: ID;
   projectId: ID;
   name: string;
   code: string | null; // required from Phase 3 core on (R8); P2-era rows null until edited
+  notes: string | null;
   statusDate: ISODate | null;
   source: ScheduleSource;
   sourceFileName: string | null;
+  sourceFormat: ImportFormat | null; // null exactly when source === 'blank'
+  isCurrent: boolean;
+  baseline: BaselineFlag;
+  updateNumber: number | null;
+  archivedAt: ISODateTime | null;
+  activityCount: number; // 0 for blank schedules; set by import
+  hasImportReport: boolean; // false for blank schedules and P2-era imports
+  hasImportMapping: boolean;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

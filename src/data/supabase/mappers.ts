@@ -4,7 +4,9 @@
 import type { NewProjectInput, UpdateProjectInput } from '@/data/repository';
 import type { Database } from '@/data/supabase/database.types';
 import type {
+  BaselineFlag,
   ISODateTime,
+  ImportFormat,
   Plan,
   Project,
   ProjectSector,
@@ -35,7 +37,7 @@ type WorkspaceRow = Tables['workspaces']['Row'];
 type WorkspaceSummaryRow = Views['workspace_summaries']['Row'];
 type ProjectRow = Tables['projects']['Row'];
 type ProjectSummaryRow = Views['project_summaries']['Row'];
-type ScheduleRow = Tables['schedules']['Row'];
+type ScheduleItemRow = Views['schedule_items']['Row'];
 type SharedRow = Views['shared_with_me']['Row'];
 type TaskRow = Tables['tasks']['Row'];
 type InvitationRow = Tables['workspace_invitations']['Row'];
@@ -147,23 +149,37 @@ export function mapProject(row: ProjectRow, coverUrl: string | null): Project {
 }
 
 export function mapProjectSummary(row: ProjectSummaryRow, coverUrl: string | null): ProjectSummary {
+  const { current_schedule_id: currentId, current_schedule_name: currentName } = row;
   return {
     ...projectFrom(row, coverUrl),
     scheduleCount: need(row.schedule_count, 'schedule_count'),
+    totalScheduleCount: need(row.total_schedule_count, 'total_schedule_count'),
+    currentSchedule:
+      currentId !== null && currentName !== null ? { id: currentId, name: currentName } : null,
   };
 }
 
-export function mapSchedule(row: ScheduleRow): Schedule {
+/** A `schedule_items` row; the view never carries the stored path, mapping or report. */
+export function mapScheduleItem(row: ScheduleItemRow): Schedule {
   return {
-    id: row.id,
-    projectId: row.project_id,
-    name: row.name,
+    id: need(row.id, 'id'),
+    projectId: need(row.project_id, 'project_id'),
+    name: need(row.name, 'name'),
     code: row.code,
+    notes: row.notes,
     statusDate: row.status_date,
-    source: row.source as ScheduleSource,
+    source: need(row.source, 'source') as ScheduleSource,
     sourceFileName: row.source_file_name,
-    createdAt: toIso(row.created_at),
-    updatedAt: toIso(row.updated_at),
+    sourceFormat: row.source_format as ImportFormat | null,
+    isCurrent: need(row.is_current, 'is_current'),
+    baseline: need(row.baseline, 'baseline') as BaselineFlag,
+    updateNumber: row.update_number,
+    archivedAt: toIsoOrNull(row.archived_at),
+    activityCount: need(row.activity_count, 'activity_count'),
+    hasImportReport: need(row.has_import_report, 'has_import_report'),
+    hasImportMapping: need(row.has_import_mapping, 'has_import_mapping'),
+    createdAt: toIso(need(row.created_at, 'created_at')),
+    updatedAt: toIso(need(row.updated_at, 'updated_at')),
   };
 }
 

@@ -4,7 +4,7 @@
 // seed's.
 import { describe, expect, it } from 'vitest';
 import type { DataRepository } from '@/data/repository';
-import type { ID, ISODateTime, ProjectStatus, Role } from '@/data/types';
+import type { ID, ISODateTime, ProjectStatus, Role, Schedule } from '@/data/types';
 import { makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
 
 /** The seed scenario a fixture starts from (Phase 1 spec §5.6). */
@@ -819,6 +819,232 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
             message: 'Project not found',
           });
         }
+      });
+    });
+
+    describe('schedules of a project', () => {
+      const details = (s: Schedule) => ({
+        scheduleId: s.id,
+        name: s.name,
+        code: s.code ?? '',
+        statusDate: s.statusDate,
+        notes: s.notes,
+        baseline: s.baseline,
+        updateNumber: s.updateNumber,
+      });
+
+      it('lists schedules by status date, newest first and nulls last, then by creation', async () => {
+        const f = await makeFixture();
+        expect(
+          (await f.repository.listSchedules(f.projectIds['004']!)).map((s) => [
+            s.code,
+            s.isCurrent,
+            s.baseline,
+            s.archivedAt !== null,
+          ]),
+        ).toEqual([
+          ['RP-01', true, 'none', false],
+          ['RP-00', false, 'none', true],
+          ['BL-01', false, 'primary', false],
+        ]);
+        const harbor = f.projectIds['003']!;
+        await f.repository.createSchedule({ projectId: harbor, name: 'Update 3', code: 'UP-03' });
+        expect((await f.repository.listSchedules(harbor)).map((s) => s.code)).toEqual([
+          'UP-03',
+          'UP-02',
+          'UP-01',
+          'BL-01',
+        ]);
+        const bridge = f.projectIds['005']!;
+        const dated = await f.repository.createSchedule({
+          projectId: bridge,
+          name: 'Dated',
+          code: 'D-1',
+        });
+        await f.repository.updateScheduleDetails({ ...details(dated), statusDate: '2026-01-01' });
+        expect((await f.repository.listSchedules(bridge)).map((s) => s.code)).toEqual([
+          'D-1',
+          'BL-01',
+        ]);
+        for (const id of unknownIds()) expect(await f.repository.listSchedules(id)).toEqual([]);
+      });
+
+      it('makes the first schedule of a project current and counts archived schedules apart', async () => {
+        const f = await makeFixture();
+        const mill = f.projectIds['006']!;
+        const first = await f.repository.createSchedule({
+          projectId: mill,
+          name: 'First',
+          code: 'S01',
+        });
+        const imported = await f.repository.importSchedule({
+          projectId: mill,
+          name: 'Rev',
+          code: 'R1',
+          file: new File(['x'], 'rev.XML'),
+        });
+        expect(first).toMatchObject({
+          isCurrent: true,
+          baseline: 'none',
+          updateNumber: null,
+          notes: null,
+          archivedAt: null,
+          activityCount: 0,
+          sourceFormat: null,
+          hasImportReport: false,
+          hasImportMapping: false,
+        });
+        expect(imported).toMatchObject({
+          isCurrent: false,
+          sourceFormat: 'mspdi',
+          hasImportReport: false,
+        });
+        expect(
+          (await f.repository.listProjects(f.workspaces.personal)).map((p) => [
+            p.code,
+            p.scheduleCount,
+            p.totalScheduleCount,
+            p.currentSchedule?.name ?? null,
+          ]),
+        ).toEqual([
+          ['006', 2, 2, 'First'],
+          ['001', 1, 1, 'Main schedule'],
+          ['002', 0, 0, null],
+          ['003', 3, 3, 'Update 2'],
+          ['004', 2, 3, 'Recovery plan'],
+          ['005', 1, 1, 'Baseline'],
+        ]);
+      });
+
+      it('makes another schedule current; the project follows its status date and keeps its updatedAt', async () => {
+        const f = await makeFixture();
+        const harbor = f.projectIds['003']!;
+        const before = await f.repository.getProject(harbor);
+        const update1 = (await f.repository.listSchedules(harbor)).find((s) => s.code === 'UP-01')!;
+        await f.repository.setCurrentSchedule(update1.id);
+        const after = await f.repository.listSchedules(harbor);
+        expect(after.filter((s) => s.isCurrent).map((s) => s.code)).toEqual(['UP-01']);
+        expect(after.find((s) => s.code === 'UP-01')!.updatedAt).toBe(update1.updatedAt);
+        expect(await f.repository.getProject(harbor)).toMatchObject({
+          statusDate: update1.statusDate,
+          currentSchedule: { id: update1.id, name: 'Update 1' },
+          updatedAt: before.updatedAt,
+        });
+      });
+
+      it('refuses to make an archived or unknown schedule current', async () => {
+        const f = await makeFixture();
+        const draft = (await f.repository.listSchedules(f.projectIds['004']!)).find(
+          (s) => s.code === 'RP-00',
+        )!;
+        await expect(f.repository.setCurrentSchedule(draft.id)).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Restore this schedule before making it current.',
+        });
+        for (const id of unknownIds()) {
+          await expect(f.repository.setCurrentSchedule(id)).rejects.toMatchObject({
+            code: 'validation',
+            message: 'Some schedules are no longer available. Refresh and try again.',
+          });
+        }
+      });
+
+      it('saves details, turns the first baseline into the primary one and demotes an old primary', async () => {
+        const f = await makeFixture();
+        const [main] = await f.repository.listSchedules(f.projectIds['001']!);
+        const saved = await f.repository.updateScheduleDetails({
+          ...details(main!),
+          name: ' Main ',
+          code: ' MS-02 ',
+          notes: '  Weekly look-ahead  ',
+          baseline: 'baseline',
+          updateNumber: 4,
+        });
+        expect(saved).toMatchObject({
+          name: 'Main',
+          code: 'MS-02',
+          notes: 'Weekly look-ahead',
+          baseline: 'primary',
+          updateNumber: 4,
+        });
+        expect(Date.parse(saved.updatedAt)).toBeGreaterThan(Date.parse(main!.updatedAt));
+        const harbor = f.projectIds['003']!;
+        const before = await f.repository.listSchedules(harbor);
+        await f.repository.updateScheduleDetails({
+          ...details(before.find((s) => s.code === 'UP-01')!),
+          baseline: 'primary',
+        });
+        const after = await f.repository.listSchedules(harbor);
+        expect(after.map((s) => [s.code, s.baseline])).toEqual([
+          ['UP-02', 'none'],
+          ['UP-01', 'primary'],
+          ['BL-01', 'baseline'],
+        ]);
+        const updatedAt = (list: Schedule[]) =>
+          Date.parse(list.find((s) => s.code === 'BL-01')!.updatedAt);
+        expect(updatedAt(after)).toBeGreaterThan(updatedAt(before));
+      });
+
+      it('refuses a taken code or update number and an empty code', async () => {
+        const f = await makeFixture();
+        const update2 = (await f.repository.listSchedules(f.projectIds['003']!)).find(
+          (s) => s.code === 'UP-02',
+        )!;
+        await expect(
+          f.repository.updateScheduleDetails({ ...details(update2), code: 'up-01' }),
+        ).rejects.toMatchObject({
+          code: 'conflict',
+          message: 'This code is already used in this project.',
+        });
+        await expect(
+          f.repository.updateScheduleDetails({ ...details(update2), updateNumber: 1 }),
+        ).rejects.toMatchObject({
+          code: 'conflict',
+          message: 'This update number is already used in this project.',
+        });
+        await expect(
+          f.repository.updateScheduleDetails({ ...details(update2), code: '  ' }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Enter a schedule code.',
+        });
+        await expect(
+          f.repository.updateScheduleDetails({ ...details(update2), updateNumber: 1000 }),
+        ).rejects.toMatchObject({ code: 'validation' });
+      });
+
+      it("keeps the project's status date with its current schedule's (R6, R11)", async () => {
+        const f = await makeFixture();
+        const harbor = await f.repository.getProject(f.projectIds['003']!);
+        await expect(
+          f.repository.updateProject(makeUpdateProjectInput(harbor, { statusDate: '2026-01-01' })),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'The status date follows the current schedule.',
+        });
+        const update2 = (await f.repository.listSchedules(harbor.id)).find((s) => s.isCurrent)!;
+        await f.repository.updateScheduleDetails({ ...details(update2), statusDate: '2026-02-02' });
+        expect(await f.repository.getProject(harbor.id)).toMatchObject({
+          statusDate: '2026-02-02',
+          updatedAt: harbor.updatedAt,
+        });
+        const input = makeUpdateProjectInput(harbor, { name: 'Harbor Hub' });
+        delete input.statusDate;
+        expect(await f.repository.updateProject(input)).toMatchObject({
+          name: 'Harbor Hub',
+          statusDate: '2026-02-02',
+        });
+      });
+
+      it('keeps viewers from changing schedules', async () => {
+        const f = await makeFixture({ teamRole: 'viewer' });
+        const [lookAhead, baseline] = await f.repository.listSchedules(f.projectIds['T-01']!);
+        await expect(f.repository.setCurrentSchedule(baseline!.id)).rejects.toMatchObject({
+          code: 'forbidden',
+        });
+        await expect(
+          f.repository.updateScheduleDetails({ ...details(lookAhead!), name: 'X' }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
       });
     });
   });

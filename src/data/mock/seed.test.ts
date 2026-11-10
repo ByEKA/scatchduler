@@ -14,7 +14,7 @@ describe('seed', () => {
     const own = db.projects.filter((p) => p.workspaceId === personal.id);
     expect(own.map((p) => p.code)).toEqual(['001', '002', '003', '004', '005', '006']);
     expect(own.map((p) => db.schedules.filter((s) => s.projectId === p.id).length)).toEqual([
-      1, 0, 3, 2, 1, 0,
+      1, 0, 3, 3, 1, 0,
     ]);
     expect(db.shares).toHaveLength(2);
     expect(db.tasks.map((t) => t.title)).toEqual([
@@ -40,6 +40,7 @@ describe('seed', () => {
       ['003', 'Update 2', 'UP-02'],
       ['004', 'Baseline', 'BL-01'],
       ['004', 'Recovery plan', 'RP-01'],
+      ['004', 'Recovery plan draft', 'RP-00'],
       ['005', 'Baseline', 'BL-01'],
       ['T-01', 'Baseline rev. 3', 'BL-03'],
       ['T-01', 'Look-ahead W42', 'LA-42'],
