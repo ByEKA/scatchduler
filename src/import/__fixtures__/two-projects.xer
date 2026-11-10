@@ -1,0 +1,52 @@
+ERMHDR	20.12	2026-11-01	Project	admin	Planner	dbxDatabaseNoName	Project Management	TRY
+%T	CURRTYPE
+%F	curr_id	decimal_digit_cnt	curr_symbol	decimal_symbol	digit_group_symbol	pos_curr_fmt_type	neg_curr_fmt_type	curr_type	curr_short_name	group_digit_cnt	base_exch_rate
+%R	1	2	₺	.	,	#1.1	(#1.1)	Turkish Lira	TRY	3	1
+%T	PROJECT
+%F	proj_id	proj_short_name	export_flag	last_recalc_date	plan_start_date	scd_end_date	plan_end_date	clndr_id	sched_retained_logic	sched_progress_override	sched_calendar_on_relationship_lag	act_this_per_link_flag	add_act_remain_flag	cost_qty_recalc_flag	reset_planned_flag
+%R	101	NTH-A	Y	2026-10-15 08:00	2026-09-01 08:00	2026-12-18 17:00	2026-12-31 00:00	1	Y	N	rcal_Successor	Y	N	N	N
+%R	102	NTH-B	N	2026-10-15 17:00	2026-10-01 08:00	2026-11-30 17:00		1	Y	N	rcal_Predecessor	Y	N	N	N
+%T	CALENDAR
+%F	clndr_id	clndr_name	clndr_type	base_clndr_id	proj_id	day_hr_cnt	week_hr_cnt	month_hr_cnt	year_hr_cnt	clndr_data
+%R	1	Standard 5 Day	CA_Base			8	40	172	2000	(0||CalendarData()((0||DaysOfWeek()((0||1()())(0||2()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||3()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||4()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||5()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||6()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||7()())))(0||VIEW(ShowTotal|Y)())(0||Exceptions()((0||0(d|46324)())))))
+%R	2	Night Shift	CA_Project	1	101	8	40	172	2000	(0||CalendarData()((0||DaysOfWeek()((0||1()())(0||2()((0||0(s|13:00|f|22:00)())))(0||3()((0||0(s|13:00|f|22:00)())))(0||4()((0||0(s|13:00|f|22:00)())))(0||5()((0||0(s|13:00|f|22:00)())))(0||6()((0||0(s|13:00|f|22:00)())))(0||7()())))(0||Exceptions()())))
+%R	3	Crane	CA_Rsrc			8	48	208	2496	(0||CalendarData()((0||DaysOfWeek()((0||1()())(0||2()((0||0(s|7:00 AM|f|3:00 PM)())))(0||3()((0||0(s|7:00 AM|f|3:00 PM)())))(0||4()((0||0(s|7:00 AM|f|3:00 PM)())))(0||5()((0||0(s|7:00 AM|f|3:00 PM)())))(0||6()((0||0(s|7:00 AM|f|3:00 PM)())))(0||7()((0||0(s|7:00 AM|f|3:00 PM)())))))(0||Exceptions()())))
+%T	PROJWBS
+%F	wbs_id	proj_id	parent_wbs_id	seq_num	proj_node_flag	wbs_short_name	wbs_name
+%R	1001	101		0	Y	NTH-A	North Plant
+%R	1002	101	1001	10	N	CIV	Civil works
+%R	1003	101	1001	20	N	MEC	Mechanical
+%R	2001	102		0	Y	NTH-B	North Annex
+%R	2002	102	2001	10	N	FIT	Fit-out
+%T	RSRC
+%F	rsrc_id	rsrc_short_name	rsrc_name	clndr_id	rsrc_type
+%R	501	CRN	Tower crane	3	RT_Equip
+%R	502	FOR	Site foreman	1	RT_Labor
+%T	TASK
+%F	task_id	proj_id	wbs_id	clndr_id	task_code	task_name	task_type	status_code	phys_complete_pct	complete_pct_type	target_drtn_hr_cnt	remain_drtn_hr_cnt	act_start_date	act_end_date	early_start_date	early_end_date	late_start_date	late_end_date	total_float_hr_cnt	free_float_hr_cnt	cstr_type	cstr_date	expect_end_date	target_start_date	target_end_date
+%R	1	101	1002	1	A1000	Mobilisation	TT_Mile	TK_Complete	100	CP_Drtn	0	0	2026-09-01 08:00	2026-09-01 08:00	2026-09-01 08:00	2026-09-01 08:00	2026-09-01 08:00	2026-09-01 08:00	0	0				2026-09-01 08:00	2026-09-01 08:00
+%R	2	101	1002	1	A1010	Kazı işleri	TT_Task	TK_Complete	100	CP_Drtn	40	0	2026-09-01 08:00	2026-09-07 17:00	2026-09-01 08:00	2026-09-07 17:00	2026-09-01 08:00	2026-09-07 17:00	0	0				2026-09-01 08:00	2026-09-07 17:00
+%R	3	101	1002	1	A1020	Foundations	TT_Task	TK_Active	50	CP_Phys	80	40	2026-09-08 08:00		2026-10-15 08:00	2026-10-21 17:00	2026-10-15 08:00	2026-10-21 17:00	0	0	CS_MSOA	2026-09-08 08:00		2026-09-08 08:00	2026-09-21 17:00
+%R	4	101	1003	2	A1030	Pump install	TT_Rsrc	TK_NotStart	0	CP_Drtn	36	36			2026-10-22 13:00	2026-10-27 22:00	2026-10-22 13:00	2026-10-27 22:00	0	0				2026-09-22 13:00	2026-09-25 22:00
+%R	5	101	1003	1	A1040	Commissioning	TT_FinMile	TK_NotStart	0	CP_Drtn	0	0			2026-12-18 17:00	2026-12-18 17:00	2026-12-18 17:00	2026-12-18 17:00	0	0			2026-12-18 17:00	2026-12-18 17:00	2026-12-18 17:00
+%R	6	101	1002	1	A1050	Site supervision	TT_LOE	TK_Active	0	CP_Drtn	120	80	2026-09-01 08:00		2026-10-15 08:00	2026-10-28 17:00	2026-10-15 08:00	2026-10-28 17:00	0	0				2026-09-01 08:00	2026-09-21 17:00
+%R	11	102	2002	1	B2000	Annex start	TT_Mile	TK_NotStart	0	CP_Drtn	0	0			2026-10-16 08:00	2026-10-16 08:00	2026-10-16 08:00	2026-10-16 08:00	0	0				2026-10-01 08:00	2026-10-01 08:00
+%R	12	102	2002	9	B2010	Fit-out works	TT_Task	TK_NotStart	0	CP_Drtn	80	80			2026-10-16 08:00	2026-10-30 17:00	2026-10-16 08:00	2026-10-30 17:00	0	0				2026-10-01 08:00	2026-10-14 17:00
+%R	13	102	2002	1	B2020	Handover	TT_FinMile	TK_NotStart	0	CP_Drtn	0	0			2026-11-30 17:00	2026-11-30 17:00	2026-11-30 17:00	2026-11-30 17:00	0	0				2026-11-30 17:00	2026-11-30 17:00
+%T	TASKPRED
+%F	task_pred_id	task_id	pred_task_id	proj_id	pred_proj_id	pred_type	lag_hr_cnt
+%R	1	2	1	101	101	PR_FS	0
+%R	2	3	2	101	101	PR_SS	8
+%R	3	4	3	101	101	PR_FS	0
+%R	4	5	4	101	101	PR_FF	-4
+%R	5	6	1	101	101	PR_XX	0
+%R	6	13	5	102	101	PR_FS	0
+%R	7	12	11	102	102	PR_FS	0
+%R	8	13	12	102	102	PR_FS	0
+%T	TASKRSRC
+%F	taskrsrc_id	task_id	proj_id	rsrc_id	target_qty	remain_qty
+%R	1	4	101	501	36	36
+%T	UDFTYPE
+%F	udf_type_id	table_name	udf_type_name	udf_type_label	logical_data_type
+%R	1	TASK	user_field_1	Permit no	FT_TEXT
+%E

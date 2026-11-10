@@ -2,20 +2,50 @@ import { describe, expect, it } from 'vitest';
 import { ISSUE_CATALOG, makeIssue } from '@/import/issues';
 
 describe('issue catalog', () => {
-  it('holds the 64 codes of spec §5.12 with their severities', () => {
+  it('holds the 69 codes of spec §5.12 read so far with their severities', () => {
     const entries = Object.values(ISSUE_CATALOG);
-    expect(entries).toHaveLength(64);
+    expect(entries).toHaveLength(69);
     expect(
       (['error', 'warning', 'info'] as const).map(
         (s) => entries.filter((e) => e.severity === s).length,
       ),
-    ).toEqual([13, 34, 17]);
+    ).toEqual([14, 37, 18]);
     expect(ISSUE_CATALOG.DUPLICATE_CODE).toEqual({
       severity: 'error',
       group: 'Repeated activity codes',
       message: 'Activity code {code} is used more than once.',
     });
     expect(ISSUE_CATALOG.CALENDAR_GENERATED_STANDARD.group).toBe('Generated calendars');
+  });
+
+  it('holds the codes of decisions D51, D53, D54, D55 and D57 with their copy', () => {
+    expect(ISSUE_CATALOG.XER_CALENDAR_BASE_MISSING).toEqual({
+      severity: 'warning',
+      group: 'Calendars read without their base',
+      message:
+        "Calendar {name} is based on a calendar that isn't in the file. It was read as written, with the days P6 exported for it.",
+    });
+    expect(ISSUE_CATALOG.XER_UNKNOWN_VALUE).toEqual({
+      severity: 'warning',
+      group: 'Unknown values',
+      message: "{code} has a {field} we don't know ({value}). {used} is used.",
+    });
+    expect(ISSUE_CATALOG.XER_DECIMAL_COMMA).toEqual({
+      severity: 'warning',
+      group: 'Decimal commas',
+      message:
+        "Numbers in this file use a decimal comma the file doesn't declare. They were read as decimals; check durations and percentages.",
+    });
+    expect(ISSUE_CATALOG.CALENDAR_DATA_REPAIRED).toEqual({
+      severity: 'info',
+      group: 'Repaired calendars',
+      message: 'Calendar {name} had damaged data that was repaired.',
+    });
+    expect(ISSUE_CATALOG.FILE_TOO_MANY_EXCEPTIONS).toEqual({
+      severity: 'error',
+      group: 'Too many calendar exceptions',
+      message: "The file's calendars hold more than 100,000 exception dates.",
+    });
   });
 
   it('fills the message and formats counts', () => {

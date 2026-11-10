@@ -83,6 +83,16 @@ export function parseXerDate(text: string): WallClock | null | 'invalid' {
   return wallClock(isoDate(year, month, day), hour ?? 0, minute ?? 0);
 }
 
+const XER_DAY_EPOCH = daysFromCivil(1899, 12, 30);
+
+/** A P6 `clndr_data` day number (days since 1899-12-30) as a date; null outside 1900–9999. */
+export function xerDayToIsoDate(days: number): ISODate | null {
+  if (!Number.isSafeInteger(days)) return null;
+  const { year, month, day } = civilFromDays(XER_DAY_EPOCH + days);
+  if (year < 1900 || year > 9999) return null;
+  return isoDate(year, month, day);
+}
+
 const MSPDI_DATE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 
 /** MSPDI: `yyyy-MM-ddTHH:mm:ss`; seconds are dropped. */

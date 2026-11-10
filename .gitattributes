@@ -1,0 +1,3 @@
+# Import fixtures are byte-exact test inputs (CRLF exports, byte-order marks, workbooks): git
+# stores and checks them out unchanged, so every checkout reads the same bytes (Review Focus 1).
+src/import/__fixtures__/** -text

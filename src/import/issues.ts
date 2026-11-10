@@ -11,6 +11,7 @@ export type IssueCode =
   | 'FILE_TOO_MANY_RELATIONSHIPS'
   | 'FILE_TOO_MANY_WBS'
   | 'FILE_TOO_MANY_CALENDARS'
+  | 'FILE_TOO_MANY_EXCEPTIONS'
   | 'FILE_TOO_MANY_ROWS'
   | 'FILE_TOO_MANY_COLUMNS'
   | 'DUPLICATE_CODE'
@@ -24,10 +25,14 @@ export type IssueCode =
   | 'XER_CROSS_PROJECT_LINK'
   | 'XER_RESOURCE_TASK'
   | 'XER_EXPECTED_FINISH'
+  | 'XER_CALENDAR_BASE_MISSING'
+  | 'XER_UNKNOWN_VALUE'
+  | 'XER_DECIMAL_COMMA'
   | 'CALENDAR_UNUSED_SKIPPED'
   | 'CALENDAR_RECURRENCE_CAPPED'
   | 'CALENDAR_MISSING'
   | 'CALENDAR_HOURS_MISMATCH'
+  | 'CALENDAR_DATA_REPAIRED'
   | 'CALENDAR_GENERATED_STANDARD'
   | 'CALENDAR_GENERATED_FROM_NAME'
   | 'CALENDAR_GENERATED_ELAPSED'
@@ -104,6 +109,11 @@ export const ISSUE_CATALOG: Readonly<
     group: 'Too many calendars',
     message: 'The file has {n} calendars. The limit is 200.',
   },
+  FILE_TOO_MANY_EXCEPTIONS: {
+    severity: 'error',
+    group: 'Too many calendar exceptions',
+    message: "The file's calendars hold more than 100,000 exception dates.",
+  },
   FILE_TOO_MANY_ROWS: {
     severity: 'error',
     group: 'Too many rows',
@@ -175,6 +185,23 @@ export const ISSUE_CATALOG: Readonly<
     message:
       "{n} activities have an expected finish date. Expected finish isn't used, so their remaining durations decide their dates.",
   },
+  XER_CALENDAR_BASE_MISSING: {
+    severity: 'warning',
+    group: 'Calendars read without their base',
+    message:
+      "Calendar {name} is based on a calendar that isn't in the file. It was read as written, with the days P6 exported for it.",
+  },
+  XER_UNKNOWN_VALUE: {
+    severity: 'warning',
+    group: 'Unknown values',
+    message: "{code} has a {field} we don't know ({value}). {used} is used.",
+  },
+  XER_DECIMAL_COMMA: {
+    severity: 'warning',
+    group: 'Decimal commas',
+    message:
+      "Numbers in this file use a decimal comma the file doesn't declare. They were read as decimals; check durations and percentages.",
+  },
   CALENDAR_UNUSED_SKIPPED: {
     severity: 'warning',
     group: 'Unused calendars skipped',
@@ -196,6 +223,11 @@ export const ISSUE_CATALOG: Readonly<
     group: 'Calendar hours',
     message:
       'Calendar {name} states {stated} hours a day, but its work week has {actual}. {actual} is used.',
+  },
+  CALENDAR_DATA_REPAIRED: {
+    severity: 'info',
+    group: 'Repaired calendars',
+    message: 'Calendar {name} had damaged data that was repaired.',
   },
   CALENDAR_GENERATED_STANDARD: {
     severity: 'info',
