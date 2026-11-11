@@ -1,0 +1,6 @@
+Activity ID,Activity Name,Duration,Start,Finish,Predecessors,Activity Type,Constraint,Constraint Date,WBS
+M1,Kick-off,0,2026-03-02,,,Start milestone,,,1
+A1,Survey,4d,2026-03-02,2026-03-05,M1,Task,Start no earlier than,2026-03-02,1.1
+A2,Design,10d,2026-03-06,2026-03-19,A1FS+2d,Task,FNLT,2026-03-20,1.2
+A3,Review,2d,,,A2;A2;A3,Task,Must finish by,2026-03-25,1.2
+M2,Handover,0,,2026-03-31,A3,Finish milestone,,,1

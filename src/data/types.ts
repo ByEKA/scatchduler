@@ -206,7 +206,7 @@ export interface TableAssumptions {
   dateOnlyStart: '08:00';
   dateOnlyFinish: '17:00';
   weekUnitDays: 5;
-  defaultWorkWeek: 'mon-fri'; // calendars made from names: Mon–Fri from 08:00, hoursPerDay hours, 1 h break at 12:00 when hoursPerDay > 4
+  defaultWorkWeek: 'mon-fri'; // calendars made from names: Mon–Fri from 08:00, hoursPerDay hours, 1 h break at 12:00 when hoursPerDay > 4; longer than 15 h starts earlier (D61)
 }
 export interface ImportMapping {
   // everything P4 needs to read the file again

@@ -26,7 +26,8 @@
     "db:reset": "supabase db reset && tsx scripts/seed-local.ts",
     "db:env": "tsx scripts/write-local-env.ts",
     "db:types": "supabase gen types typescript --local > src/data/supabase/database.types.ts",
-    "test:db": "supabase test db"
+    "test:db": "supabase test db",
+    "fixtures:xlsx": "tsx scripts/make-xlsx-fixtures.ts"
   },
   "keywords": [],
   "author": "",

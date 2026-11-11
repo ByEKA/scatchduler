@@ -1,0 +1,6 @@
+﻿ID,Unique ID,Name,Duration,Start,Finish,Predecessors,% Complete
+1,101,Mobilize,1 day,Mon 3/2/26 8:00 AM,Mon 3/2/26 5:00 PM,,100%
+2,102,Excavate,5 days?,Tue 3/3/26 8:00 AM,Mon 3/9/26 5:00 PM,1,50%
+3,103,Pour slab,2 wks,Tue 3/10/26 8:00 AM,Mon 3/23/26 5:00 PM,2FS+2 days,0%
+4,104,Cure,3 edays,Tue 3/24/26 8:00 AM,Fri 3/27/26 8:00 AM,3,0%
+5,105,Inspect,4 hrs,Fri 3/27/26 8:00 AM,Fri 3/27/26 12:00 PM,4SS-25%,0%

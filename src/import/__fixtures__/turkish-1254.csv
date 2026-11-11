@@ -1,0 +1,7 @@
+Aktivite Kodu;Aktivite Adý;Süre;Baþlangýç;Bitiþ;Öncüller;% Tamamlanma;Takvim
+T100;Þantiye kurulumu;2,5;02.03.2026;04.03.2026;;100;Gündüz
+T110;Kazý iþleri;5;05.03.2026;11.03.2026;T100;40;Gündüz
+T120;Temel betonu;3;12.03.2026;16.03.2026;T110SS+1 g;0;STANDARD
+T130;Ýskele;;17.03.2026;;T120;abc;
+;Kodsuz satýr;1;;;;;
+;;;;;;;
