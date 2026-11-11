@@ -51,10 +51,10 @@ const specPrompt = (round, previous) => `You are the spec-compliance reviewer fo
 
 ${CONTEXT}
 
-Read CLAUDE.md, plan lines ${HEAD_LINES}, the full Task ${t.task} text (plan lines ${t.lines}) and every spec section it lists. Then inspect the task's commit: \`git log --oneline -5\`, \`git show --stat HEAD\`, \`git show HEAD\`, and read the resulting files in full where needed.
+Read CLAUDE.md, plan lines ${HEAD_LINES}, the full Task ${t.task} text (plan lines ${t.lines}) and every spec section it lists. Then inspect the task's work: \`git log --oneline -8\` shows the task's commit (subject "${t.commit}") and any "fixup! ${t.commit}" commits from earlier fix rounds above it, which the controller squashes into the task's commit after the reviews. Review them together: \`git diff --stat <task commit>^ HEAD\`, \`git diff <task commit>^ HEAD\`, the commit messages, and the resulting files in full where needed.
 
 Check item by item:
-- Files: every file in the task's Files list was created or modified as listed; no unrelated changes. One commit for this task with the subject exactly "${t.commit}" and a message ending with the line "${TRAILER}".
+- Files: every file in the task's Files list was created or modified as listed; no unrelated changes. One commit for this task (plus fixup! commits) with the subject exactly "${t.commit}" and a message ending with the line "${TRAILER}".
 - Tests: each test file matches the plan's code block apart from formatting: same imports, test names, queries, assertions and strings. Any semantic difference is a finding unless the commit body records it as a mechanical change that leaves the assertions intact.
 - Interfaces and Pins: every exported name, signature, return shape and pinned behavior is implemented as written.
 - Copy and identifiers: labels, aria-labels, ids, storage keys, query keys and strings pinned by the plan or spec are verbatim.
@@ -68,7 +68,7 @@ const qualityPrompt = (round, previous) => `You are the code-quality reviewer fo
 
 ${CONTEXT}
 
-Read CLAUDE.md, plan lines ${RULES_LINES} and the Task ${t.task} text (plan lines ${t.lines}). Review the task's commit (\`git show HEAD\`) and the code it touches for:
+Read CLAUDE.md, plan lines ${RULES_LINES} and the Task ${t.task} text (plan lines ${t.lines}). Review the task's commit together with any "fixup! ${t.commit}" commits above it (\`git log --oneline -8\`, then \`git diff <task commit>^ HEAD\`) and the code it touches for:
 - correctness bugs, each with a concrete scenario (inputs or state -> wrong result or crash);
 - CLAUDE.md rules: layering and import restrictions, query keys only from src/hooks/query-keys.ts, localStorage only through src/lib/storage.ts, no hard-coded colors (token utilities; the banner's white overlays are allowed), TypeScript rules (import type; no enum, namespace, parameter properties or any), React rules (no setState in effects, no Date/Math.random during render, no autoFocus, forms noValidate), accessibility (aria-label on icon-only controls, labels bound to inputs, visible focus, keyboard operation);
 - the plan's Review Focus items that apply to this task;
@@ -86,7 +86,7 @@ Read CLAUDE.md, plan lines ${RULES_LINES} and the Task ${t.task} text (plan line
 Findings:
 ${JSON.stringify(findings, null, 2)}
 
-Then run \`npm run format\` (if the script exists) and \`npm run check\` (plus the task's other commands, e.g. build) until they pass, and fold the changes into the task's commit with \`git add -A && git commit --amend\`, keeping the subject "${t.commit}", adding or updating body lines only for deviations from the plan, and keeping "${TRAILER}" as the last line. Confirm \`git status --short\` is empty and the task still has one commit. If a finding can only be resolved by changing the spec, don't change anything for it; put the question in needsOwner.`
+Then run \`npm run format\` (if the script exists) and \`npm run check\` (plus the task's other commands, e.g. build) until they pass, and commit the changes as a new commit (\`git add -A && git commit -F <file>\`) with the subject "fixup! ${t.commit}". Its plain-text body says what was fixed, then, under a line "Task commit body:", the lines to add to or change in the task commit's body (deviations from the plan only; write "none" if there are none), and ends with "${TRAILER}" after a blank line. Don't amend, rebase, reset or squash: the controller squashes the fixup commits into the task's commit after the reviews. Confirm \`git status --short\` is empty. If a finding can only be resolved by changing the spec, don't change anything for it; put the question in needsOwner.`
 
 const IMPL = {
   type: 'object',

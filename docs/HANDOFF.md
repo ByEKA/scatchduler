@@ -31,7 +31,7 @@ These are the owner's working rules from Phase 1; keep them for Phase 2.
 - Chat in Turkish; code, commits, docs and UI copy in English.
 - Plan tasks in order, test first: failing test, the plan's commands compared with its Expected lines, then one commit per task. A step that can't run as written uses the closest equivalent and says so in the commit body.
 - Never change the spec silently. When the spec looks wrong, or a test can't pass without changing it, stop and ask. Each answer goes into the spec's decisions log as a new D-row and into the plan's pins.
-- Per task: implementer, then spec review, then quality review, one after the other; findings are fixed and folded into the task's commit (`git commit --amend`).
+- Per task: implementer, then spec review, then quality review, one after the other; fixers commit their fixes as `fixup! <task subject>` commits (auto mode refused their `git commit --amend`), and the controller squashes them into the task's one commit after the reviews, folding each fixup's "Task commit body:" lines into its message. To rerun only the reviews on a committed task, pass `startAt: 'spec'` (or `'quality'`) and `resumeCommit`.
 - Never leave a half-finished task: HEAD is always a completed task. If a usage limit cuts a task off, set the partial work aside (`git stash`) and run the task again.
 - When the owner asks to stop after a task, finish that task and wait for an explicit go-ahead.
 
