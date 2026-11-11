@@ -4,9 +4,17 @@ import { byteOrderMark } from './encoding';
 // Format detection from the content (P3 core spec §5.2): the table's checks in its order, on the
 // bytes after any byte-order mark. Compound files are recognized from their header and directory
 // entry names only, and XML with a DOCTYPE is refused before anything parses it (§5.11).
+// `noNamespace` marks Microsoft Project XML whose root `Project` has no namespace (D52); the
+// report turns it into MSPDI_NO_NAMESPACE.
 
 export type Detection =
-  | { kind: 'format'; format: ImportFormat; fromContent: boolean; bomLength: number }
+  | {
+      kind: 'format';
+      format: ImportFormat;
+      fromContent: boolean;
+      noNamespace: boolean;
+      bomLength: number;
+    }
   | { kind: 'refused'; message: string };
 
 export const REFUSAL_MESSAGES = {
@@ -94,10 +102,12 @@ function endOfTag(text: string, from: number): number {
 }
 
 /**
- * The first element after `<?…?>` declarations, comments and whitespace, with its namespace;
- * null when there is none in the text, or a DOCTYPE (or any other `<!`) comes first.
+ * The first element after `<?…?>` declarations, comments and whitespace, with its prefix and
+ * namespace; null when there is none in the text, or a DOCTYPE (or any other `<!`) comes first.
  */
-function rootElement(text: string): { localName: string; namespace: string | null } | null {
+function rootElement(
+  text: string,
+): { localName: string; prefix: string | null; namespace: string | null } | null {
   let i = 0;
   while (i < text.length) {
     const char = text[i];
@@ -127,7 +137,7 @@ function rootElement(text: string): { localName: string; namespace: string | nul
         .matchAll(/([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
         if (match[1] === wanted) namespace = match[2] ?? match[3] ?? null;
       }
-      return { localName, namespace };
+      return { localName, prefix, namespace };
     } else {
       return null;
     }
@@ -135,12 +145,23 @@ function rootElement(text: string): { localName: string; namespace: string | nul
   return null;
 }
 
-/** null for Microsoft Project XML, else the refusal message. */
-function xmlRefusal(text: string): string | null {
+// A `<Tasks>` or `<Calendars>` element (start or empty tag) in the scanned head.
+const MSPDI_SECTION = /<(?:Tasks|Calendars)[\s/>]/;
+
+/**
+ * Microsoft Project XML: a root `Project` in the Microsoft Project namespace, or one in no
+ * namespace whose first 64 KB (the scanned head) hold a `<Tasks>` or `<Calendars>` element (D52).
+ * Anything else is a refusal message.
+ */
+function readXmlRoot(text: string): { noNamespace: boolean } | { refusal: string } {
   const root = rootElement(text);
-  if (root?.localName === 'Project' && root.namespace === MSPDI_NAMESPACE) return null;
-  if (root?.localName === 'APIBusinessObjects') return REFUSAL_MESSAGES.p6Xml;
-  return REFUSAL_MESSAGES.otherXml;
+  if (root?.localName === 'Project') {
+    if (root.namespace === MSPDI_NAMESPACE) return { noNamespace: false };
+    const inNoNamespace = root.prefix === null && (root.namespace ?? '') === '';
+    if (inNoNamespace && MSPDI_SECTION.test(text)) return { noNamespace: true };
+  }
+  if (root?.localName === 'APIBusinessObjects') return { refusal: REFUSAL_MESSAGES.p6Xml };
+  return { refusal: REFUSAL_MESSAGES.otherXml };
 }
 
 // ---- Zip ----
@@ -262,10 +283,11 @@ export function detectFormat(bytes: Uint8Array, fileName: string): Detection {
   const bom = byteOrderMark(bytes);
   const bomLength = bom?.length ?? 0;
   const content = bytes.subarray(bomLength);
-  const found = (format: ImportFormat): Detection => ({
+  const found = (format: ImportFormat, noNamespace = false): Detection => ({
     kind: 'format',
     format,
     fromContent: format !== named,
+    noNamespace,
     bomLength,
   });
   const refused = (message: string): Detection => ({ kind: 'refused', message });
@@ -281,8 +303,8 @@ export function detectFormat(bytes: Uint8Array, fileName: string): Detection {
   const text = headText(content, bom?.name ?? null);
   if (text.startsWith('ERMHDR')) return found('xer');
   if (/^[ \t\r\n]*</.test(text)) {
-    const refusal = xmlRefusal(text);
-    return refusal === null ? found('mspdi') : refused(refusal);
+    const xml = readXmlRoot(text);
+    return 'refusal' in xml ? refused(xml.refusal) : found('mspdi', xml.noNamespace);
   }
   if (startsWith(content, ZIP_SIGNATURE)) {
     return zipHasWorkbook(content) ? found('xlsx') : refused(REFUSAL_MESSAGES.notWorkbook);

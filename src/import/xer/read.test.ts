@@ -639,3 +639,21 @@ describe('readXer links to other projects', () => {
     });
   });
 });
+
+describe('readXer text limits (§5.10)', () => {
+  it('shortens codes and names without splitting a character made of two code units', () => {
+    const parsed = file();
+    Object.assign(taskRow(parsed, 'A1050'), {
+      task_code: `${'S'.repeat(39)}😀`,
+      task_name: `${'a'.repeat(254)}😀`,
+    });
+    const result = readXer(parsed, '101');
+    expect(
+      result.model.activities.filter((a) => a.code.startsWith('S')).map((a) => [a.code, a.name]),
+    ).toEqual([['S'.repeat(39), 'a'.repeat(254)]]);
+    expect(result.issues.filter((i) => i.code === 'TEXT_TRUNCATED').map((i) => i.message)).toEqual([
+      `The code of ${'S'.repeat(39)}😀 was longer than 40 characters and was shortened.`,
+      `The name of ${'S'.repeat(39)} was longer than 255 characters and was shortened.`,
+    ]);
+  });
+});

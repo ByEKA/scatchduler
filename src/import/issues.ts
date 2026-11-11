@@ -46,6 +46,8 @@ export type IssueCode =
   | 'MSPDI_EXTERNAL_TASK'
   | 'MSPDI_EXTERNAL_LINK'
   | 'MSPDI_WORK_WEEKS'
+  | 'MSPDI_NO_NAMESPACE'
+  | 'MSPDI_DATE_ZONE_DROPPED'
   | 'CODE_FALLBACK'
   | 'XML_BAD_CHARACTER'
   | 'ELAPSED_DURATION'
@@ -233,13 +235,13 @@ export const ISSUE_CATALOG: Readonly<
     severity: 'info',
     group: 'Generated calendars',
     message:
-      'Calendar Standard was added as the default calendar: Monday to Friday from 08:00, {n} hours a day.',
+      'Calendar Standard was added as the default calendar: Monday to Friday from {start}, {n} hours a day.',
   },
   CALENDAR_GENERATED_FROM_NAME: {
     severity: 'info',
     group: 'Generated calendars',
     message:
-      'Calendar {name} was made from its name with the standard week: Monday to Friday from 08:00, {n} hours a day.',
+      'Calendar {name} was made from its name with the standard week: Monday to Friday from {start}, {n} hours a day.',
   },
   CALENDAR_GENERATED_ELAPSED: {
     severity: 'info',
@@ -298,6 +300,17 @@ export const ISSUE_CATALOG: Readonly<
     severity: 'warning',
     group: 'Alternate work weeks',
     message: 'Calendar {name} has alternate work weeks. Only its default week is used.',
+  },
+  MSPDI_NO_NAMESPACE: {
+    severity: 'info',
+    group: 'Non-standard Microsoft Project XML',
+    message: 'The file has no Microsoft Project namespace. It was read as Microsoft Project XML.',
+  },
+  MSPDI_DATE_ZONE_DROPPED: {
+    severity: 'info',
+    group: 'Non-standard Microsoft Project XML',
+    message:
+      'Some dates carry a time zone or fractions of a second. They were read as the times written.',
   },
   CODE_FALLBACK: {
     severity: 'warning',
@@ -444,14 +457,20 @@ export const ISSUE_CATALOG: Readonly<
 
 const MAX_TEXT = 200;
 
+/**
+ * The first `max` characters (UTF-16 code units) of `text`, one fewer when the last would be half
+ * of a surrogate pair: a lone surrogate can't be stored as JSON text in Postgres.
+ */
+export function sliceText(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const last = text.charCodeAt(max - 1);
+  return text.slice(0, last >= 0xd800 && last <= 0xdbff ? max - 1 : max);
+}
+
 /** Text longer than `max` (200) becomes its first `max - 1` characters and '…' (§5.10). */
 export function cutText(text: string, max: number = MAX_TEXT): string {
   if (text.length <= max) return text;
-  let end = max - 1;
-  // Never keep half of a surrogate pair.
-  const last = text.charCodeAt(end - 1);
-  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
-  return `${text.slice(0, end)}…`;
+  return `${sliceText(text, max - 1)}…`;
 }
 
 function cutOrNull(text: string | null | undefined): string | null {

@@ -72,3 +72,30 @@ export function compoundFile(names: string[]): Uint8Array {
   });
   return bytes;
 }
+
+const MSPDI_STANDARD_CALENDAR = `<Calendar><UID>1</UID><Name>Standard</Name><IsBaseCalendar>1</IsBaseCalendar><WeekDays>${[
+  1, 2, 3, 4, 5, 6, 7,
+]
+  .map((dayType) =>
+    dayType === 1 || dayType === 7
+      ? `<WeekDay><DayType>${dayType}</DayType><DayWorking>0</DayWorking></WeekDay>`
+      : `<WeekDay><DayType>${dayType}</DayType><DayWorking>1</DayWorking><WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>12:00:00</ToTime></WorkingTime><WorkingTime><FromTime>13:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>`,
+  )
+  .join('')}</WeekDays></Calendar>`;
+
+/**
+ * A complete Microsoft Project XML document: SaveVersion 14, MinutesPerDay 480, CalendarUID 1, the
+ * given project elements, the given calendars (default: UID 1 "Standard", Monday to Friday 08:00
+ * to 12:00 and 13:00 to 17:00) and the given task elements.
+ */
+export function mspdiXml(parts: { project?: string; calendars?: string; tasks: string }): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<Project xmlns="http://schemas.microsoft.com/project">',
+    '<SaveVersion>14</SaveVersion><MinutesPerDay>480</MinutesPerDay><CalendarUID>1</CalendarUID>',
+    parts.project ?? '',
+    `<Calendars>${parts.calendars ?? MSPDI_STANDARD_CALENDAR}</Calendars>`,
+    `<Tasks>${parts.tasks}</Tasks>`,
+    '</Project>',
+  ].join('\n');
+}

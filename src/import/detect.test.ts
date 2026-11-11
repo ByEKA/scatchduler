@@ -45,6 +45,35 @@ describe('detectFormat', () => {
     });
   });
 
+  it('reads a Project root in no namespace as MSPDI when it holds tasks or calendars (D52)', () => {
+    expect(
+      detectFormat(
+        bytesOf(
+          '<?xml version="1.0"?>\n<Project><Name>A</Name><Tasks><Task><UID>1</UID></Task></Tasks></Project>',
+        ),
+        'plan.xml',
+      ),
+    ).toMatchObject({ kind: 'format', format: 'mspdi', fromContent: false, noNamespace: true });
+    expect(detectFormat(bytesOf('<Project><Calendars/></Project>'), 'plan.xml')).toMatchObject({
+      kind: 'format',
+      format: 'mspdi',
+      noNamespace: true,
+    });
+    expect(
+      detectFormat(
+        bytesOf('<Project xmlns="http://schemas.microsoft.com/project"><Tasks/></Project>'),
+        'plan.xml',
+      ),
+    ).toMatchObject({ kind: 'format', format: 'mspdi', noNamespace: false });
+    expect(detectFormat(bytesOf('<Project><Name>A</Name></Project>'), 'plan.xml')).toEqual({
+      kind: 'refused',
+      message: NOT_MSPDI,
+    });
+    expect(
+      detectFormat(bytesOf('<Project xmlns="urn:other"><Tasks/></Project>'), 'plan.xml'),
+    ).toEqual({ kind: 'refused', message: NOT_MSPDI });
+  });
+
   it('refuses what it cannot import, each with its message', () => {
     const refused = (bytes: Uint8Array, name: string) => detectFormat(bytes, name);
     expect(refused(bytesOf('<?xml version="1.0"?><APIBusinessObjects/>'), 'p6.xml')).toEqual({

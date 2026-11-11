@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { ISSUE_CATALOG, makeIssue } from '@/import/issues';
+import { ISSUE_CATALOG, makeIssue, sliceText } from '@/import/issues';
 
 describe('issue catalog', () => {
-  it('holds the 69 codes of spec §5.12 read so far with their severities', () => {
+  it('holds the 71 codes of spec §5.12 with their severities', () => {
     const entries = Object.values(ISSUE_CATALOG);
-    expect(entries).toHaveLength(69);
+    expect(entries).toHaveLength(71);
     expect(
       (['error', 'warning', 'info'] as const).map(
         (s) => entries.filter((e) => e.severity === s).length,
       ),
-    ).toEqual([14, 37, 18]);
+    ).toEqual([14, 37, 20]);
     expect(ISSUE_CATALOG.DUPLICATE_CODE).toEqual({
       severity: 'error',
       group: 'Repeated activity codes',
@@ -48,6 +48,20 @@ describe('issue catalog', () => {
     });
   });
 
+  it('holds the codes of decision D52 with their copy', () => {
+    expect(ISSUE_CATALOG.MSPDI_NO_NAMESPACE).toEqual({
+      severity: 'info',
+      group: 'Non-standard Microsoft Project XML',
+      message: 'The file has no Microsoft Project namespace. It was read as Microsoft Project XML.',
+    });
+    expect(ISSUE_CATALOG.MSPDI_DATE_ZONE_DROPPED).toEqual({
+      severity: 'info',
+      group: 'Non-standard Microsoft Project XML',
+      message:
+        'Some dates carry a time zone or fractions of a second. They were read as the times written.',
+    });
+  });
+
   it('fills the message and formats counts', () => {
     expect(makeIssue('FILE_TOO_MANY_ACTIVITIES', { n: 20001 })).toEqual({
       severity: 'error',
@@ -82,6 +96,16 @@ describe('issue catalog', () => {
     expect(issue.message).toHaveLength(200);
     expect(issue.message.endsWith('…')).toBe(true);
     expect(issue.original).toBe(`${'ş'.repeat(199)}…`);
+    expect(
+      makeIssue('TABLE_MISSING_CODE', {}, { original: `${'x'.repeat(198)}😀😀` }).original,
+    ).toBe(`${'x'.repeat(198)}…`);
+  });
+
+  it('keeps the start of a text without splitting a character made of two code units', () => {
+    expect(sliceText('ab😀', 4)).toBe('ab😀');
+    expect(sliceText('ab😀', 3)).toBe('ab');
+    expect(sliceText('ab😀c', 2)).toBe('ab');
+    expect(sliceText('abc', 5)).toBe('abc');
   });
 
   it('keeps the outcome labels', async () => {

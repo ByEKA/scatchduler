@@ -1,6 +1,6 @@
 import type { ImportCount, ImportIssue, ISODate } from '@/data/types';
 import { parseXerDate } from '../dates';
-import { makeIssue, type IssueCode } from '../issues';
+import { makeIssue, sliceText, type IssueCode } from '../issues';
 import {
   emptyModel,
   type ImportActivity,
@@ -242,7 +242,7 @@ function lookup<T>(table: Record<string, T>, key: string): T | undefined {
   return Object.hasOwn(table, key) ? table[key] : undefined;
 }
 
-/** A field cut to its limit (§5.10), with TEXT_TRUNCATED. */
+/** A field cut to its limit (§5.10), never inside a surrogate pair, with TEXT_TRUNCATED. */
 function limited(
   value: string,
   limit: number,
@@ -255,7 +255,7 @@ function limited(
   issues.push(
     makeIssue('TEXT_TRUNCATED', { field, code, n: limit }, { location, original: value }),
   );
-  return value.slice(0, limit);
+  return sliceText(value, limit);
 }
 
 /** Hours per day of a work week: the most common length of its working days, the longer on a tie. */
