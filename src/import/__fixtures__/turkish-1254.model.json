@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "format": "csv",
+  "project": {
+    "code": null,
+    "name": null,
+    "rootWbsName": null,
+    "statedStart": null,
+    "statedFinish": null,
+    "mustFinishBy": null,
+    "statusDate": null,
+    "defaultCalendarId": "gen:standard"
+  },
+  "calendars": [
+    {
+      "id": "gen:standard",
+      "name": "Standard",
+      "kind": "project",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 40,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    },
+    {
+      "id": "gen:name:gunduz",
+      "name": "Gündüz",
+      "kind": "global",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 40,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    }
+  ],
+  "wbs": [],
+  "activities": [
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "T100",
+      "name": "Şantiye kurulumu",
+      "wbsId": null,
+      "calendarId": "gen:name:gunduz",
+      "type": "task",
+      "originalDuration": 1200,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-02T08:00", "finish": "2026-03-04T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "completed",
+      "percent": { "duration": 100, "physical": null, "type": "duration" },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "T110",
+      "name": "Kazı işleri",
+      "wbsId": null,
+      "calendarId": "gen:name:gunduz",
+      "type": "task",
+      "originalDuration": 2400,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-05T08:00", "finish": "2026-03-11T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "in_progress",
+      "percent": { "duration": 40, "physical": null, "type": "duration" },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "T120",
+      "name": "Temel betonu",
+      "wbsId": null,
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": 1440,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-12T08:00", "finish": "2026-03-16T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": "duration" },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "T130",
+      "name": "İskele",
+      "wbsId": null,
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": null,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-17T08:00", "finish": null },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    }
+  ],
+  "relationships": [
+    {
+      "predecessorCode": "T100",
+      "successorCode": "T110",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "T110",
+      "successorCode": "T120",
+      "type": "SS",
+      "lagMinutes": 480,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "T120",
+      "successorCode": "T130",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    }
+  ],
+  "settings": []
+}

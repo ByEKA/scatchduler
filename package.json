@@ -27,7 +27,8 @@
     "db:env": "tsx scripts/write-local-env.ts",
     "db:types": "supabase gen types typescript --local > src/data/supabase/database.types.ts",
     "test:db": "supabase test db",
-    "fixtures:xlsx": "tsx scripts/make-xlsx-fixtures.ts"
+    "fixtures:xlsx": "tsx scripts/make-xlsx-fixtures.ts",
+    "goldens": "tsx scripts/update-import-goldens.ts"
   },
   "keywords": [],
   "author": "",

@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "format": "xlsx",
+  "formatVersion": null,
+  "file": {
+    "name": "dates-1904.xlsx",
+    "size": 18052,
+    "sha256": "2091df100647cdceb054236d62f6b7082c8dfca2eae9ad7b72ad509c0b584b67"
+  },
+  "formatFromContent": false,
+  "activityCodeField": null,
+  "sourceProject": {
+    "id": null,
+    "code": null,
+    "name": null,
+    "projectsInFile": 1,
+    "rootWbsName": null,
+    "mustFinishBy": null,
+    "stated": { "start": null, "finish": null }
+  },
+  "encoding": null,
+  "table": {
+    "sheet": "Plan",
+    "headerRow": 1,
+    "delimiter": null,
+    "decimalSeparator": ".",
+    "dateFormat": "DD.MM.YYYY",
+    "durationUnit": "days",
+    "hoursPerDay": 8,
+    "predecessorRef": "code",
+    "skipRowsWithIssues": false,
+    "assumptions": {
+      "duration": "original",
+      "startFinish": "planned",
+      "percentComplete": "duration",
+      "dateOnlyStart": "08:00",
+      "dateOnlyFinish": "17:00",
+      "weekUnitDays": 5,
+      "defaultWorkWeek": "mon-fri"
+    }
+  },
+  "statusDate": { "date": null, "time": null, "source": "none" },
+  "dateRange": { "start": "2026-03-02", "finish": "2026-03-12" },
+  "units": { "minutesPerDay": 480, "calendars": [{ "name": "Standard", "hoursPerDay": 8 }] },
+  "settings": [],
+  "counts": [
+    { "entity": "calendar", "read": 0, "accepted": 0, "adjusted": 0, "skipped": 0 },
+    { "entity": "wbs", "read": 0, "accepted": 0, "adjusted": 0, "skipped": 0 },
+    { "entity": "activity", "read": 3, "accepted": 3, "adjusted": 0, "skipped": 0 },
+    { "entity": "relationship", "read": 2, "accepted": 2, "adjusted": 0, "skipped": 0 }
+  ],
+  "breakdown": {
+    "activitiesByType": [{ "type": "task", "count": 3 }],
+    "activitiesStarted": 2,
+    "activitiesCompleted": 1,
+    "relationshipsByType": [{ "type": "FS", "count": 2 }],
+    "constraints": 0,
+    "calendarExceptions": 0
+  },
+  "outcomes": [
+    { "element": "Activity code", "outcome": "used", "items": 3 },
+    { "element": "Activity name", "outcome": "used", "items": 3 },
+    { "element": "Duration", "outcome": "used", "items": 3 },
+    { "element": "Start", "outcome": "used", "items": 3 },
+    { "element": "Finish", "outcome": "used", "items": 3 },
+    { "element": "% complete", "outcome": "used", "items": 3 },
+    { "element": "Predecessors", "outcome": "used", "items": 2 }
+  ],
+  "checks": [
+    { "id": "actual_after_status_date", "findings": 0 },
+    { "id": "progress_without_actual_start", "findings": 1 },
+    { "id": "complete_without_actual_finish", "findings": 1 },
+    { "id": "status_date_fallback", "findings": 0 },
+    { "id": "ambiguous_milestones", "findings": 0 },
+    { "id": "percent_lags", "findings": 0 },
+    { "id": "links_on_summaries", "findings": 0 },
+    { "id": "external_links", "findings": 0 },
+    { "id": "project_dates_differ", "findings": 0 }
+  ],
+  "externalLinks": [],
+  "notImported": [],
+  "issueTotals": { "error": 0, "warning": 2, "info": 1 },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "PROGRESS_WITHOUT_ACTUAL_START",
+      "message": "X2 shows progress but has no actual start.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "COMPLETE_WITHOUT_ACTUAL_FINISH",
+      "message": "X1 is complete but has no actual finish.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "CALENDAR_GENERATED_STANDARD",
+      "message": "Calendar Standard was added as the default calendar: Monday to Friday from 08:00, 8 hours a day.",
+      "location": null,
+      "original": null,
+      "used": null
+    }
+  ]
+}

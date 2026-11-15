@@ -1,18 +1,24 @@
-import { read, SSF, type CellObject, type Range } from 'xlsx';
+import { read, SSF, utils, type CellObject, type Range } from 'xlsx';
 import { REFUSAL_MESSAGES } from '../detect';
 import { checkZip, isOoxmlArchive } from '../zip-guard';
 import { isEmptyRow, type TableCell, type TableSource } from './normalize';
 
 // xlsx tables (P3 core spec §5.7, §5.10, §5.11): the zip guard first, and only an archive SheetJS
 // reads as OOXML (the reader the guard measures); then SheetJS reads only the chosen sheet (the
-// first when none is chosen), dense, without formulas or Date objects, at most 20,051 rows.
-// Number cells with a date format become date cells, with a % format percent cells; merged cells
-// take the top-left value; hidden rows are read.
+// first when none is chosen), dense, without formulas or Date objects, through a 100,000-row
+// window. Number cells with a date format become date cells, with a % format percent cells; merged
+// cells take the top-left value; hidden rows are read.
 
-const SHEET_ROWS = 20_051;
+// The read window (D65): the sheet's first 100,000 rows, blank rows included, so blank rows
+// between data rows don't use up the 20,000-row limit. A sheet whose range runs past the window is
+// marked, and analyze gives FILE_TOO_MANY_ROWS for it: no row is dropped without an error.
+const SHEET_ROWS = 100_000;
 // Merged ranges fill at most this many cells: a sheet's rows and columns are bounded, but a
-// workbook can list any number of overlapping merges.
-const MAX_MERGE_CELLS = SHEET_ROWS * 201;
+// workbook can list any number of overlapping merges. The bound stays where the 20,051-row window
+// put it (the 20,000 data rows the limit allows below a header row in the first 50, and one more,
+// times 201 columns) rather than growing fivefold with the window (D65).
+const MERGE_ROWS = 20_051;
+const MAX_MERGE_CELLS = MERGE_ROWS * 201;
 
 function refused(): { refused: string } {
   return { refused: REFUSAL_MESSAGES.notWorkbook };
@@ -105,6 +111,13 @@ export function xlsxSource(
     const worksheet = name === undefined ? undefined : book.Sheets[name];
     if (name === undefined || !book.SheetNames.includes(name) || !worksheet) return refused();
 
+    // SheetJS keeps the sheet's range from before the cut (its dimension) as !fullref when that
+    // range runs past the window. A sheet without a dimension, or with one that understates its
+    // rows, shows no range past the window; Excel and the usual writers always write it.
+    const fullRange: unknown = worksheet['!fullref'];
+    const rowsPastWindow =
+      typeof fullRange === 'string' && utils.decode_range(fullRange).e.r >= SHEET_ROWS;
+
     const data = (worksheet['!data'] ?? []) as Array<Array<CellObject | undefined> | undefined>;
     const grid = Array.from(data, (row) => Array.from(row ?? [], tableCell));
     fillMerges(grid, worksheet['!merges'] ?? []);
@@ -122,6 +135,7 @@ export function xlsxSource(
       sheets: [...book.SheetNames],
       sheet: name,
       date1904: Boolean(book.Workbook?.WBProps?.date1904),
+      rowsPastWindow,
     };
   } catch {
     return refused();

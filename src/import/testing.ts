@@ -99,3 +99,122 @@ export function mspdiXml(parts: { project?: string; calendars?: string; tasks: s
     '</Project>',
   ].join('\n');
 }
+
+// ---------------------------------------------------------------------------------------------
+// Generated files for the limit, budget and size tests
+
+/** A clndr_data work week: Monday to Friday 08:00–12:00 and 13:00–17:00. */
+const XER_WEEK = `(0||CalendarData()((0||DaysOfWeek()((0||1()())${[2, 3, 4, 5, 6]
+  .map((day) => `(0||${day}()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))`)
+  .join('')}(0||7()())))(0||Exceptions()())))`;
+
+/**
+ * A P6 XER file of one project (proj_id 1, "GEN"): `activities` tasks of 8 hours each, and
+ * `links` FS links, first a chain through the activities, then links two or more activities
+ * apart, then repeats of the first link with their own task_pred_id once no pair is left.
+ * `wbs` WBS elements under the project node (the tasks spread over them), `calendars` calendars
+ * (default 1; every task uses the first, the others are project calendars nothing uses),
+ * `missingCalendars` gives every task an unknown clndr_id (one CALENDAR_MISSING each), and
+ * `padToBytes` adds TASKMEMO rows until the file is about that size, never larger.
+ */
+export function generateXer(options: {
+  activities: number;
+  links: number;
+  wbs?: number;
+  calendars?: number;
+  missingCalendars?: boolean;
+  padToBytes?: number;
+}): Uint8Array {
+  const { activities, links, wbs = 0, calendars = 1, missingCalendars = false } = options;
+  const rows: string[] = [
+    'ERMHDR\t20.12\t2026-11-01\tProject\tadmin\tPlanner\tdbxDatabaseNoName\tProject Management\tUSD',
+    '%T\tPROJECT',
+    '%F\tproj_id\tproj_short_name\texport_flag\tlast_recalc_date\tplan_start_date\tscd_end_date\tclndr_id',
+    '%R\t1\tGEN\tY\t2026-01-05 00:00\t2026-01-05 08:00\t2026-01-05 17:00\t1',
+    '%T\tCALENDAR',
+    '%F\tclndr_id\tclndr_name\tclndr_type\tbase_clndr_id\tproj_id\tday_hr_cnt\tweek_hr_cnt\tmonth_hr_cnt\tyear_hr_cnt\tclndr_data',
+  ];
+  for (let id = 1; id <= calendars; id += 1) {
+    const [type, project] = id === 1 ? ['CA_Base', ''] : ['CA_Project', '1'];
+    rows.push(`%R\t${id}\tCalendar ${id}\t${type}\t\t${project}\t8\t40\t172\t2000\t${XER_WEEK}`);
+  }
+  rows.push(
+    '%T\tPROJWBS',
+    '%F\twbs_id\tproj_id\tparent_wbs_id\tseq_num\tproj_node_flag\twbs_short_name\twbs_name',
+    '%R\t1\t1\t\t0\tY\tGEN\tGenerated project',
+  );
+  for (let i = 0; i < wbs; i += 1) rows.push(`%R\t${i + 2}\t1\t1\t${i}\tN\tW${i}\tWBS ${i}`);
+  rows.push(
+    '%T\tTASK',
+    '%F\ttask_id\tproj_id\twbs_id\tclndr_id\ttask_code\ttask_name\ttask_type\tstatus_code\tphys_complete_pct\tcomplete_pct_type\ttarget_drtn_hr_cnt\tremain_drtn_hr_cnt\ttarget_start_date\ttarget_end_date',
+  );
+  const calendarId = missingCalendars ? '999' : '1';
+  for (let i = 0; i < activities; i += 1) {
+    const wbsId = wbs > 0 ? (i % wbs) + 2 : 1;
+    rows.push(
+      `%R\t${i + 1}\t1\t${wbsId}\t${calendarId}\tA${i + 1}\tActivity ${i + 1}\tTT_Task\tTK_NotStart\t0\tCP_Drtn\t8\t8\t2026-01-05 08:00\t2026-01-05 17:00`,
+    );
+  }
+  rows.push(
+    '%T\tTASKPRED',
+    '%F\ttask_pred_id\ttask_id\tpred_task_id\tproj_id\tpred_proj_id\tpred_type\tlag_hr_cnt',
+  );
+  for (let k = 0; k < links; k += 1) {
+    let predecessor = 0;
+    let successor = Math.min(1, activities - 1);
+    if (k < activities - 1) {
+      predecessor = k;
+      successor = k + 1;
+    } else {
+      const extra = k - (activities - 1);
+      const gap = 2 + Math.floor(extra / activities);
+      if ((extra % activities) + gap < activities) {
+        predecessor = extra % activities;
+        successor = predecessor + gap;
+      }
+    }
+    rows.push(`%R\t${k + 1}\t${successor + 1}\t${predecessor + 1}\t1\t1\tPR_FS\t0`);
+  }
+
+  const end = '%E\r\n';
+  let text = `${rows.join('\r\n')}\r\n`;
+  if (options.padToBytes !== undefined) {
+    // Every character is ASCII, so string lengths are byte counts.
+    const head = '%T\tTASKMEMO\r\n%F\tmemo_id\ttask_id\tproj_id\tmemo_type_id\ttask_memo\r\n';
+    const note = 'Generated note for the size test. '.repeat(6).trim();
+    const memos: string[] = [];
+    let size = text.length + head.length + end.length;
+    for (let id = 1; ; id += 1) {
+      const row = `%R\t${id}\t${((id - 1) % Math.max(activities, 1)) + 1}\t1\t1\t${note}\r\n`;
+      if (size + row.length > options.padToBytes) break;
+      memos.push(row);
+      size += row.length;
+    }
+    if (memos.length > 0) text += head + memos.join('');
+  }
+  return new TextEncoder().encode(text + end);
+}
+
+/**
+ * A UTF-8 CSV with a header and `rows` data rows: activity code, name, duration, start, finish and
+ * predecessors (a chain), then extra columns up to `columns` (default 6; fewer keeps the first).
+ */
+export function generateCsv(options: { rows: number; columns?: number }): Uint8Array {
+  const columns = Math.max(2, options.columns ?? 6);
+  const header = ['Activity ID', 'Activity Name', 'Duration', 'Start', 'Finish', 'Predecessors'];
+  for (let k = header.length; k < columns; k += 1) header.push(`Extra ${k + 1}`);
+  const lines = [header.slice(0, columns).join(',')];
+  for (let i = 1; i <= options.rows; i += 1) {
+    const values = [
+      `A${i}`,
+      `Activity ${i}`,
+      '2d',
+      '2026-03-02',
+      '2026-03-03',
+      i > 1 ? `A${i - 1}` : '',
+    ];
+    for (let k = values.length; k < columns; k += 1) values.push(`x${k + 1}`);
+    lines.push(values.slice(0, columns).join(','));
+  }
+  return new TextEncoder().encode(lines.join('\r\n') + '\r\n');
+}

@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "format": "csv",
+  "formatVersion": null,
+  "file": {
+    "name": "turkish-1254.csv",
+    "size": 328,
+    "sha256": "fd2e9a8de939463d99e5d0e0ac71d049a004aea65476921b8caa5bba3875ca82"
+  },
+  "formatFromContent": false,
+  "activityCodeField": null,
+  "sourceProject": {
+    "id": null,
+    "code": null,
+    "name": null,
+    "projectsInFile": 1,
+    "rootWbsName": null,
+    "mustFinishBy": null,
+    "stated": { "start": null, "finish": null }
+  },
+  "encoding": { "name": "windows-1254", "detectedBy": "byte-score" },
+  "table": {
+    "sheet": null,
+    "headerRow": 1,
+    "delimiter": ";",
+    "decimalSeparator": ",",
+    "dateFormat": "DD.MM.YYYY",
+    "durationUnit": "days",
+    "hoursPerDay": 8,
+    "predecessorRef": "code",
+    "skipRowsWithIssues": false,
+    "assumptions": {
+      "duration": "original",
+      "startFinish": "planned",
+      "percentComplete": "duration",
+      "dateOnlyStart": "08:00",
+      "dateOnlyFinish": "17:00",
+      "weekUnitDays": 5,
+      "defaultWorkWeek": "mon-fri"
+    }
+  },
+  "statusDate": { "date": null, "time": null, "source": "none" },
+  "dateRange": { "start": "2026-03-02", "finish": "2026-03-16" },
+  "units": {
+    "minutesPerDay": 480,
+    "calendars": [
+      { "name": "Standard", "hoursPerDay": 8 },
+      { "name": "Gündüz", "hoursPerDay": 8 }
+    ]
+  },
+  "settings": [],
+  "counts": [
+    { "entity": "calendar", "read": 0, "accepted": 0, "adjusted": 0, "skipped": 0 },
+    { "entity": "wbs", "read": 0, "accepted": 0, "adjusted": 0, "skipped": 0 },
+    { "entity": "activity", "read": 5, "accepted": 4, "adjusted": 1, "skipped": 1 },
+    { "entity": "relationship", "read": 3, "accepted": 3, "adjusted": 0, "skipped": 0 }
+  ],
+  "breakdown": {
+    "activitiesByType": [{ "type": "task", "count": 4 }],
+    "activitiesStarted": 2,
+    "activitiesCompleted": 1,
+    "relationshipsByType": [
+      { "type": "FS", "count": 2 },
+      { "type": "SS", "count": 1 }
+    ],
+    "constraints": 0,
+    "calendarExceptions": 0
+  },
+  "outcomes": [
+    { "element": "Activity code", "outcome": "used", "items": 4 },
+    { "element": "Activity name", "outcome": "used", "items": 4 },
+    { "element": "Duration", "outcome": "used", "items": 3 },
+    { "element": "Start", "outcome": "used", "items": 4 },
+    { "element": "Finish", "outcome": "used", "items": 3 },
+    { "element": "Calendar", "outcome": "used", "items": 3 },
+    { "element": "% complete", "outcome": "used", "items": 4 },
+    { "element": "Predecessors", "outcome": "used", "items": 3 }
+  ],
+  "checks": [
+    { "id": "actual_after_status_date", "findings": 0 },
+    { "id": "progress_without_actual_start", "findings": 1 },
+    { "id": "complete_without_actual_finish", "findings": 1 },
+    { "id": "status_date_fallback", "findings": 0 },
+    { "id": "ambiguous_milestones", "findings": 0 },
+    { "id": "percent_lags", "findings": 0 },
+    { "id": "links_on_summaries", "findings": 0 },
+    { "id": "external_links", "findings": 0 },
+    { "id": "project_dates_differ", "findings": 0 }
+  ],
+  "externalLinks": [],
+  "notImported": [],
+  "issueTotals": { "error": 0, "warning": 4, "info": 3 },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "TABLE_BAD_NUMBER",
+      "message": "“abc” isn't a number. The cell was left empty.",
+      "location": "Line 5",
+      "original": "abc",
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "TABLE_MISSING_CODE",
+      "message": "This row has no activity code and was skipped.",
+      "location": "Line 6",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "PROGRESS_WITHOUT_ACTUAL_START",
+      "message": "T110 shows progress but has no actual start.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "COMPLETE_WITHOUT_ACTUAL_FINISH",
+      "message": "T100 is complete but has no actual finish.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "ENCODING_GUESSED",
+      "message": "Text encoding detected as Turkish (Windows-1254). If letters look wrong, choose another encoding.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "CALENDAR_GENERATED_STANDARD",
+      "message": "Calendar Standard was added as the default calendar: Monday to Friday from 08:00, 8 hours a day.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "CALENDAR_GENERATED_FROM_NAME",
+      "message": "Calendar Gündüz was made from its name with the standard week: Monday to Friday from 08:00, 8 hours a day.",
+      "location": null,
+      "original": null,
+      "used": null
+    }
+  ]
+}

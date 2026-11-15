@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "format": "xer",
+  "project": {
+    "code": "NTH-B",
+    "name": "North Annex",
+    "rootWbsName": "North Annex",
+    "statedStart": "2026-10-01T08:00",
+    "statedFinish": "2026-11-30T17:00",
+    "mustFinishBy": null,
+    "statusDate": "2026-10-15T17:00",
+    "defaultCalendarId": "1"
+  },
+  "calendars": [
+    {
+      "id": "1",
+      "name": "Standard 5 Day",
+      "kind": "global",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [{ "date": "2026-10-29", "periods": [] }],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 40,
+      "hoursPerMonth": 172,
+      "hoursPerYear": 2000
+    },
+    {
+      "id": "3",
+      "name": "Crane",
+      "kind": "resource",
+      "week": [
+        [],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }]
+      ],
+      "exceptions": [],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 48,
+      "hoursPerMonth": 208,
+      "hoursPerYear": 2496
+    }
+  ],
+  "wbs": [{ "id": "2002", "parentId": null, "code": "FIT", "name": "Fit-out", "order": 10 }],
+  "activities": [
+    {
+      "keys": { "taskId": "11", "uid": null, "guid": null },
+      "code": "B2000",
+      "name": "Annex start",
+      "wbsId": "2002",
+      "calendarId": "1",
+      "type": "start_milestone",
+      "originalDuration": 0,
+      "remainingDuration": 0,
+      "planned": { "start": "2026-10-01T08:00", "finish": "2026-10-01T08:00" },
+      "early": { "start": "2026-10-16T08:00", "finish": "2026-10-16T08:00" },
+      "late": { "start": "2026-10-16T08:00", "finish": "2026-10-16T08:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": 0, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "12", "uid": null, "guid": null },
+      "code": "B2010",
+      "name": "Fit-out works",
+      "wbsId": "2002",
+      "calendarId": "1",
+      "type": "task",
+      "originalDuration": 4800,
+      "remainingDuration": 4800,
+      "planned": { "start": "2026-10-01T08:00", "finish": "2026-10-14T17:00" },
+      "early": { "start": "2026-10-16T08:00", "finish": "2026-10-30T17:00" },
+      "late": { "start": "2026-10-16T08:00", "finish": "2026-10-30T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": 0, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "13", "uid": null, "guid": null },
+      "code": "B2020",
+      "name": "Handover",
+      "wbsId": "2002",
+      "calendarId": "1",
+      "type": "finish_milestone",
+      "originalDuration": 0,
+      "remainingDuration": 0,
+      "planned": { "start": "2026-11-30T17:00", "finish": "2026-11-30T17:00" },
+      "early": { "start": "2026-11-30T17:00", "finish": "2026-11-30T17:00" },
+      "late": { "start": "2026-11-30T17:00", "finish": "2026-11-30T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": 0, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    }
+  ],
+  "relationships": [
+    {
+      "predecessorCode": "B2000",
+      "successorCode": "B2010",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "B2010",
+      "successorCode": "B2020",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    }
+  ],
+  "settings": [
+    { "key": "progress_mode", "value": "retained_logic" },
+    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Predecessor" },
+    { "key": "act_this_per_link_flag", "value": "Y" },
+    { "key": "add_act_remain_flag", "value": "N" },
+    { "key": "cost_qty_recalc_flag", "value": "N" },
+    { "key": "reset_planned_flag", "value": "N" }
+  ]
+}

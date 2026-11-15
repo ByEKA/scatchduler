@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "format": "xer",
+  "formatVersion": "20.12",
+  "file": {
+    "name": "two-projects.xer",
+    "size": 5166,
+    "sha256": "a3530070d6c9546980f34de9afa603945e085c0dddbb56381652bae29909a7f6"
+  },
+  "formatFromContent": false,
+  "activityCodeField": null,
+  "sourceProject": {
+    "id": "102",
+    "code": "NTH-B",
+    "name": "North Annex",
+    "projectsInFile": 2,
+    "rootWbsName": "North Annex",
+    "mustFinishBy": null,
+    "stated": { "start": "2026-10-01", "finish": "2026-11-30" }
+  },
+  "encoding": { "name": "utf-8", "detectedBy": "utf8" },
+  "table": null,
+  "statusDate": { "date": "2026-10-15", "time": "17:00", "source": "file" },
+  "dateRange": { "start": "2026-10-01", "finish": "2026-11-30" },
+  "units": {
+    "minutesPerDay": null,
+    "calendars": [
+      { "name": "Standard 5 Day", "hoursPerDay": 8 },
+      { "name": "Crane", "hoursPerDay": 8 }
+    ]
+  },
+  "settings": [
+    { "key": "progress_mode", "value": "retained_logic" },
+    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Predecessor" },
+    { "key": "act_this_per_link_flag", "value": "Y" },
+    { "key": "add_act_remain_flag", "value": "N" },
+    { "key": "cost_qty_recalc_flag", "value": "N" },
+    { "key": "reset_planned_flag", "value": "N" }
+  ],
+  "counts": [
+    { "entity": "calendar", "read": 2, "accepted": 2, "adjusted": 0, "skipped": 0 },
+    { "entity": "wbs", "read": 1, "accepted": 1, "adjusted": 0, "skipped": 0 },
+    { "entity": "activity", "read": 3, "accepted": 3, "adjusted": 1, "skipped": 0 },
+    { "entity": "relationship", "read": 3, "accepted": 2, "adjusted": 0, "skipped": 1 }
+  ],
+  "breakdown": {
+    "activitiesByType": [
+      { "type": "task", "count": 1 },
+      { "type": "start_milestone", "count": 1 },
+      { "type": "finish_milestone", "count": 1 }
+    ],
+    "activitiesStarted": 0,
+    "activitiesCompleted": 0,
+    "relationshipsByType": [{ "type": "FS", "count": 2 }],
+    "constraints": 0,
+    "calendarExceptions": 1
+  },
+  "outcomes": [
+    { "element": "Activities", "outcome": "used", "items": 3 },
+    { "element": "Relationships", "outcome": "used", "items": 2 },
+    { "element": "Calendars", "outcome": "used", "items": 2 },
+    { "element": "Durations", "outcome": "used", "items": 3 },
+    { "element": "WBS", "outcome": "kept", "items": 1 },
+    { "element": "Early and late dates", "outcome": "kept", "items": 3 },
+    { "element": "Total and free float", "outcome": "kept", "items": 3 },
+    { "element": "Scheduling settings", "outcome": "kept", "items": 6 },
+    { "element": "Resources", "outcome": "not_read", "items": 2 },
+    { "element": "Resource assignments", "outcome": "not_read", "items": 1 },
+    { "element": "User-defined fields", "outcome": "not_read", "items": 1 },
+    { "element": "Other tables", "outcome": "not_read", "items": 1 }
+  ],
+  "checks": [
+    { "id": "actual_after_status_date", "findings": 0 },
+    { "id": "progress_without_actual_start", "findings": 0 },
+    { "id": "complete_without_actual_finish", "findings": 0 },
+    { "id": "status_date_fallback", "findings": 0 },
+    { "id": "ambiguous_milestones", "findings": 0 },
+    { "id": "percent_lags", "findings": 0 },
+    { "id": "links_on_summaries", "findings": 0 },
+    { "id": "external_links", "findings": 1 },
+    { "id": "project_dates_differ", "findings": 0 }
+  ],
+  "externalLinks": [{ "target": "NTH-A", "links": 1 }],
+  "notImported": [
+    { "table": "CURRTYPE", "rows": 1 },
+    { "table": "RSRC", "rows": 2 },
+    { "table": "TASKRSRC", "rows": 1 },
+    { "table": "UDFTYPE", "rows": 1 }
+  ],
+  "issueTotals": { "error": 0, "warning": 2, "info": 2 },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "CALENDAR_MISSING",
+      "message": "B2010 has no calendar. The project's default calendar is used.",
+      "location": "TASK line 34",
+      "original": "9",
+      "used": "1"
+    },
+    {
+      "severity": "warning",
+      "code": "XER_CROSS_PROJECT_LINK",
+      "message": "The link A1040 → B2020 points to another project and was skipped.",
+      "location": "TASKPRED line 43",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "XER_MULTIPLE_PROJECTS",
+      "message": "The file holds 2 projects. This schedule is made from NTH-B.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "STATUS_TIME_KEPT",
+      "message": "The file's status date is 2026-10-15 17:00. The schedule keeps the date; the time is kept in this report.",
+      "location": null,
+      "original": null,
+      "used": null
+    }
+  ]
+}

@@ -113,6 +113,11 @@ export function detectEncoding(bytes: Uint8Array): DetectedEncoding {
   return { name, detectedBy: 'byte-score', bomLength: 0, invalidBytes: 0 };
 }
 
+/** The bytes that aren't valid UTF-8, which a UTF-8 decode replaces with U+FFFD. */
+export function invalidUtf8Bytes(bytes: Uint8Array): number {
+  return scanUtf8(bytes, byteOrderMark(bytes)?.length ?? 0).invalidBytes;
+}
+
 /** Decodes without failing: invalid bytes become U+FFFD. The first `bomLength` bytes are skipped. */
 export function decodeText(bytes: Uint8Array, encoding: TextEncodingName, bomLength = 0): string {
   return new TextDecoder(encoding).decode(bytes.subarray(bomLength));

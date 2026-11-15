@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "format": "mspdi",
+  "formatVersion": "14",
+  "file": {
+    "name": "project.xml",
+    "size": 9690,
+    "sha256": "1df2c1144f8b325a753346820f22f015469e24f80d8540fcb84144b7198f5f08"
+  },
+  "formatFromContent": false,
+  "activityCodeField": "UID",
+  "sourceProject": {
+    "id": null,
+    "code": null,
+    "name": "Depot Upgrade",
+    "projectsInFile": 1,
+    "rootWbsName": null,
+    "mustFinishBy": null,
+    "stated": { "start": "2026-03-02", "finish": "2026-04-10" }
+  },
+  "encoding": null,
+  "table": null,
+  "statusDate": { "date": "2026-03-20", "time": "17:00", "source": "file" },
+  "dateRange": { "start": "2026-03-02", "finish": "2026-04-10" },
+  "units": {
+    "minutesPerDay": 480,
+    "calendars": [
+      { "name": "Standard", "hoursPerDay": 8 },
+      { "name": "Saturday crew", "hoursPerDay": 8 }
+    ]
+  },
+  "settings": [
+    { "key": "ScheduleFromStart", "value": "1" },
+    { "key": "CalendarUID", "value": "1" },
+    { "key": "MinutesPerDay", "value": "480" },
+    { "key": "MinutesPerWeek", "value": "2400" },
+    { "key": "DaysPerMonth", "value": "20" },
+    { "key": "DefaultStartTime", "value": "08:00:00" },
+    { "key": "DefaultFinishTime", "value": "17:00:00" }
+  ],
+  "counts": [
+    { "entity": "calendar", "read": 2, "accepted": 2, "adjusted": 0, "skipped": 0 },
+    { "entity": "wbs", "read": 2, "accepted": 2, "adjusted": 0, "skipped": 0 },
+    { "entity": "activity", "read": 6, "accepted": 6, "adjusted": 1, "skipped": 0 },
+    { "entity": "relationship", "read": 5, "accepted": 5, "adjusted": 0, "skipped": 0 }
+  ],
+  "breakdown": {
+    "activitiesByType": [
+      { "type": "task", "count": 4 },
+      { "type": "start_milestone", "count": 1 },
+      { "type": "finish_milestone", "count": 1 }
+    ],
+    "activitiesStarted": 1,
+    "activitiesCompleted": 1,
+    "relationshipsByType": [
+      { "type": "FS", "count": 4 },
+      { "type": "SS", "count": 1 }
+    ],
+    "constraints": 1,
+    "calendarExceptions": 2
+  },
+  "outcomes": [
+    { "element": "Tasks", "outcome": "used", "items": 6 },
+    { "element": "Links", "outcome": "used", "items": 5 },
+    { "element": "Calendars", "outcome": "used", "items": 2 },
+    { "element": "Durations", "outcome": "used", "items": 6 },
+    { "element": "Actual dates", "outcome": "used", "items": 1 },
+    { "element": "Constraints", "outcome": "used", "items": 1 },
+    { "element": "Manual starts", "outcome": "used", "items": 1 },
+    { "element": "Summary tasks", "outcome": "kept", "items": 2 },
+    { "element": "Task notes", "outcome": "kept", "items": 1 },
+    { "element": "Scheduling settings", "outcome": "kept", "items": 7 }
+  ],
+  "checks": [
+    { "id": "actual_after_status_date", "findings": 0 },
+    { "id": "progress_without_actual_start", "findings": 0 },
+    { "id": "complete_without_actual_finish", "findings": 0 },
+    { "id": "status_date_fallback", "findings": 0 },
+    { "id": "ambiguous_milestones", "findings": 0 },
+    { "id": "percent_lags", "findings": 0 },
+    { "id": "links_on_summaries", "findings": 0 },
+    { "id": "external_links", "findings": 0 },
+    { "id": "project_dates_differ", "findings": 0 }
+  ],
+  "externalLinks": [],
+  "notImported": [],
+  "issueTotals": { "error": 0, "warning": 0, "info": 2 },
+  "issues": [
+    {
+      "severity": "info",
+      "code": "MSPDI_MANUAL_TASK",
+      "message": "4 is manually scheduled in the file. It starts on or after 2026-03-09 08:00.",
+      "location": "Task UID 4",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "STATUS_TIME_KEPT",
+      "message": "The file's status date is 2026-03-20 17:00. The schedule keeps the date; the time is kept in this report.",
+      "location": null,
+      "original": null,
+      "used": null
+    }
+  ]
+}

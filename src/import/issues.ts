@@ -14,6 +14,7 @@ export type IssueCode =
   | 'FILE_TOO_MANY_EXCEPTIONS'
   | 'FILE_TOO_MANY_ROWS'
   | 'FILE_TOO_MANY_COLUMNS'
+  | 'TABLE_TOO_MANY_CALENDARS'
   | 'DUPLICATE_CODE'
   | 'CALENDAR_UNREADABLE'
   | 'CALENDAR_BASE_MISSING'
@@ -125,6 +126,11 @@ export const ISSUE_CATALOG: Readonly<
     severity: 'error',
     group: 'Too many columns',
     message: 'The sheet has more than 200 columns.',
+  },
+  TABLE_TOO_MANY_CALENDARS: {
+    severity: 'error',
+    group: 'Too many calendars',
+    message: 'The Calendar column holds {n} different names. The limit is 200.',
   },
   DUPLICATE_CODE: {
     severity: 'error',

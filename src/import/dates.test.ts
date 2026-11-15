@@ -3,12 +3,29 @@ import {
   excelSerialToWallClock,
   guessDateFormat,
   isExcelSerialInRange,
+  isIsoDate,
   parseMspdiDate,
   parseTableDate,
   parseXerDate,
 } from '@/import/dates';
 
 describe('dates', () => {
+  it("tells a 'YYYY-MM-DD' calendar day from anything else (analyze's status date)", () => {
+    expect(['2026-03-20', '2024-02-29'].map((value) => isIsoDate(value))).toEqual([true, true]);
+    const others: unknown[] = [
+      '',
+      '2026-02-30',
+      '2025-02-29',
+      '2026-13-01',
+      '2026-3-2',
+      '2026-03-20T00:00',
+      ' 2026-03-20',
+      null,
+      20260320,
+    ];
+    expect(others.filter((value) => isIsoDate(value))).toEqual([]);
+  });
+
   it('reads XER and MSPDI timestamps as wall-clock text', () => {
     expect(
       ['2026-3-5 8:00', '2026-03-05', '2026-03-05 17', '2026-03-05 08:30:15'].map(parseXerDate),

@@ -8,6 +8,8 @@ import type { ImportCalendar, Period } from './model';
 
 export const STANDARD_CALENDAR_ID = 'gen:standard';
 export const ELAPSED_CALENDAR_ID = 'gen:24h';
+/** The id prefix of the calendars a table's Calendar names make, one per folded name. */
+export const NAMED_CALENDAR_PREFIX = 'gen:name:';
 
 const DAY_MINUTES = 1440;
 const WORK_START = 480; // 08:00
@@ -65,7 +67,7 @@ export function standardCalendar(hoursPerDay: number): ImportCalendar {
 export function calendarFromName(name: string, hoursPerDay: number): ImportCalendar {
   return {
     ...standardCalendar(hoursPerDay),
-    id: `gen:name:${foldForMatch(name)}`,
+    id: `${NAMED_CALENDAR_PREFIX}${foldForMatch(name)}`,
     name,
     kind: 'global',
   };

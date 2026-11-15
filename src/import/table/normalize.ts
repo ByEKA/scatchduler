@@ -57,6 +57,7 @@ export interface TableSource {
   sheets: string[]; // xlsx: every sheet of the workbook; CSV: none
   sheet: string | null; // xlsx: the sheet read
   date1904: boolean;
+  rowsPastWindow: boolean; // xlsx: the sheet's range runs past the read window (D65); CSV: false
 }
 
 export interface TablePreview {

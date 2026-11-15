@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "format": "csv",
+  "project": {
+    "code": null,
+    "name": null,
+    "rootWbsName": null,
+    "statedStart": null,
+    "statedFinish": null,
+    "mustFinishBy": null,
+    "statusDate": null,
+    "defaultCalendarId": "gen:standard"
+  },
+  "calendars": [
+    {
+      "id": "gen:standard",
+      "name": "Standard",
+      "kind": "project",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 40,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    }
+  ],
+  "wbs": [
+    { "id": "1", "parentId": null, "code": "1", "name": "1", "order": 0 },
+    { "id": "1.1", "parentId": "1", "code": "1.1", "name": "1", "order": 0 },
+    { "id": "1.2", "parentId": "1", "code": "1.2", "name": "2", "order": 1 }
+  ],
+  "activities": [
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "M1",
+      "name": "Kick-off",
+      "wbsId": "1",
+      "calendarId": "gen:standard",
+      "type": "start_milestone",
+      "originalDuration": 0,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-02T08:00", "finish": null },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "A1",
+      "name": "Survey",
+      "wbsId": "1.1",
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": 1920,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-02T08:00", "finish": "2026-03-05T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": { "type": "start_on_or_after", "date": "2026-03-02T08:00" },
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "A2",
+      "name": "Design",
+      "wbsId": "1.2",
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": 4800,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-06T08:00", "finish": "2026-03-19T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": { "type": "finish_on_or_before", "date": "2026-03-20T17:00" },
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "A3",
+      "name": "Review",
+      "wbsId": "1.2",
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": 960,
+      "remainingDuration": null,
+      "planned": { "start": null, "finish": null },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": null, "guid": null },
+      "code": "M2",
+      "name": "Handover",
+      "wbsId": "1",
+      "calendarId": "gen:standard",
+      "type": "finish_milestone",
+      "originalDuration": 0,
+      "remainingDuration": null,
+      "planned": { "start": null, "finish": "2026-03-31T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    }
+  ],
+  "relationships": [
+    {
+      "predecessorCode": "M1",
+      "successorCode": "A1",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "A1",
+      "successorCode": "A2",
+      "type": "FS",
+      "lagMinutes": 960,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "A2",
+      "successorCode": "A3",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "A3",
+      "successorCode": "M2",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    }
+  ],
+  "settings": []
+}

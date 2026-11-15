@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "format": "csv",
+  "project": {
+    "code": null,
+    "name": null,
+    "rootWbsName": null,
+    "statedStart": null,
+    "statedFinish": null,
+    "mustFinishBy": null,
+    "statusDate": null,
+    "defaultCalendarId": "gen:standard"
+  },
+  "calendars": [
+    {
+      "id": "gen:standard",
+      "name": "Standard",
+      "kind": "project",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 40,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    },
+    {
+      "id": "gen:24h",
+      "name": "24 hours",
+      "kind": "task",
+      "week": [
+        [{ "start": 0, "finish": 1440 }],
+        [{ "start": 0, "finish": 1440 }],
+        [{ "start": 0, "finish": 1440 }],
+        [{ "start": 0, "finish": 1440 }],
+        [{ "start": 0, "finish": 1440 }],
+        [{ "start": 0, "finish": 1440 }],
+        [{ "start": 0, "finish": 1440 }]
+      ],
+      "exceptions": [],
+      "hoursPerDay": 24,
+      "hoursPerWeek": 168,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    }
+  ],
+  "wbs": [],
+  "activities": [
+    {
+      "keys": { "taskId": "1", "uid": null, "guid": null },
+      "code": "101",
+      "name": "Mobilize",
+      "wbsId": null,
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": 480,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-02T08:00", "finish": "2026-03-02T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "completed",
+      "percent": { "duration": 100, "physical": null, "type": "duration" },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "2", "uid": null, "guid": null },
+      "code": "102",
+      "name": "Excavate",
+      "wbsId": null,
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": 2400,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-03T08:00", "finish": "2026-03-09T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "in_progress",
+      "percent": { "duration": 50, "physical": null, "type": "duration" },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "3", "uid": null, "guid": null },
+      "code": "103",
+      "name": "Pour slab",
+      "wbsId": null,
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": 4800,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-10T08:00", "finish": "2026-03-23T17:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": "duration" },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "4", "uid": null, "guid": null },
+      "code": "104",
+      "name": "Cure",
+      "wbsId": null,
+      "calendarId": "gen:24h",
+      "type": "task",
+      "originalDuration": 4320,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-24T08:00", "finish": "2026-03-27T08:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": "duration" },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": true, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "5", "uid": null, "guid": null },
+      "code": "105",
+      "name": "Inspect",
+      "wbsId": null,
+      "calendarId": "gen:standard",
+      "type": "task",
+      "originalDuration": 240,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-27T08:00", "finish": "2026-03-27T12:00" },
+      "early": { "start": null, "finish": null },
+      "late": { "start": null, "finish": null },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": "duration" },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    }
+  ],
+  "relationships": [
+    {
+      "predecessorCode": "101",
+      "successorCode": "102",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "102",
+      "successorCode": "103",
+      "type": "FS",
+      "lagMinutes": 960,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "103",
+      "successorCode": "104",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "104",
+      "successorCode": "105",
+      "type": "SS",
+      "lagMinutes": -1080,
+      "lagElapsed": false
+    }
+  ],
+  "settings": []
+}

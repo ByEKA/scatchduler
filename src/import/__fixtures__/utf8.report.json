@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "format": "csv",
+  "formatVersion": null,
+  "file": {
+    "name": "utf8.csv",
+    "size": 411,
+    "sha256": "0ffca69c161927b037537ab303efea71c0f022b504af612651ae82812867ed25"
+  },
+  "formatFromContent": false,
+  "activityCodeField": null,
+  "sourceProject": {
+    "id": null,
+    "code": null,
+    "name": null,
+    "projectsInFile": 1,
+    "rootWbsName": null,
+    "mustFinishBy": null,
+    "stated": { "start": null, "finish": null }
+  },
+  "encoding": { "name": "utf-8", "detectedBy": "utf8" },
+  "table": {
+    "sheet": null,
+    "headerRow": 1,
+    "delimiter": ",",
+    "decimalSeparator": ".",
+    "dateFormat": "YYYY-MM-DD",
+    "durationUnit": "days",
+    "hoursPerDay": 8,
+    "predecessorRef": "code",
+    "skipRowsWithIssues": false,
+    "assumptions": {
+      "duration": "original",
+      "startFinish": "planned",
+      "percentComplete": "duration",
+      "dateOnlyStart": "08:00",
+      "dateOnlyFinish": "17:00",
+      "weekUnitDays": 5,
+      "defaultWorkWeek": "mon-fri"
+    }
+  },
+  "statusDate": { "date": null, "time": null, "source": "none" },
+  "dateRange": { "start": "2026-03-02", "finish": "2026-03-31" },
+  "units": { "minutesPerDay": 480, "calendars": [{ "name": "Standard", "hoursPerDay": 8 }] },
+  "settings": [],
+  "counts": [
+    { "entity": "calendar", "read": 0, "accepted": 0, "adjusted": 0, "skipped": 0 },
+    { "entity": "wbs", "read": 3, "accepted": 3, "adjusted": 0, "skipped": 0 },
+    { "entity": "activity", "read": 5, "accepted": 5, "adjusted": 1, "skipped": 0 },
+    { "entity": "relationship", "read": 6, "accepted": 4, "adjusted": 0, "skipped": 2 }
+  ],
+  "breakdown": {
+    "activitiesByType": [
+      { "type": "task", "count": 3 },
+      { "type": "start_milestone", "count": 1 },
+      { "type": "finish_milestone", "count": 1 }
+    ],
+    "activitiesStarted": 0,
+    "activitiesCompleted": 0,
+    "relationshipsByType": [{ "type": "FS", "count": 4 }],
+    "constraints": 2,
+    "calendarExceptions": 0
+  },
+  "outcomes": [
+    { "element": "Activity code", "outcome": "used", "items": 5 },
+    { "element": "Activity name", "outcome": "used", "items": 5 },
+    { "element": "Duration", "outcome": "used", "items": 5 },
+    { "element": "Start", "outcome": "used", "items": 3 },
+    { "element": "Finish", "outcome": "used", "items": 3 },
+    { "element": "Activity type", "outcome": "used", "items": 5 },
+    { "element": "Constraint", "outcome": "used", "items": 3 },
+    { "element": "Constraint date", "outcome": "used", "items": 3 },
+    { "element": "Predecessors", "outcome": "used", "items": 4 },
+    { "element": "WBS", "outcome": "kept", "items": 5 }
+  ],
+  "checks": [
+    { "id": "actual_after_status_date", "findings": 0 },
+    { "id": "progress_without_actual_start", "findings": 0 },
+    { "id": "complete_without_actual_finish", "findings": 0 },
+    { "id": "status_date_fallback", "findings": 0 },
+    { "id": "ambiguous_milestones", "findings": 0 },
+    { "id": "percent_lags", "findings": 0 },
+    { "id": "links_on_summaries", "findings": 0 },
+    { "id": "external_links", "findings": 0 },
+    { "id": "project_dates_differ", "findings": 0 }
+  ],
+  "externalLinks": [],
+  "notImported": [],
+  "issueTotals": { "error": 0, "warning": 3, "info": 1 },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "CONSTRAINT_UNSUPPORTED",
+      "message": "A3 has a constraint we don't support (Must finish by). It was dropped.",
+      "location": "Line 5",
+      "original": "Must finish by",
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "LINK_DUPLICATE",
+      "message": "The link A2 → A3 appears more than once. One copy was kept.",
+      "location": "Line 5",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "LINK_SELF",
+      "message": "A3 links to itself. The link was skipped.",
+      "location": "Line 5",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "CALENDAR_GENERATED_STANDARD",
+      "message": "Calendar Standard was added as the default calendar: Monday to Friday from 08:00, 8 hours a day.",
+      "location": null,
+      "original": null,
+      "used": null
+    }
+  ]
+}

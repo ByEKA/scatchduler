@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "format": "mspdi",
+  "project": {
+    "code": null,
+    "name": "Depot Upgrade",
+    "rootWbsName": null,
+    "statedStart": "2026-03-02T08:00",
+    "statedFinish": "2026-04-10T17:00",
+    "mustFinishBy": null,
+    "statusDate": "2026-03-20T17:00",
+    "defaultCalendarId": "1"
+  },
+  "calendars": [
+    {
+      "id": "1",
+      "name": "Standard",
+      "kind": "project",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [{ "date": "2026-03-23", "periods": [] }],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 40,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    },
+    {
+      "id": "2",
+      "name": "Saturday crew",
+      "kind": "global",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [{ "start": 480, "finish": 720 }]
+      ],
+      "exceptions": [{ "date": "2026-03-23", "periods": [] }],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 44,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    }
+  ],
+  "wbs": [
+    { "id": "1", "parentId": null, "code": "1", "name": "Site works", "order": 0 },
+    { "id": "7", "parentId": null, "code": "2", "name": "Design", "order": 1 }
+  ],
+  "activities": [
+    {
+      "keys": { "taskId": null, "uid": "2", "guid": "5E1F0C2A-3B4D-4E6F-8A9B-000000000002" },
+      "code": "2",
+      "name": "Kickoff",
+      "wbsId": "1",
+      "calendarId": "1",
+      "type": "start_milestone",
+      "originalDuration": 0,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-02T08:00", "finish": "2026-03-02T08:00" },
+      "early": { "start": "2026-03-02T08:00", "finish": "2026-03-02T08:00" },
+      "late": { "start": "2026-03-02T08:00", "finish": "2026-03-02T08:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": "3", "guid": "5E1F0C2A-3B4D-4E6F-8A9B-000000000003" },
+      "code": "3",
+      "name": "Kazı & Dolgu",
+      "wbsId": "1",
+      "calendarId": "1",
+      "type": "task",
+      "originalDuration": 2400,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-02T08:00", "finish": "2026-03-06T17:00" },
+      "early": { "start": "2026-03-02T08:00", "finish": "2026-03-06T17:00" },
+      "late": { "start": "2026-03-02T08:00", "finish": "2026-03-06T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": "Check İzmir crane",
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": "4", "guid": "5E1F0C2A-3B4D-4E6F-8A9B-000000000004" },
+      "code": "4",
+      "name": "Formwork",
+      "wbsId": "1",
+      "calendarId": "1",
+      "type": "task",
+      "originalDuration": 1440,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-09T08:00", "finish": "2026-03-11T17:00" },
+      "early": { "start": "2026-03-09T08:00", "finish": "2026-03-11T17:00" },
+      "late": { "start": "2026-03-09T08:00", "finish": "2026-03-11T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": { "type": "start_on_or_after", "date": "2026-03-09T08:00" },
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": true, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": "5", "guid": "5E1F0C2A-3B4D-4E6F-8A9B-000000000005" },
+      "code": "5",
+      "name": "Inspection",
+      "wbsId": "1",
+      "calendarId": "2",
+      "type": "task",
+      "originalDuration": 480,
+      "remainingDuration": null,
+      "planned": { "start": "2026-03-12T08:00", "finish": "2026-03-12T17:00" },
+      "early": { "start": "2026-03-12T08:00", "finish": "2026-03-12T17:00" },
+      "late": { "start": "2026-03-12T08:00", "finish": "2026-03-12T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": "6", "guid": "5E1F0C2A-3B4D-4E6F-8A9B-000000000006" },
+      "code": "6",
+      "name": "Handover",
+      "wbsId": "1",
+      "calendarId": "1",
+      "type": "finish_milestone",
+      "originalDuration": 0,
+      "remainingDuration": null,
+      "planned": { "start": "2026-04-10T17:00", "finish": "2026-04-10T17:00" },
+      "early": { "start": "2026-04-10T17:00", "finish": "2026-04-10T17:00" },
+      "late": { "start": "2026-04-10T17:00", "finish": "2026-04-10T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": 0, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": null, "uid": "8", "guid": "5E1F0C2A-3B4D-4E6F-8A9B-000000000008" },
+      "code": "8",
+      "name": "Approve drawings",
+      "wbsId": "7",
+      "calendarId": "1",
+      "type": "task",
+      "originalDuration": 960,
+      "remainingDuration": 0,
+      "planned": { "start": "2026-03-02T08:00", "finish": "2026-03-03T17:00" },
+      "early": { "start": "2026-03-02T08:00", "finish": "2026-03-03T17:00" },
+      "late": { "start": "2026-03-02T08:00", "finish": "2026-03-03T17:00" },
+      "actual": { "start": "2026-03-02T08:00", "finish": "2026-03-03T17:00" },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "completed",
+      "percent": { "duration": 100, "physical": null, "type": null },
+      "totalFloat": null,
+      "freeFloat": null,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    }
+  ],
+  "relationships": [
+    {
+      "predecessorCode": "2",
+      "successorCode": "3",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "3",
+      "successorCode": "4",
+      "type": "SS",
+      "lagMinutes": 480,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "4",
+      "successorCode": "5",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "5",
+      "successorCode": "6",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "8",
+      "successorCode": "6",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    }
+  ],
+  "settings": [
+    { "key": "ScheduleFromStart", "value": "1" },
+    { "key": "CalendarUID", "value": "1" },
+    { "key": "MinutesPerDay", "value": "480" },
+    { "key": "MinutesPerWeek", "value": "2400" },
+    { "key": "DaysPerMonth", "value": "20" },
+    { "key": "DefaultStartTime", "value": "08:00:00" },
+    { "key": "DefaultFinishTime", "value": "17:00:00" }
+  ]
+}

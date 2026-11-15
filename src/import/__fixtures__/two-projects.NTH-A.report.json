@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "format": "xer",
+  "formatVersion": "20.12",
+  "file": {
+    "name": "two-projects.xer",
+    "size": 5166,
+    "sha256": "a3530070d6c9546980f34de9afa603945e085c0dddbb56381652bae29909a7f6"
+  },
+  "formatFromContent": false,
+  "activityCodeField": null,
+  "sourceProject": {
+    "id": "101",
+    "code": "NTH-A",
+    "name": "North Plant",
+    "projectsInFile": 2,
+    "rootWbsName": "North Plant",
+    "mustFinishBy": "2026-12-31",
+    "stated": { "start": "2026-09-01", "finish": "2026-12-18" }
+  },
+  "encoding": { "name": "utf-8", "detectedBy": "utf8" },
+  "table": null,
+  "statusDate": { "date": "2026-10-15", "time": "08:00", "source": "file" },
+  "dateRange": { "start": "2026-09-01", "finish": "2026-12-18" },
+  "units": {
+    "minutesPerDay": null,
+    "calendars": [
+      { "name": "Standard 5 Day", "hoursPerDay": 8 },
+      { "name": "Night Shift", "hoursPerDay": 9 },
+      { "name": "Crane", "hoursPerDay": 8 }
+    ]
+  },
+  "settings": [
+    { "key": "progress_mode", "value": "retained_logic" },
+    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Successor" },
+    { "key": "act_this_per_link_flag", "value": "Y" },
+    { "key": "add_act_remain_flag", "value": "N" },
+    { "key": "cost_qty_recalc_flag", "value": "N" },
+    { "key": "reset_planned_flag", "value": "N" }
+  ],
+  "counts": [
+    { "entity": "calendar", "read": 3, "accepted": 3, "adjusted": 1, "skipped": 0 },
+    { "entity": "wbs", "read": 2, "accepted": 2, "adjusted": 0, "skipped": 0 },
+    { "entity": "activity", "read": 6, "accepted": 6, "adjusted": 1, "skipped": 0 },
+    { "entity": "relationship", "read": 6, "accepted": 5, "adjusted": 1, "skipped": 1 }
+  ],
+  "breakdown": {
+    "activitiesByType": [
+      { "type": "task", "count": 3 },
+      { "type": "start_milestone", "count": 1 },
+      { "type": "finish_milestone", "count": 1 },
+      { "type": "level_of_effort", "count": 1 }
+    ],
+    "activitiesStarted": 4,
+    "activitiesCompleted": 2,
+    "relationshipsByType": [
+      { "type": "FS", "count": 3 },
+      { "type": "SS", "count": 1 },
+      { "type": "FF", "count": 1 }
+    ],
+    "constraints": 1,
+    "calendarExceptions": 2
+  },
+  "outcomes": [
+    { "element": "Activities", "outcome": "used", "items": 6 },
+    { "element": "Relationships", "outcome": "used", "items": 5 },
+    { "element": "Calendars", "outcome": "used", "items": 3 },
+    { "element": "Durations", "outcome": "used", "items": 6 },
+    { "element": "Actual dates", "outcome": "used", "items": 4 },
+    { "element": "Constraints", "outcome": "used", "items": 1 },
+    { "element": "WBS", "outcome": "kept", "items": 2 },
+    { "element": "Early and late dates", "outcome": "kept", "items": 6 },
+    { "element": "Total and free float", "outcome": "kept", "items": 6 },
+    { "element": "Scheduling settings", "outcome": "kept", "items": 6 },
+    { "element": "Expected finish dates", "outcome": "not_read", "items": 1 },
+    { "element": "Resources", "outcome": "not_read", "items": 2 },
+    { "element": "Resource assignments", "outcome": "not_read", "items": 1 },
+    { "element": "User-defined fields", "outcome": "not_read", "items": 1 },
+    { "element": "Other tables", "outcome": "not_read", "items": 1 }
+  ],
+  "checks": [
+    { "id": "actual_after_status_date", "findings": 0 },
+    { "id": "progress_without_actual_start", "findings": 0 },
+    { "id": "complete_without_actual_finish", "findings": 0 },
+    { "id": "status_date_fallback", "findings": 0 },
+    { "id": "ambiguous_milestones", "findings": 0 },
+    { "id": "percent_lags", "findings": 0 },
+    { "id": "links_on_summaries", "findings": 0 },
+    { "id": "external_links", "findings": 1 },
+    { "id": "project_dates_differ", "findings": 0 }
+  ],
+  "externalLinks": [{ "target": "NTH-B", "links": 1 }],
+  "notImported": [
+    { "table": "CURRTYPE", "rows": 1 },
+    { "table": "RSRC", "rows": 2 },
+    { "table": "TASKRSRC", "rows": 1 },
+    { "table": "UDFTYPE", "rows": 1 }
+  ],
+  "issueTotals": { "error": 0, "warning": 4, "info": 3 },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "XER_RESOURCE_TASK",
+      "message": "A1030 is resource dependent. It is imported as a task on its own calendar.",
+      "location": "TASK line 30",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "XER_EXPECTED_FINISH",
+      "message": "1 activities have an expected finish date. Expected finish isn't used, so their remaining durations decide their dates.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "LINK_TYPE_UNKNOWN",
+      "message": "The link A1000 → A1050 has a type we don't know (PR_XX). It is imported as finish to start.",
+      "location": "TASKPRED line 42",
+      "original": "PR_XX",
+      "used": "FS"
+    },
+    {
+      "severity": "warning",
+      "code": "XER_CROSS_PROJECT_LINK",
+      "message": "The link A1040 → B2020 points to another project and was skipped.",
+      "location": "TASKPRED line 43",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "XER_MULTIPLE_PROJECTS",
+      "message": "The file holds 2 projects. This schedule is made from NTH-A.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "CALENDAR_HOURS_MISMATCH",
+      "message": "Calendar Night Shift states 8 hours a day, but its work week has 9. 9 is used.",
+      "location": "CALENDAR line 12",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "STATUS_TIME_KEPT",
+      "message": "The file's status date is 2026-10-15 08:00. The schedule keeps the date; the time is kept in this report.",
+      "location": null,
+      "original": null,
+      "used": null
+    }
+  ]
+}

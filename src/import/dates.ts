@@ -65,6 +65,15 @@ function civilFromDays(days: number): { year: number; month: number; day: number
   return { year: yearOfEra + era * 400 + (month <= 2 ? 1 : 0), month, day };
 }
 
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** Whether `value` is a calendar day written `YYYY-MM-DD` (a status date given to `analyze`). */
+export function isIsoDate(value: unknown): value is ISODate {
+  if (typeof value !== 'string') return false;
+  const match = ISO_DATE.exec(value);
+  return match !== null && isValidDate(Number(match[1]), Number(match[2]), Number(match[3]));
+}
+
 const XER_DATE = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2})(?::(\d{1,2})(?::(\d{1,2}))?)?)?$/;
 
 /** XER: `yyyy-M-d[ H[:mm[:ss]]]`; seconds are dropped. */

@@ -60,5 +60,5 @@ export function csvSource(text: string, delimiter: Delimiter): TableSource {
     line += 1;
     for (const field of fields) line += field.match(LINE_BREAK)?.length ?? 0;
   }
-  return { rows, rowNumbers, sheets: [], sheet: null, date1904: false };
+  return { rows, rowNumbers, sheets: [], sheet: null, date1904: false, rowsPastWindow: false };
 }

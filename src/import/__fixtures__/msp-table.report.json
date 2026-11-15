@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "format": "csv",
+  "formatVersion": null,
+  "file": {
+    "name": "msp-table.csv",
+    "size": 417,
+    "sha256": "27fca70a770b99c04bbbcbbd68117c8e2e45fa4df6a6dd856ceff9df7bdde265"
+  },
+  "formatFromContent": false,
+  "activityCodeField": null,
+  "sourceProject": {
+    "id": null,
+    "code": null,
+    "name": null,
+    "projectsInFile": 1,
+    "rootWbsName": null,
+    "mustFinishBy": null,
+    "stated": { "start": null, "finish": null }
+  },
+  "encoding": { "name": "utf-8", "detectedBy": "bom" },
+  "table": {
+    "sheet": null,
+    "headerRow": 1,
+    "delimiter": ",",
+    "decimalSeparator": ".",
+    "dateFormat": "MM/DD/YYYY",
+    "durationUnit": "days",
+    "hoursPerDay": 8,
+    "predecessorRef": "taskId",
+    "skipRowsWithIssues": false,
+    "assumptions": {
+      "duration": "original",
+      "startFinish": "planned",
+      "percentComplete": "duration",
+      "dateOnlyStart": "08:00",
+      "dateOnlyFinish": "17:00",
+      "weekUnitDays": 5,
+      "defaultWorkWeek": "mon-fri"
+    }
+  },
+  "statusDate": { "date": null, "time": null, "source": "none" },
+  "dateRange": { "start": "2026-03-02", "finish": "2026-03-27" },
+  "units": {
+    "minutesPerDay": 480,
+    "calendars": [
+      { "name": "Standard", "hoursPerDay": 8 },
+      { "name": "24 hours", "hoursPerDay": 24 }
+    ]
+  },
+  "settings": [],
+  "counts": [
+    { "entity": "calendar", "read": 0, "accepted": 0, "adjusted": 0, "skipped": 0 },
+    { "entity": "wbs", "read": 0, "accepted": 0, "adjusted": 0, "skipped": 0 },
+    { "entity": "activity", "read": 5, "accepted": 5, "adjusted": 2, "skipped": 0 },
+    { "entity": "relationship", "read": 4, "accepted": 4, "adjusted": 1, "skipped": 0 }
+  ],
+  "breakdown": {
+    "activitiesByType": [{ "type": "task", "count": 5 }],
+    "activitiesStarted": 2,
+    "activitiesCompleted": 1,
+    "relationshipsByType": [
+      { "type": "FS", "count": 3 },
+      { "type": "SS", "count": 1 }
+    ],
+    "constraints": 0,
+    "calendarExceptions": 0
+  },
+  "outcomes": [
+    { "element": "Activity code", "outcome": "used", "items": 5 },
+    { "element": "Activity name", "outcome": "used", "items": 5 },
+    { "element": "Duration", "outcome": "used", "items": 5 },
+    { "element": "Start", "outcome": "used", "items": 5 },
+    { "element": "Finish", "outcome": "used", "items": 5 },
+    { "element": "% complete", "outcome": "used", "items": 5 },
+    { "element": "Predecessors", "outcome": "used", "items": 4 },
+    { "element": "Task ID", "outcome": "kept", "items": 5 }
+  ],
+  "checks": [
+    { "id": "actual_after_status_date", "findings": 0 },
+    { "id": "progress_without_actual_start", "findings": 1 },
+    { "id": "complete_without_actual_finish", "findings": 1 },
+    { "id": "status_date_fallback", "findings": 0 },
+    { "id": "ambiguous_milestones", "findings": 0 },
+    { "id": "percent_lags", "findings": 1 },
+    { "id": "links_on_summaries", "findings": 0 },
+    { "id": "external_links", "findings": 0 },
+    { "id": "project_dates_differ", "findings": 0 }
+  ],
+  "externalLinks": [],
+  "notImported": [],
+  "issueTotals": { "error": 0, "warning": 3, "info": 4 },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "PERCENT_LAG",
+      "message": "The lag on 104 → 105 is a percentage. It was converted to -18 h.",
+      "location": "Line 6",
+      "original": "-25%",
+      "used": "-18 h"
+    },
+    {
+      "severity": "warning",
+      "code": "PROGRESS_WITHOUT_ACTUAL_START",
+      "message": "102 shows progress but has no actual start.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "warning",
+      "code": "COMPLETE_WITHOUT_ACTUAL_FINISH",
+      "message": "101 is complete but has no actual finish.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "CALENDAR_GENERATED_STANDARD",
+      "message": "Calendar Standard was added as the default calendar: Monday to Friday from 08:00, 8 hours a day.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "TABLE_ESTIMATED_DURATION",
+      "message": "The duration of 102 is marked as estimated. The mark was dropped.",
+      "location": "Line 3",
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "CALENDAR_GENERATED_ELAPSED",
+      "message": "Calendar 24 hours was added for elapsed durations. It works every day, around the clock.",
+      "location": null,
+      "original": null,
+      "used": null
+    },
+    {
+      "severity": "info",
+      "code": "ELAPSED_DURATION",
+      "message": "104 has an elapsed duration. It uses a 24-hour, 7-day calendar.",
+      "location": "Line 5",
+      "original": null,
+      "used": null
+    }
+  ]
+}

@@ -78,6 +78,23 @@ describe('xlsx', () => {
     });
   });
 
+  it('fills merged cells within the bound the row limit sets, not the wider read window (D65)', () => {
+    // One merge over 30,000 rows of 200 columns, inside the 100,000-row window: the fill stops
+    // after 20,051 rows of 201 cells, as it did when the window was 20,051 rows.
+    const sheet = utils.aoa_to_sheet([['X']]);
+    utils.sheet_add_aoa(sheet, [['Y']], { origin: 'GR30000' });
+    sheet['!merges'] = [utils.decode_range('A1:GR30000')];
+    const book = utils.book_new();
+    utils.book_append_sheet(book, sheet, 'Plan');
+    const bytes = new Uint8Array(write(book, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer);
+    const source = xlsxSource(bytes, null) as TableSource;
+    let filled = 0;
+    for (const row of source.rows) {
+      for (const cell of row) if (cell?.kind === 'text' && cell.text === 'X') filled += 1;
+    }
+    expect(filled).toBe(20_051 * 201);
+  });
+
   it('reads an integer serial as a date only unless its number format shows a time (D58)', () => {
     const cell = (v: number, z: string) => ({ t: 'n', v, z });
     const book = utils.book_new();

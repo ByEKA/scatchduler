@@ -1,0 +1,277 @@
+{
+  "schemaVersion": 1,
+  "format": "xer",
+  "project": {
+    "code": "NTH-A",
+    "name": "North Plant",
+    "rootWbsName": "North Plant",
+    "statedStart": "2026-09-01T08:00",
+    "statedFinish": "2026-12-18T17:00",
+    "mustFinishBy": "2026-12-31T00:00",
+    "statusDate": "2026-10-15T08:00",
+    "defaultCalendarId": "1"
+  },
+  "calendars": [
+    {
+      "id": "1",
+      "name": "Standard 5 Day",
+      "kind": "global",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [{ "date": "2026-10-29", "periods": [] }],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 40,
+      "hoursPerMonth": 172,
+      "hoursPerYear": 2000
+    },
+    {
+      "id": "2",
+      "name": "Night Shift",
+      "kind": "project",
+      "week": [
+        [],
+        [{ "start": 780, "finish": 1320 }],
+        [{ "start": 780, "finish": 1320 }],
+        [{ "start": 780, "finish": 1320 }],
+        [{ "start": 780, "finish": 1320 }],
+        [{ "start": 780, "finish": 1320 }],
+        []
+      ],
+      "exceptions": [{ "date": "2026-10-29", "periods": [] }],
+      "hoursPerDay": 9,
+      "hoursPerWeek": 40,
+      "hoursPerMonth": 172,
+      "hoursPerYear": 2000
+    },
+    {
+      "id": "3",
+      "name": "Crane",
+      "kind": "resource",
+      "week": [
+        [],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }],
+        [{ "start": 420, "finish": 900 }]
+      ],
+      "exceptions": [],
+      "hoursPerDay": 8,
+      "hoursPerWeek": 48,
+      "hoursPerMonth": 208,
+      "hoursPerYear": 2496
+    }
+  ],
+  "wbs": [
+    { "id": "1002", "parentId": null, "code": "CIV", "name": "Civil works", "order": 10 },
+    { "id": "1003", "parentId": null, "code": "MEC", "name": "Mechanical", "order": 20 }
+  ],
+  "activities": [
+    {
+      "keys": { "taskId": "1", "uid": null, "guid": null },
+      "code": "A1000",
+      "name": "Mobilisation",
+      "wbsId": "1002",
+      "calendarId": "1",
+      "type": "start_milestone",
+      "originalDuration": 0,
+      "remainingDuration": 0,
+      "planned": { "start": "2026-09-01T08:00", "finish": "2026-09-01T08:00" },
+      "early": { "start": "2026-09-01T08:00", "finish": "2026-09-01T08:00" },
+      "late": { "start": "2026-09-01T08:00", "finish": "2026-09-01T08:00" },
+      "actual": { "start": "2026-09-01T08:00", "finish": "2026-09-01T08:00" },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "completed",
+      "percent": { "duration": null, "physical": 100, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "2", "uid": null, "guid": null },
+      "code": "A1010",
+      "name": "Kazı işleri",
+      "wbsId": "1002",
+      "calendarId": "1",
+      "type": "task",
+      "originalDuration": 2400,
+      "remainingDuration": 0,
+      "planned": { "start": "2026-09-01T08:00", "finish": "2026-09-07T17:00" },
+      "early": { "start": "2026-09-01T08:00", "finish": "2026-09-07T17:00" },
+      "late": { "start": "2026-09-01T08:00", "finish": "2026-09-07T17:00" },
+      "actual": { "start": "2026-09-01T08:00", "finish": "2026-09-07T17:00" },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "completed",
+      "percent": { "duration": null, "physical": 100, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "3", "uid": null, "guid": null },
+      "code": "A1020",
+      "name": "Foundations",
+      "wbsId": "1002",
+      "calendarId": "1",
+      "type": "task",
+      "originalDuration": 4800,
+      "remainingDuration": 2400,
+      "planned": { "start": "2026-09-08T08:00", "finish": "2026-09-21T17:00" },
+      "early": { "start": "2026-10-15T08:00", "finish": "2026-10-21T17:00" },
+      "late": { "start": "2026-10-15T08:00", "finish": "2026-10-21T17:00" },
+      "actual": { "start": "2026-09-08T08:00", "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": { "type": "start_on_or_after", "date": "2026-09-08T08:00" },
+      "secondaryConstraint": null,
+      "status": "in_progress",
+      "percent": { "duration": null, "physical": 50, "type": "physical" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "4", "uid": null, "guid": null },
+      "code": "A1030",
+      "name": "Pump install",
+      "wbsId": "1003",
+      "calendarId": "2",
+      "type": "task",
+      "originalDuration": 2160,
+      "remainingDuration": 2160,
+      "planned": { "start": "2026-09-22T13:00", "finish": "2026-09-25T22:00" },
+      "early": { "start": "2026-10-22T13:00", "finish": "2026-10-27T22:00" },
+      "late": { "start": "2026-10-22T13:00", "finish": "2026-10-27T22:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": 0, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": true }
+    },
+    {
+      "keys": { "taskId": "5", "uid": null, "guid": null },
+      "code": "A1040",
+      "name": "Commissioning",
+      "wbsId": "1003",
+      "calendarId": "1",
+      "type": "finish_milestone",
+      "originalDuration": 0,
+      "remainingDuration": 0,
+      "planned": { "start": "2026-12-18T17:00", "finish": "2026-12-18T17:00" },
+      "early": { "start": "2026-12-18T17:00", "finish": "2026-12-18T17:00" },
+      "late": { "start": "2026-12-18T17:00", "finish": "2026-12-18T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": 0, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "6", "uid": null, "guid": null },
+      "code": "A1050",
+      "name": "Site supervision",
+      "wbsId": "1002",
+      "calendarId": "1",
+      "type": "level_of_effort",
+      "originalDuration": 7200,
+      "remainingDuration": 4800,
+      "planned": { "start": "2026-09-01T08:00", "finish": "2026-09-21T17:00" },
+      "early": { "start": "2026-10-15T08:00", "finish": "2026-10-28T17:00" },
+      "late": { "start": "2026-10-15T08:00", "finish": "2026-10-28T17:00" },
+      "actual": { "start": "2026-09-01T08:00", "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "in_progress",
+      "percent": { "duration": null, "physical": 0, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    }
+  ],
+  "relationships": [
+    {
+      "predecessorCode": "A1000",
+      "successorCode": "A1010",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "A1010",
+      "successorCode": "A1020",
+      "type": "SS",
+      "lagMinutes": 480,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "A1020",
+      "successorCode": "A1030",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "A1030",
+      "successorCode": "A1040",
+      "type": "FF",
+      "lagMinutes": -240,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "A1000",
+      "successorCode": "A1050",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    }
+  ],
+  "settings": [
+    { "key": "progress_mode", "value": "retained_logic" },
+    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Successor" },
+    { "key": "act_this_per_link_flag", "value": "Y" },
+    { "key": "add_act_remain_flag", "value": "N" },
+    { "key": "cost_qty_recalc_flag", "value": "N" },
+    { "key": "reset_planned_flag", "value": "N" }
+  ]
+}

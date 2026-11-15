@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { ISSUE_CATALOG, makeIssue, sliceText } from '@/import/issues';
 
 describe('issue catalog', () => {
-  it('holds the 71 codes of spec §5.12 with their severities', () => {
+  it('holds the 72 codes of spec §5.12 with their severities', () => {
     const entries = Object.values(ISSUE_CATALOG);
-    expect(entries).toHaveLength(71);
+    expect(entries).toHaveLength(72);
     expect(
       (['error', 'warning', 'info'] as const).map(
         (s) => entries.filter((e) => e.severity === s).length,
       ),
-    ).toEqual([14, 37, 20]);
+    ).toEqual([15, 37, 20]);
     expect(ISSUE_CATALOG.DUPLICATE_CODE).toEqual({
       severity: 'error',
       group: 'Repeated activity codes',
@@ -59,6 +59,14 @@ describe('issue catalog', () => {
       group: 'Non-standard Microsoft Project XML',
       message:
         'Some dates carry a time zone or fractions of a second. They were read as the times written.',
+    });
+  });
+
+  it('holds the code of decision D63 with its copy', () => {
+    expect(ISSUE_CATALOG.TABLE_TOO_MANY_CALENDARS).toEqual({
+      severity: 'error',
+      group: 'Too many calendars',
+      message: 'The Calendar column holds {n} different names. The limit is 200.',
     });
   });
 
