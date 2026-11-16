@@ -28,7 +28,8 @@
     "db:types": "supabase gen types typescript --local > src/data/supabase/database.types.ts",
     "test:db": "supabase test db",
     "fixtures:xlsx": "tsx scripts/make-xlsx-fixtures.ts",
-    "goldens": "tsx scripts/update-import-goldens.ts"
+    "goldens": "tsx scripts/update-import-goldens.ts",
+    "real-exports": "tsx scripts/read-real-exports.ts"
   },
   "keywords": [],
   "author": "",

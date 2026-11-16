@@ -14,6 +14,7 @@ export default mergeConfig(
       include: [
         'src/**/*.test.{ts,tsx}',
         'scripts/**/*.test.mjs',
+        'scripts/**/*.test.ts',
         'integration/**/*.test.ts',
         'supabase/functions/**/*.test.ts',
       ],
