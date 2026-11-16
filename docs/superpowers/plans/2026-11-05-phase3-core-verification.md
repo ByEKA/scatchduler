@@ -44,6 +44,42 @@ V2–V5 and V7's download are checked by `integration/p3-assumptions.itest.ts` (
 | V8 | The 20 MB generated XER compresses to 4 MB or less, and its upload and insert finish inside 60 s on the local stack | pending — Task 23; production: owner checklist item 3 | — |
 | V9 | The owner's real exports read without errors and their counts match the source tools' totals | pending — Task 24 | — |
 
+## V9 early read (2026-11-16, D66)
+
+`npm run real-exports` over the owner's `real-exports/` folder, read with its subfolders by `scripts/read-real-exports.ts` at commit 2e38c82. Only formats, versions, counts, issue codes and masked shapes are recorded here.
+
+**What was read.** 87 files in 23 s, none threw: 73 XER, 2 xlsx, 11 `.mpp` and 1 `.xls` (the last two refused with their §5.2 copy, as designed). 293 other files (Primavera P3 folders, archives, PDFs, pictures) are not schedules the importer takes. No Microsoft Project XML and no CSV yet, and no totals from the source tools yet, so "counts match the source tools' totals" is still open for Task 24.
+
+| P6 version (ERMHDR) | Files |
+|---|---|
+| 5.0 (one of them 5.0.2000) | 37 |
+| 6.0 / 6.0.0 | 26 |
+| 6.2 | 2 |
+| 7.0 | 5 |
+| 8.0 | 3 |
+
+80 projects were analyzed (four files hold two or three projects): 151,579 activities in all, the largest project 23,457 activities and 67,260 relationships, read in 1,959 ms. Every text file but one was detected as Windows-1254 by byte score.
+
+**What holds.**
+- Every XER date is written with its time (`YYYY-MM-DD HH:MM`), in every version; no date-only value occurs.
+- Every number uses `.` as its decimal mark, and none has a digit group (D55, D59 hold; `CURRTYPE` declares `.` and `,` for the files' own currency).
+- `task_type`, `status_code`, `complete_pct_type`, `clndr_type` and every `cstr_type` in the files are ones the reader knows (`CS_MANDSTART` among them, D58).
+- The 10,000-activity budget (S5) holds with room: 23,457 activities and 67,260 links read in under 2 s.
+- The refusals of `.mpp` and `.xls`, and the Windows-1254 detection, work on real files.
+
+**Differences found** (each is fixed before Task 14 with a fixture written from scratch, or is the owner's decision):
+
+| # | Difference | Seen in | Effect today |
+|---|---|---|---|
+| 1 | `clndr_data` whose root entry has no name, holding `DaysOfWeek` and `Exceptions` directly (sometimes beside an empty `CalendarData`), instead of a root named `CalendarData` | 9 calendars in 6 files (P6 5.0.2000, 6.0.0, 6.2) | `CALENDAR_UNREADABLE`; the import stops when an activity uses the calendar |
+| 2 | The same exception date listed twice with the same hours | 17,442 dates in 622 of 897 calendars (5.0, 6.0.0, 7.0); none conflicts | Read correctly, but each calendar gets `CALENDAR_DATA_REPAIRED` ("had damaged data"): 622 notes for data that isn't damaged |
+| 3 | The schedule options (`sched_retained_logic`, `sched_progress_override`, …) are in the table `SCHEDOPTIONS`, never in `PROJECT`; no file has `PROJECT.data_date` | all 73 files | The report's settings are empty for real files |
+| 4 | Link types `PR_FS1`, `PR_FF1`, `PR_FS2`, `PR_SF1` | 100 links in one 5.0.2000 file | `LINK_TYPE_UNKNOWN` and read as FS, so 74 FF and SF links become FS |
+| 5 | Projects larger than the limits: 16,146 to 23,457 activities, 47,286 to 67,260 relationships, files of 28.9 to 38.5 MB | 3 files | `FILE_TOO_MANY_ACTIVITIES` / `FILE_TOO_MANY_RELATIONSHIPS`; the form would refuse the files by size first |
+| 6 | An xlsx whose first row is a title merged across the columns, with the header in row 5 | 1 of 2 workbooks | Header row guessed as 1, no column mapped, `FILE_NO_ACTIVITIES` (the open item from Task 12) |
+| 7 | The header "% of Complete" | 1 workbook | Not mapped to % complete |
+| 8 | `CALENDAR` without `day_hr_cnt`, `week_hr_cnt`, `month_hr_cnt`, `year_hr_cnt` | 25 files (5.0.2000, 6.0.0) | To check: the hours per day then come from the week |
+
 ## Owner checklist
 
 Each item needs the owner (a browser other than Chromium, a desktop application or the production project). Tick the box and fill in the result line.
