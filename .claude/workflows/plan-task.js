@@ -19,7 +19,8 @@ const TABLE_LINES = t.tableLines ?? '51-74'
 // The repo folder differs per computer; pass it as `root` (a Windows path). The default is the first computer's.
 const ROOT = t.root ?? 'C:\\scatchdule\\scheduler-app'
 const BASH_ROOT = ROOT.replace(/^([A-Za-z]):[\\/]?/, (_, drive) => `/${drive.toLowerCase()}/`).replace(/\\/g, '/')
-const TRAILER = 'Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>'
+// The commit trailer names the model that runs the session; pass `trailer` when it changes.
+const TRAILER = t.trailer ?? 'Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>'
 
 const CONTEXT = `Project root: ${ROOT} (Git Bash path: ${BASH_ROOT}). Windows 11. Use the Bash tool (Git Bash) for the plan's shell commands; they are written for bash. Node 24, npm 11. Give the Bash tool a long timeout (600000 ms) for npm install, npx shadcn, playwright install and e2e runs.
 Sources of truth: CLAUDE.md (project rules), the spec ${SPEC} and the plan ${PLAN}. The plan's Global Constraints, Review Focus and "Files beyond the spec's folder tree" (plan lines ${RULES_LINES}) apply to every task; the task table (plan lines ${TABLE_LINES}) shows which later task delivers what. If code and spec disagree, the spec wins; names, labels and copy strings pinned in the plan's tests count as spec.
