@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import xer from '@/import/__fixtures__/two-projects.xer?bytes';
 import turkish from '@/import/__fixtures__/turkish-1254.csv?bytes';
 import mspdi from '@/import/__fixtures__/project.xml?bytes';
+import titleRows from '@/import/__fixtures__/title-rows.xlsx?bytes';
 import { GOLDEN_CASES } from '@/import/__fixtures__/cases';
 import { analyze, inspect, preview } from '@/import/index';
 import type * as reportModule from '@/import/report';
@@ -196,6 +197,16 @@ const invalidBytes = (n: number) => [
   'ENCODING_INVALID_BYTES',
   `${n} bytes aren't valid UTF-8 and were replaced with �. If letters look wrong, choose another encoding.`,
 ];
+
+describe('inspect: the mapping a golden case writes out', () => {
+  it('detects the title-rows mapping from the workbook itself (D69)', async () => {
+    // The merged titles fill their rows, the header row is guessed below them, and the lag
+    // "1,5 g" decides the decimal separator.
+    expect((await inspected(titleRows, 'title-rows.xlsx')).mapping).toEqual(
+      caseMapping('title-rows'),
+    );
+  });
+});
 
 // §5.4 and §5.8: the user overrides any encoding a byte-order mark didn't set, and P4 reads the
 // stored mapping's encoding.

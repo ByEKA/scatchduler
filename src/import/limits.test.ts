@@ -150,3 +150,26 @@ describe('the xlsx read window (§5.7, §5.10, D65)', () => {
     expect(await errors(workbookOf(make()), 'long.xlsx')).toEqual([ROWS]);
   });
 });
+
+// D69: only the first 201 columns of a sheet are kept; a row reaching past them is too wide, as a
+// row of 201 filled columns is.
+describe('the xlsx column window (§5.7, §5.10, D69)', () => {
+  it('gives FILE_TOO_MANY_COLUMNS, and nothing else, for a sheet with cells in its last column', async () => {
+    // A two-column table of 1,999 activities with "x" in XFD1 to XFD2000, the sheet's last column.
+    // The sheet is built dense: SheetJS writes one this wide ten times faster that way.
+    const rows = [['Activity ID', 'Activity Name']];
+    for (let i = 1; i < 2000; i += 1) rows.push([`A${i}`, `Activity ${i}`]);
+    const sheet = utils.aoa_to_sheet(rows, { dense: true });
+    utils.sheet_add_aoa(
+      sheet,
+      Array.from({ length: 2000 }, () => ['x']),
+      { origin: 'XFD1' },
+    );
+    const book = utils.book_new();
+    utils.book_append_sheet(book, sheet, 'Plan');
+    const bytes = new Uint8Array(write(book, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer);
+    expect(await errors(bytes, 'wide.xlsx')).toEqual([
+      ['FILE_TOO_MANY_COLUMNS', 'The sheet has more than 200 columns.'],
+    ]);
+  }, 30_000);
+});

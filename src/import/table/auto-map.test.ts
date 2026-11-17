@@ -32,4 +32,11 @@ describe('autoMap', () => {
     });
     expect(autoMap(['Code', 'Code', ''])).toEqual({ code: { index: 0, header: 'Code' } });
   });
+
+  it('maps the header "% of Complete" to % complete (D69)', () => {
+    expect(autoMap(['Activity ID', '% of Complete'])).toEqual({
+      code: { index: 0, header: 'Activity ID' },
+      percentComplete: { index: 1, header: '% of Complete' },
+    });
+  });
 });

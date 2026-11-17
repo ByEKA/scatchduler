@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "format": "xer",
+  "formatVersion": "6.0",
+  "file": {
+    "name": "legacy-p6.xer",
+    "size": 3749,
+    "sha256": "7652aaffac5fccc407532238f2e5a13e9968afdacacde8f553e972400016db6b"
+  },
+  "formatFromContent": false,
+  "activityCodeField": null,
+  "sourceProject": {
+    "id": "201",
+    "code": "LEG-A",
+    "name": "South Warehouse",
+    "projectsInFile": 1,
+    "rootWbsName": "South Warehouse",
+    "mustFinishBy": null,
+    "stated": { "start": "2026-03-02", "finish": null }
+  },
+  "encoding": { "name": "utf-8", "detectedBy": "utf8" },
+  "table": null,
+  "statusDate": { "date": "2026-03-20", "time": "00:00", "source": "file" },
+  "dateRange": { "start": "2026-03-02", "finish": "2026-03-16" },
+  "units": {
+    "minutesPerDay": null,
+    "calendars": [
+      { "name": "Site 6 Day", "hoursPerDay": 8 },
+      { "name": "Crew", "hoursPerDay": 8 },
+      { "name": "Old layout", "hoursPerDay": 8 }
+    ]
+  },
+  "settings": [
+    { "key": "progress_mode", "value": "progress_override" },
+    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Predecessor" }
+  ],
+  "counts": [
+    { "entity": "calendar", "read": 3, "accepted": 3, "adjusted": 0, "skipped": 0 },
+    { "entity": "wbs", "read": 1, "accepted": 1, "adjusted": 0, "skipped": 0 },
+    { "entity": "activity", "read": 4, "accepted": 4, "adjusted": 0, "skipped": 0 },
+    { "entity": "relationship", "read": 5, "accepted": 5, "adjusted": 4, "skipped": 0 }
+  ],
+  "breakdown": {
+    "activitiesByType": [{ "type": "task", "count": 4 }],
+    "activitiesStarted": 2,
+    "activitiesCompleted": 1,
+    "relationshipsByType": [
+      { "type": "FS", "count": 2 },
+      { "type": "SS", "count": 1 },
+      { "type": "FF", "count": 1 },
+      { "type": "SF", "count": 1 }
+    ],
+    "constraints": 0,
+    "calendarExceptions": 3
+  },
+  "outcomes": [
+    { "element": "Activities", "outcome": "used", "items": 4 },
+    { "element": "Relationships", "outcome": "used", "items": 5 },
+    { "element": "Calendars", "outcome": "used", "items": 3 },
+    { "element": "Durations", "outcome": "used", "items": 4 },
+    { "element": "Actual dates", "outcome": "used", "items": 2 },
+    { "element": "WBS", "outcome": "kept", "items": 1 },
+    { "element": "Early and late dates", "outcome": "kept", "items": 4 },
+    { "element": "Total and free float", "outcome": "kept", "items": 4 },
+    { "element": "Scheduling settings", "outcome": "kept", "items": 2 },
+    { "element": "Other tables", "outcome": "not_read", "items": 2 }
+  ],
+  "checks": [
+    { "id": "actual_after_status_date", "findings": 0 },
+    { "id": "progress_without_actual_start", "findings": 0 },
+    { "id": "complete_without_actual_finish", "findings": 0 },
+    { "id": "status_date_fallback", "findings": 0 },
+    { "id": "ambiguous_milestones", "findings": 0 },
+    { "id": "percent_lags", "findings": 0 },
+    { "id": "links_on_summaries", "findings": 0 },
+    { "id": "external_links", "findings": 0 },
+    { "id": "project_dates_differ", "findings": 0 }
+  ],
+  "externalLinks": [],
+  "notImported": [
+    { "table": "CURRTYPE", "rows": 1 },
+    { "table": "SCHEDOPTIONS", "rows": 1 }
+  ],
+  "issueTotals": { "error": 0, "warning": 4, "info": 0 },
+  "issues": [
+    {
+      "severity": "warning",
+      "code": "LINK_TYPE_UNKNOWN",
+      "message": "The link L1000 → L1010 has a type we don't know (PR_FS1). It is imported as finish to start.",
+      "location": "TASKPRED line 28",
+      "original": "PR_FS1",
+      "used": "FS"
+    },
+    {
+      "severity": "warning",
+      "code": "LINK_TYPE_UNKNOWN",
+      "message": "The link L1010 → L1020 has a type we don't know (PR_FF1). It is imported as finish to finish.",
+      "location": "TASKPRED line 29",
+      "original": "PR_FF1",
+      "used": "FF"
+    },
+    {
+      "severity": "warning",
+      "code": "LINK_TYPE_UNKNOWN",
+      "message": "The link L1020 → L1030 has a type we don't know (PR_SF1). It is imported as start to finish.",
+      "location": "TASKPRED line 30",
+      "original": "PR_SF1",
+      "used": "SF"
+    },
+    {
+      "severity": "warning",
+      "code": "LINK_TYPE_UNKNOWN",
+      "message": "The link L1000 → L1020 has a type we don't know (PR_ZZ9). It is imported as finish to start.",
+      "location": "TASKPRED line 32",
+      "original": "PR_ZZ9",
+      "used": "FS"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePredecessors } from '@/import/table/predecessors';
+import { lagAmounts, parsePredecessors } from '@/import/table/predecessors';
 
 const options = { decimal: '.', hoursPerDay: 8, unit: 'days' } as const;
 
@@ -45,5 +45,20 @@ describe('parsePredecessors', () => {
     expect(parsePredecessors('B-2', options, named)).toEqual([
       { ref: 'B', type: 'FS', lag: { minutes: -960, elapsed: false } },
     ]);
+  });
+
+  it('gives the lag amounts as written, with the refs the file names, for the decimal guess (D69)', () => {
+    expect(lagAmounts('K1SS+1,5 g')).toEqual(['1,5']);
+    expect(lagAmounts('K1SS+1.5 d,K3; K4FS-25%; K5')).toEqual(['1.5', '25']);
+    // A word after the amount that isn't a unit is no lag; a list of IDs has none.
+    expect(lagAmounts('1FS+2,3SS')).toEqual([]);
+    expect(lagAmounts('1,2,3')).toEqual([]);
+    // A ref holding '-' gives an amount only when the file doesn't name it.
+    const names = new Set(['K1', 'WP-1.1']);
+    const named = (ref: string) => names.has(ref);
+    expect(lagAmounts('WP-1.1')).toEqual(['1.1']);
+    expect(lagAmounts('WP-1.1', named)).toEqual([]);
+    expect(lagAmounts('WP-1.1FS+2,5d', named)).toEqual(['2,5']);
+    expect(lagAmounts('K1-1,5', named)).toEqual(['1,5']);
   });
 });

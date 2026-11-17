@@ -206,4 +206,51 @@ export const GOLDEN_CASES: GoldenCase[] = [
       table: PLAN_SHEET,
     },
   },
+  // Readings taken from real exports (D68, D69): an older P6 export, and a workbook with title rows.
+  {
+    name: 'legacy-p6',
+    file: 'legacy-p6.xer',
+    mapping: {
+      schemaVersion: 1,
+      format: 'xer',
+      encoding: 'utf-8',
+      sourceProjectId: '201',
+      activityCodeField: null,
+      table: null,
+    },
+  },
+  {
+    name: 'title-rows',
+    file: 'title-rows.xlsx',
+    mapping: {
+      schemaVersion: 1,
+      format: 'xlsx',
+      encoding: null,
+      sourceProjectId: null,
+      activityCodeField: null,
+      // The workbook's defaultTableMapping: the header row guessed below the two title rows, the
+      // decimal comma taken from the lag "1,5 g".
+      table: {
+        sheet: 'Program',
+        headerRow: 4,
+        delimiter: null,
+        decimalSeparator: ',',
+        dateFormat: 'DD.MM.YYYY',
+        durationUnit: 'days',
+        hoursPerDay: 8,
+        predecessorRef: 'code',
+        skipRowsWithIssues: false,
+        columns: {
+          code: { index: 0, header: 'Activity ID' },
+          name: { index: 1, header: 'Activity Name' },
+          duration: { index: 2, header: 'Duration' },
+          start: { index: 3, header: 'Start' },
+          finish: { index: 4, header: 'Finish' },
+          percentComplete: { index: 5, header: '% of Complete' },
+          predecessors: { index: 6, header: 'Predecessors' },
+        },
+        assumptions: ASSUMPTIONS,
+      },
+    },
+  },
 ];

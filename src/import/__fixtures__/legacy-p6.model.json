@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "format": "xer",
+  "project": {
+    "code": "LEG-A",
+    "name": "South Warehouse",
+    "rootWbsName": "South Warehouse",
+    "statedStart": "2026-03-02T00:00",
+    "statedFinish": null,
+    "mustFinishBy": null,
+    "statusDate": "2026-03-20T00:00",
+    "defaultCalendarId": "1"
+  },
+  "calendars": [
+    {
+      "id": "1",
+      "name": "Site 6 Day",
+      "kind": "global",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ]
+      ],
+      "exceptions": [{ "date": "2026-10-30", "periods": [] }],
+      "hoursPerDay": 8,
+      "hoursPerWeek": null,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    },
+    {
+      "id": "2",
+      "name": "Crew",
+      "kind": "project",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [
+        { "date": "2026-10-30", "periods": [] },
+        { "date": "2026-10-31", "periods": [{ "start": 480, "finish": 720 }] }
+      ],
+      "hoursPerDay": 8,
+      "hoursPerWeek": null,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    },
+    {
+      "id": "3",
+      "name": "Old layout",
+      "kind": "global",
+      "week": [
+        [],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        [
+          { "start": 480, "finish": 720 },
+          { "start": 780, "finish": 1020 }
+        ],
+        []
+      ],
+      "exceptions": [],
+      "hoursPerDay": 8,
+      "hoursPerWeek": null,
+      "hoursPerMonth": null,
+      "hoursPerYear": null
+    }
+  ],
+  "wbs": [{ "id": "3002", "parentId": null, "code": "GRW", "name": "Groundworks", "order": 10 }],
+  "activities": [
+    {
+      "keys": { "taskId": "1000", "uid": null, "guid": null },
+      "code": "L1000",
+      "name": "Site clearance",
+      "wbsId": "3002",
+      "calendarId": "1",
+      "type": "task",
+      "originalDuration": 960,
+      "remainingDuration": 0,
+      "planned": { "start": "2026-03-02T08:00", "finish": "2026-03-03T17:00" },
+      "early": { "start": "2026-03-02T08:00", "finish": "2026-03-03T17:00" },
+      "late": { "start": "2026-03-02T08:00", "finish": "2026-03-03T17:00" },
+      "actual": { "start": "2026-03-02T08:00", "finish": "2026-03-03T17:00" },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "completed",
+      "percent": { "duration": null, "physical": 100, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "1010", "uid": null, "guid": null },
+      "code": "L1010",
+      "name": "Excavation",
+      "wbsId": "3002",
+      "calendarId": "1",
+      "type": "task",
+      "originalDuration": 2400,
+      "remainingDuration": 960,
+      "planned": { "start": "2026-03-04T08:00", "finish": "2026-03-09T17:00" },
+      "early": { "start": "2026-03-20T08:00", "finish": "2026-03-21T17:00" },
+      "late": { "start": "2026-03-20T08:00", "finish": "2026-03-21T17:00" },
+      "actual": { "start": "2026-03-04T08:00", "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "in_progress",
+      "percent": { "duration": null, "physical": 60, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "1020", "uid": null, "guid": null },
+      "code": "L1020",
+      "name": "Footings",
+      "wbsId": "3002",
+      "calendarId": "2",
+      "type": "task",
+      "originalDuration": 1440,
+      "remainingDuration": 1440,
+      "planned": { "start": "2026-03-10T08:00", "finish": "2026-03-12T17:00" },
+      "early": { "start": "2026-03-23T08:00", "finish": "2026-03-25T17:00" },
+      "late": { "start": "2026-03-23T08:00", "finish": "2026-03-25T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": 0, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    },
+    {
+      "keys": { "taskId": "1030", "uid": null, "guid": null },
+      "code": "L1030",
+      "name": "Backfill",
+      "wbsId": "3002",
+      "calendarId": "2",
+      "type": "task",
+      "originalDuration": 960,
+      "remainingDuration": 960,
+      "planned": { "start": "2026-03-13T08:00", "finish": "2026-03-16T17:00" },
+      "early": { "start": "2026-03-26T08:00", "finish": "2026-03-27T17:00" },
+      "late": { "start": "2026-03-26T08:00", "finish": "2026-03-27T17:00" },
+      "actual": { "start": null, "finish": null },
+      "remaining": { "start": null, "finish": null },
+      "constraint": null,
+      "secondaryConstraint": null,
+      "status": "not_started",
+      "percent": { "duration": null, "physical": 0, "type": "duration" },
+      "totalFloat": 0,
+      "freeFloat": 0,
+      "notes": null,
+      "flags": { "manual": false, "elapsed": false, "resourceDependent": false }
+    }
+  ],
+  "relationships": [
+    {
+      "predecessorCode": "L1000",
+      "successorCode": "L1010",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "L1010",
+      "successorCode": "L1020",
+      "type": "FF",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "L1020",
+      "successorCode": "L1030",
+      "type": "SF",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "L1000",
+      "successorCode": "L1030",
+      "type": "SS",
+      "lagMinutes": 480,
+      "lagElapsed": false
+    },
+    {
+      "predecessorCode": "L1000",
+      "successorCode": "L1020",
+      "type": "FS",
+      "lagMinutes": 0,
+      "lagElapsed": false
+    }
+  ],
+  "settings": [
+    { "key": "progress_mode", "value": "progress_override" },
+    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Predecessor" }
+  ]
+}

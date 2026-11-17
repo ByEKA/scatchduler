@@ -95,6 +95,17 @@ describe('issue catalog', () => {
     });
   });
 
+  it('names the type a link of an unknown type is imported as (D68)', () => {
+    expect(
+      makeIssue('LINK_TYPE_UNKNOWN', {
+        predecessor: 'A',
+        successor: 'B',
+        value: 'PR_FF1',
+        type: 'finish to finish',
+      }).message,
+    ).toBe("The link A → B has a type we don't know (PR_FF1). It is imported as finish to finish.");
+  });
+
   it('cuts every text to 200 characters with an ellipsis', () => {
     const issue = makeIssue(
       'TABLE_MISSING_NAME',

@@ -71,16 +71,38 @@ function readAs(ref: string, rest: string, options: PredecessorOptions): Predece
   };
 }
 
-function readingsOf(token: string, options: PredecessorOptions): PredecessorLink[] {
+/** The lengths a token's ref can have, shortest first: before a type or a lag's sign, or all of it. */
+function refLengths(token: string): number[] {
   if (token.length > MAX_TOKEN_LENGTH) return [];
   const longest = REF.exec(token)?.[0].length ?? 0;
-  const readings: PredecessorLink[] = [];
+  const lengths: number[] = [];
   for (let length = 1; length <= longest; length += 1) {
-    if (length < longest && !REF_END.test(token.charAt(length))) continue;
+    if (length === longest || REF_END.test(token.charAt(length))) lengths.push(length);
+  }
+  return lengths;
+}
+
+function readingsOf(token: string, options: PredecessorOptions): PredecessorLink[] {
+  const readings: PredecessorLink[] = [];
+  for (const length of refLengths(token)) {
     const reading = readAs(token.slice(0, length), token.slice(length), options);
     if (reading !== null) readings.push(reading);
   }
   return readings;
+}
+
+/** The longest ref that `names` accepts, else the shortest; undefined when nothing reads. */
+function pick<T extends { ref: string }>(
+  readings: readonly T[],
+  names?: (ref: string) => boolean,
+): T | undefined {
+  if (names !== undefined) {
+    for (let index = readings.length - 1; index >= 0; index -= 1) {
+      const reading = readings[index];
+      if (reading !== undefined && names(reading.ref)) return reading;
+    }
+  }
+  return readings[0];
 }
 
 /** The tokens of a Predecessors cell in order, each with every way it reads; an empty cell has none. */
@@ -103,13 +125,7 @@ export function chooseReading(
   { token, readings }: PredecessorReadings,
   names?: (ref: string) => boolean,
 ): PredecessorToken {
-  if (names !== undefined) {
-    for (let index = readings.length - 1; index >= 0; index -= 1) {
-      const reading = readings[index];
-      if (reading !== undefined && names(reading.ref)) return reading;
-    }
-  }
-  return readings[0] ?? { invalid: token };
+  return pick(readings, names) ?? { invalid: token };
 }
 
 /**
@@ -122,4 +138,36 @@ export function parsePredecessors(
   names?: (ref: string) => boolean,
 ): PredecessorToken[] {
   return predecessorReadings(cell, options).map((token) => chooseReading(token, names));
+}
+
+/** Whether `word` is a duration unit (§5.4), elapsed ones included. */
+function isDurationUnit(word: string): boolean {
+  return parseDuration(`1 ${word}`, { unit: 'days', hoursPerDay: 8, decimal: '.' }).kind === 'ok';
+}
+
+/**
+ * The lag amounts of a Predecessors cell as written, for the decimal separator guess, which runs
+ * before the separator is known (§5.7, D69): "K1SS+1,5 g" gives "1,5". Tokens end at ';' and at a
+ * ',' that no digit follows, which can't be a decimal separator. Each token takes the ref
+ * `parsePredecessors` takes given `names`, the refs the file names, so a ref holding '-' that the
+ * file names ("WP-1.1") gives no amount, while "K1-1,5" after the named ref K1 gives "1,5". A word
+ * after the amount that isn't a duration unit means no lag: "1FS+2,3SS" gives none.
+ */
+export function lagAmounts(cell: string, names?: (ref: string) => boolean): string[] {
+  const amounts: string[] = [];
+  for (const part of cell.split(/;|,(?!\d)/)) {
+    const token = part.trim();
+    const readings: Array<{ ref: string; amount: string | null }> = [];
+    for (const length of refLengths(token)) {
+      const match = REST.exec(token.slice(length));
+      if (!match) continue;
+      const [, , sign, amount, unit] = match;
+      if (unit !== undefined && unit !== '%' && !isDurationUnit(unit)) continue;
+      const lag = sign === undefined || amount === undefined ? null : amount;
+      readings.push({ ref: token.slice(0, length), amount: lag });
+    }
+    const amount = pick(readings, names)?.amount ?? null;
+    if (amount !== null) amounts.push(amount);
+  }
+  return amounts;
 }

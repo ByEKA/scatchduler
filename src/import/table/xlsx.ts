@@ -1,18 +1,23 @@
 import { read, SSF, utils, type CellObject, type Range } from 'xlsx';
 import { REFUSAL_MESSAGES } from '../detect';
 import { checkZip, isOoxmlArchive } from '../zip-guard';
-import { isEmptyRow, type TableCell, type TableSource } from './normalize';
+import { isEmptyCell, isEmptyRow, type TableCell, type TableSource } from './normalize';
 
 // xlsx tables (P3 core spec §5.7, §5.10, §5.11): the zip guard first, and only an archive SheetJS
 // reads as OOXML (the reader the guard measures); then SheetJS reads only the chosen sheet (the
 // first when none is chosen), dense, without formulas or Date objects, through a 100,000-row
-// window. Number cells with a date format become date cells, with a % format percent cells; merged
-// cells take the top-left value; hidden rows are read.
+// window and keeps its first 201 columns. Number cells with a date format become date cells, with
+// a % format percent cells; merged cells take the top-left value; hidden rows are read.
 
 // The read window (D65): the sheet's first 100,000 rows, blank rows included, so blank rows
 // between data rows don't use up the 20,000-row limit. A sheet whose range runs past the window is
 // marked, and analyze gives FILE_TOO_MANY_ROWS for it: no row is dropped without an error.
 const SHEET_ROWS = 100_000;
+// The columns kept (D69): the 200 the limit allows and one more, so a row of 201 filled columns
+// still reads as too wide. A sheet with a filled cell past them is marked, and analyze gives
+// FILE_TOO_MANY_COLUMNS for it: no cell is dropped without an error. Without the cut, one cell in
+// the sheet's last column (XFD) makes its row 16,384 cells long.
+const SHEET_COLUMNS = 201;
 // Merged ranges fill at most this many cells: a sheet's rows and columns are bounded, but a
 // workbook can list any number of overlapping merges. The bound stays where the 20,051-row window
 // put it (the 20,000 data rows the limit allows below a header row in the first 50, and one more,
@@ -73,6 +78,19 @@ function tableCell(cell: CellObject | undefined): TableCell | null {
   }
 }
 
+/**
+ * Whether a row holds a filled cell past the columns kept. Only the cells the row holds are
+ * looked at, not every column up to its last one: SheetJS leaves the columns between them out.
+ */
+function reachesPastColumns(row: ReadonlyArray<CellObject | undefined>): boolean {
+  if (row.length <= SHEET_COLUMNS) return false;
+  for (const key of Object.keys(row)) {
+    const column = Number(key);
+    if (column >= SHEET_COLUMNS && !isEmptyCell(tableCell(row[column]))) return true;
+  }
+  return false;
+}
+
 /** Each merged range takes its top-left value, within the rows and columns read. */
 function fillMerges(grid: Array<Array<TableCell | null>>, merges: readonly Range[]): void {
   const width = grid.reduce((widest, row) => Math.max(widest, row.length), 0);
@@ -119,7 +137,12 @@ export function xlsxSource(
       typeof fullRange === 'string' && utils.decode_range(fullRange).e.r >= SHEET_ROWS;
 
     const data = (worksheet['!data'] ?? []) as Array<Array<CellObject | undefined> | undefined>;
-    const grid = Array.from(data, (row) => Array.from(row ?? [], tableCell));
+    let columnsPastWindow = false;
+    const grid = Array.from(data, (row = []) => {
+      columnsPastWindow ||= reachesPastColumns(row);
+      const kept = Math.min(row.length, SHEET_COLUMNS);
+      return Array.from({ length: kept }, (_, column) => tableCell(row[column]));
+    });
     fillMerges(grid, worksheet['!merges'] ?? []);
 
     const rows: TableSource['rows'] = [];
@@ -136,6 +159,7 @@ export function xlsxSource(
       sheet: name,
       date1904: Boolean(book.Workbook?.WBProps?.date1904),
       rowsPastWindow,
+      columnsPastWindow,
     };
   } catch {
     return refused();

@@ -80,6 +80,7 @@ export const FIELD_ALIASES: Record<ImportField, readonly string[]> = {
   ],
   percentComplete: [
     '% complete',
+    '% of complete',
     'percent complete',
     'duration % complete',
     'activity % complete',

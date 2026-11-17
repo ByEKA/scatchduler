@@ -14,7 +14,7 @@ import type { ReadResult } from '../read-result';
 import { parseCalendarData } from './calendar-data';
 import type { XerFile, XerTable } from './tokenize';
 
-// One project of a P6 XER file as an ImportModel (P3 core spec §5.5, decisions D51–D58).
+// One project of a P6 XER file as an ImportModel (P3 core spec §5.5, decisions D51–D58, D68, D69).
 
 export interface XerProjectInfo {
   id: string;
@@ -236,6 +236,16 @@ const LINK_TYPES: Record<string, ImportRelationship['type']> = {
   SS: 'SS',
   FF: 'FF',
   SF: 'SF',
+};
+// A known type followed by digits (PR_FF1, as P6 5.0 writes) is read by its letters and still
+// reported, with the type used (D68).
+const NUMBERED_LINK_TYPE = /^PR_(FS|SS|FF|SF)\d+$/;
+// The type LINK_TYPE_UNKNOWN names in its message (§5.12).
+const LINK_TYPE_NAMES: Record<ImportRelationship['type'], string> = {
+  FS: 'finish to start',
+  SS: 'start to start',
+  FF: 'finish to finish',
+  SF: 'start to finish',
 };
 
 function lookup<T>(table: Record<string, T>, key: string): T | undefined {
@@ -785,17 +795,21 @@ export function readXer(file: XerFile, sourceProjectId: string): ReadResult {
       return skip(makeIssue('LINK_UNKNOWN_ACTIVITY', names, { location }));
 
     const rawType = text(row.pred_type);
-    const type = lookup(LINK_TYPES, rawType) ?? 'FS';
+    const knownType = lookup(LINK_TYPES, rawType);
+    // An unknown type is finish to start, unless it is a known type followed by digits (D68).
+    const numbered = NUMBERED_LINK_TYPE.exec(rawType)?.[1] as
+      ImportRelationship['type'] | undefined;
+    const type = knownType ?? numbered ?? 'FS';
     // A repeated link keys on predecessor, successor and type (D58).
     const key = `${predecessorId}\u0000${successorId}\u0000${type}`;
     if (linkKeys.has(key)) return skip(makeIssue('LINK_DUPLICATE', names, { location }));
     linkKeys.add(key);
-    if (lookup(LINK_TYPES, rawType) === undefined) {
+    if (knownType === undefined) {
       issues.push(
         makeIssue(
           'LINK_TYPE_UNKNOWN',
-          { ...names, value: rawType || 'empty' },
-          { location, original: rawType || null, used: 'FS' },
+          { ...names, value: rawType || 'empty', type: LINK_TYPE_NAMES[type] },
+          { location, original: rawType || null, used: type },
         ),
       );
       relationshipCount.adjusted += 1;
@@ -828,7 +842,10 @@ export function readXer(file: XerFile, sourceProjectId: string): ReadResult {
     statusDate: statusClock,
     defaultCalendarId,
   };
-  model.settings = settingsOf(project);
+  model.settings = settingsOf(
+    project,
+    rowsOf(file, 'SCHEDOPTIONS').find((row) => text(row.proj_id) === sourceProjectId),
+  );
 
   const { activities } = model;
   const count = (test: (activity: ImportActivity) => boolean) => activities.filter(test).length;
@@ -916,24 +933,41 @@ const COVERED_TABLES = new Set([
   'MEMOTYPE',
 ]);
 
-/** The scheduling options kept for P4, in a fixed order, when the PROJECT row has the field. */
-function settingsOf(project: Row): Array<{ key: string; value: string }> {
-  const has = (field: string) => Object.hasOwn(project, field);
+/**
+ * The scheduling options kept for P4, in a fixed order, each when the file has its field. The
+ * three scheduling options come from the project's SCHEDOPTIONS row, where P6 writes them, and
+ * from PROJECT only when that row is missing or lacks the field; the four calculation flags are
+ * PROJECT fields (D68, D69).
+ */
+function settingsOf(project: Row, options: Row | undefined): Array<{ key: string; value: string }> {
+  const has = (row: Row | undefined, field: string): row is Row =>
+    row !== undefined && Object.hasOwn(row, field);
+  /** The row a scheduling option is read from, or null when neither row has the field. */
+  const optionRow = (field: string): Row | null =>
+    has(options, field) ? options : has(project, field) ? project : null;
   const settings: Array<{ key: string; value: string }> = [];
-  if (has('sched_retained_logic') || has('sched_progress_override')) {
+  const retained = optionRow('sched_retained_logic');
+  const override = optionRow('sched_progress_override');
+  if (retained !== null || override !== null) {
     let mode = 'actual_dates';
-    if (text(project.sched_retained_logic) === 'Y') mode = 'retained_logic';
-    else if (text(project.sched_progress_override) === 'Y') mode = 'progress_override';
+    if (text(retained?.sched_retained_logic) === 'Y') mode = 'retained_logic';
+    else if (text(override?.sched_progress_override) === 'Y') mode = 'progress_override';
     settings.push({ key: 'progress_mode', value: mode });
   }
+  const lag = optionRow('sched_calendar_on_relationship_lag');
+  if (lag !== null) {
+    settings.push({
+      key: 'sched_calendar_on_relationship_lag',
+      value: lag.sched_calendar_on_relationship_lag ?? '',
+    });
+  }
   for (const field of [
-    'sched_calendar_on_relationship_lag',
     'act_this_per_link_flag',
     'add_act_remain_flag',
     'cost_qty_recalc_flag',
     'reset_planned_flag',
   ]) {
-    if (has(field)) settings.push({ key: field, value: project[field] ?? '' });
+    if (has(project, field)) settings.push({ key: field, value: project[field] ?? '' });
   }
   return settings;
 }

@@ -1,6 +1,6 @@
 import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
-import { utils, write } from 'xlsx';
+import { utils, write, type WorkSheet } from 'xlsx';
 import workbook1900 from '@/import/__fixtures__/dates-1900.xlsx?bytes';
 import workbook1904 from '@/import/__fixtures__/dates-1904.xlsx?bytes';
 import { xlsxSource } from '@/import/table/xlsx';
@@ -125,4 +125,37 @@ describe('xlsx', () => {
       { start: '2026-03-02T12:00', finish: '2026-03-04T17:00' },
     ]);
   });
+
+  it('keeps the first 201 columns and says when a row reaches past them (D69)', () => {
+    const workbookOf = (sheet: WorkSheet) => {
+      const book = utils.book_new();
+      utils.book_append_sheet(book, sheet, 'Plan');
+      return new Uint8Array(write(book, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer);
+    };
+    // A two-column table of 1,999 activities with "x" in XFD1 to XFD2000, the sheet's last column.
+    // The sheet is built dense: SheetJS writes one this wide ten times faster that way.
+    const rows = [['Activity ID', 'Activity Name']];
+    for (let i = 1; i < 2000; i += 1) rows.push([`A${i}`, `Activity ${i}`]);
+    const past = utils.aoa_to_sheet(rows, { dense: true });
+    utils.sheet_add_aoa(
+      past,
+      Array.from({ length: 2000 }, () => ['x']),
+      { origin: 'XFD1' },
+    );
+    const source = xlsxSource(workbookOf(past), null) as TableSource;
+    expect(source.rows).toHaveLength(2000);
+    expect(source.rows.every((row) => row.length <= 201)).toBe(true);
+    expect(source.rows[1]!.slice(0, 2)).toEqual([
+      { kind: 'text', text: 'A1' },
+      { kind: 'text', text: 'Activity 1' },
+    ]);
+    expect(source.columnsPastWindow).toBe(true);
+
+    // 201 columns wide: every cell is kept, and the column limit itself is analyze's to give.
+    const wide = utils.aoa_to_sheet([Array.from({ length: 201 }, (_, i) => `H${i + 1}`)]);
+    const kept = xlsxSource(workbookOf(wide), null) as TableSource;
+    expect(kept.rows[0]).toHaveLength(201);
+    expect(kept.columnsPastWindow).toBe(false);
+    expect((xlsxSource(workbook1900, null) as TableSource).columnsPastWindow).toBe(false);
+  }, 30_000);
 });

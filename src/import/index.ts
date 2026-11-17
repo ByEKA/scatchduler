@@ -92,6 +92,7 @@ const EMPTY_SOURCE: TableSource = {
   sheet: null,
   date1904: false,
   rowsPastWindow: false,
+  columnsPastWindow: false,
 };
 
 // ---------------------------------------------------------------------------------------------
@@ -248,8 +249,8 @@ function countLimits(
 
 /**
  * FILE_TOO_MANY_ROWS and FILE_TOO_MANY_COLUMNS: data rows after the header, and the widest row. An
- * xlsx sheet whose range runs past the read window is too long as well, so no row is dropped
- * without an error (D65).
+ * xlsx sheet whose range runs past the read window is too long as well, and one with a cell past
+ * the columns kept is too wide, so no row or cell is dropped without an error (D65, D69).
  */
 function tableLimits(source: TableSource, headerRow: number): ImportIssue[] {
   let rows = 0;
@@ -265,7 +266,9 @@ function tableLimits(source: TableSource, headerRow: number): ImportIssue[] {
   });
   const issues: ImportIssue[] = [];
   if (rows > LIMITS.rows || source.rowsPastWindow) issues.push(makeIssue('FILE_TOO_MANY_ROWS'));
-  if (columns > LIMITS.columns) issues.push(makeIssue('FILE_TOO_MANY_COLUMNS'));
+  if (columns > LIMITS.columns || source.columnsPastWindow) {
+    issues.push(makeIssue('FILE_TOO_MANY_COLUMNS'));
+  }
   return issues;
 }
 

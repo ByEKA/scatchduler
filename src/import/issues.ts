@@ -348,7 +348,7 @@ export const ISSUE_CATALOG: Readonly<
     severity: 'warning',
     group: 'Unknown link types',
     message:
-      "The link {predecessor} → {successor} has a type we don't know ({value}). It is imported as finish to start.",
+      "The link {predecessor} → {successor} has a type we don't know ({value}). It is imported as {type}.",
   },
   STATUS_DATE_MISSING: {
     severity: 'info',

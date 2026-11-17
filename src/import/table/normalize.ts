@@ -36,7 +36,12 @@ import { guessDecimalSeparator, parseNumber } from '../numbers';
 import type { ReadResult } from '../read-result';
 import { autoMap } from './auto-map';
 import { parseConstraint } from './constraints';
-import { chooseReading, predecessorReadings, type PredecessorReadings } from './predecessors';
+import {
+  chooseReading,
+  lagAmounts,
+  predecessorReadings,
+  type PredecessorReadings,
+} from './predecessors';
 
 // The table normalizer (P3 core spec §5.7, §5.4): one reading of a CSV or xlsx source through a
 // column mapping, shared by the Columns step's preview and `analyze`.
@@ -58,6 +63,7 @@ export interface TableSource {
   sheet: string | null; // xlsx: the sheet read
   date1904: boolean;
   rowsPastWindow: boolean; // xlsx: the sheet's range runs past the read window (D65); CSV: false
+  columnsPastWindow: boolean; // xlsx: a row holds a cell past the columns kept (D69); CSV: false
 }
 
 export interface TablePreview {
@@ -202,15 +208,23 @@ function dataRows(
   return rows;
 }
 
-/** 1-based: the first row with at least two non-empty text cells, within the first 50; else 1. */
+/**
+ * 1-based: the first row, within the first 50, with at least two non-empty text cells whose
+ * trimmed texts differ; else 1. A text repeated across a row counts once, so a title merged across
+ * the columns (every cell of a merge takes its value) is not taken for the header (D69).
+ */
 export function headerRowGuess(source: TableSource): number {
   for (let index = 0; index < source.rows.length; index += 1) {
     const number = rowNumberOf(source, index);
     if (number > MAX_HEADER_ROW) break;
-    const texts = (source.rows[index] ?? []).filter(
-      (cell) => cell?.kind === 'text' && cell.text.trim() !== '',
-    );
-    if (texts.length >= 2) return number;
+    let first: string | null = null;
+    for (const cell of source.rows[index] ?? []) {
+      if (cell?.kind !== 'text') continue;
+      const text = cell.text.trim();
+      if (text === '') continue;
+      if (first === null) first = text;
+      else if (text !== first) return number;
+    }
   }
   return 1;
 }
@@ -254,8 +268,9 @@ function guessTableDateFormat(samples: readonly string[]): ImportDateFormat {
 // Mapping
 
 /**
- * The detected mapping: the guessed header row, automatic columns, the decimal separator and date
- * format guessed from the mapped duration, % complete and date cells of the data rows.
+ * The detected mapping: the guessed header row, automatic columns, the decimal separator guessed
+ * from the mapped duration and % complete cells and the lag amounts of the Predecessors cells
+ * (D69), and the date format guessed from the mapped date cells, all of the data rows.
  */
 export function defaultTableMapping(
   source: TableSource,
@@ -263,7 +278,8 @@ export function defaultTableMapping(
 ): TableMapping {
   const headerRow = headerRowGuess(source);
   const columns = autoMap(headersOf(source, headerRow));
-  const samples = dataRows(source, headerRow).slice(0, GUESS_ROWS);
+  const rows = dataRows(source, headerRow);
+  const samples = rows.slice(0, GUESS_ROWS);
   const texts = (fields: readonly ImportField[]) =>
     samples.flatMap(({ cells }) =>
       fields.flatMap((field) => {
@@ -272,17 +288,30 @@ export function defaultTableMapping(
         return cell?.kind === 'text' && cell.text.trim() !== '' ? [cell.text.trim()] : [];
       }),
     );
+  const predecessorRef = columns.taskId === undefined ? 'code' : 'taskId';
+  // The refs the table names: a ref holding '-' ("WP-1.1") that the table names is no lag.
+  const refColumn = columns.predecessors === undefined ? undefined : columns[predecessorRef];
+  const refs = new Set<string>();
+  if (refColumn !== undefined) {
+    for (const { cells } of rows)
+      refs.add(cellText(cells[refColumn.index], source.date1904).trim());
+  }
+  const named = (ref: string) => refs.has(ref);
   return {
     sheet: source.sheet,
     headerRow,
     delimiter: options.delimiter,
-    decimalSeparator: guessDecimalSeparator(texts(['duration', 'percentComplete'])),
+    decimalSeparator: guessDecimalSeparator(
+      texts(['duration', 'percentComplete']).concat(
+        texts(['predecessors']).flatMap((cell) => lagAmounts(cell, named)),
+      ),
+    ),
     dateFormat: guessTableDateFormat(
       texts(['start', 'finish', 'actualStart', 'actualFinish', 'constraintDate']),
     ),
     durationUnit: 'days',
     hoursPerDay: 8,
-    predecessorRef: columns.taskId === undefined ? 'code' : 'taskId',
+    predecessorRef,
     skipRowsWithIssues: false,
     columns,
     assumptions: TABLE_ASSUMPTIONS,

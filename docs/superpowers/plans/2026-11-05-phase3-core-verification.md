@@ -80,6 +80,15 @@ V2–V5 and V7's download are checked by `integration/p3-assumptions.itest.ts` (
 | 7 | The header "% of Complete" | 1 workbook | Not mapped to % complete |
 | 8 | `CALENDAR` without `day_hr_cnt`, `week_hr_cnt`, `month_hr_cnt`, `year_hr_cnt` | 25 files (5.0.2000, 6.0.0) | To check: the hours per day then come from the week |
 
+**After Task 13a (2026-11-17).** `npm run real-exports` and `npm run real-exports -- --shapes` again, with differences 1–4, 6 and 7 fixed, each compared file by file with a run of the same script on the code before the task. 87 files read, none threw; 80 projects analyzed.
+
+- **Errors:** projects with an error 10 → 4, all four among the ten of the first read, so no file that read without an error has one now. What is left: `FILE_TOO_MANY_RELATIONSHIPS` 3 and `FILE_TOO_MANY_ACTIVITIES` 1 (difference 5, Task 13b), and `FILE_NO_ACTIVITIES` 1 (the workbook of difference 6: its header row is now guessed as 5, and its table has no activity code column, which is the user's mapping to make).
+- **Calendars:** `CALENDAR_UNREADABLE` 6 → 0 and `CALENDAR_DATA_REPAIRED` 622 → 0. All 897 calendars of the 73 files read, none repaired, none unreadable; the analyzed projects read 845 calendars and accept all of them (before: 839 accepted, 6 skipped), 4 adjusted by `CALENDAR_HOURS_MISMATCH` as before.
+- **Link types:** `LINK_TYPE_UNKNOWN` 96 → 23 and `LINK_DUPLICATE` 19 → 92, both changes in the one 5.0.2000 project, whose 100 numbered links (`PR_FF1` 73, `PR_FS1` 24, `PR_FS2` 2, `PR_SF1` 1) are now read by their letters. Of its 11,966 relationships, 11,887 are accepted (before 11,960), 23 adjusted (before 96) and 79 skipped (before 6): read with its own type, 73 more links repeat a link of the same type between the same two activities, and one copy of each is kept (D58). Before, they stayed in as finish to start links beside the link they repeat.
+- **Tables:** the other workbook now maps "% of Complete" to % complete; its counts are unchanged.
+- **Not shown by the script:** the settings now read from `SCHEDOPTIONS`. The script prints no settings; its shapes show that in each of the seven P6 versions the table's fields include `proj_id`, `sched_retained_logic` and `sched_progress_override`. The fixture `legacy-p6.xer` pins the reading.
+- Every other count and issue code is as in the first read. Difference 8 needs no fix: `legacy-p6.xer` has no hour counts, and its hours per day come from the work week.
+
 ## Owner checklist
 
 Each item needs the owner (a browser other than Chromium, a desktop application or the production project). Tick the box and fill in the result line.

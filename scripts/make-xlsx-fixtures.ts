@@ -1,6 +1,7 @@
 // Writes the parser's xlsx fixtures (P3 core spec §3, §5.11, D42): src/import/__fixtures__/
-// dates-1900.xlsx and dates-1904.xlsx hold the same plan, one in each Excel date system. Our own
-// data. Run with `npm run fixtures:xlsx`; SheetJS writes the same bytes on every run.
+// dates-1900.xlsx and dates-1904.xlsx hold the same plan, one in each Excel date system, and
+// title-rows.xlsx a table below two merged title rows (D69). Our own data. Run with
+// `npm run fixtures:xlsx`; SheetJS writes the same bytes on every run.
 import { writeFileSync } from 'node:fs';
 import { utils, write, type CellObject } from 'xlsx';
 
@@ -70,10 +71,42 @@ function workbook(date1904: boolean): Uint8Array {
   return new Uint8Array(write(book, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer);
 }
 
-for (const [file, date1904] of [
-  ['dates-1900.xlsx', false],
-  ['dates-1904.xlsx', true],
+/**
+ * The sheet "Program" (1900 date system) as a planner's hand-made workbook has it (D69): a title
+ * merged across the table's columns, a date line merged across three, a blank row, then the
+ * headers in row 4. Durations and percents are number cells, dates are text, and one lag has a
+ * decimal comma.
+ */
+function titleRowsWorkbook(): Uint8Array {
+  const sheet = utils.aoa_to_sheet([
+    ['Depo programı'],
+    ['Tarih: 05.03.2026'],
+    [],
+    [
+      'Activity ID',
+      'Activity Name',
+      'Duration',
+      'Start',
+      'Finish',
+      '% of Complete',
+      'Predecessors',
+    ],
+    ['K1', 'Kazı', 5, '02.03.2026', '06.03.2026', 100, null],
+    ['K2', 'Temel', 3, '09.03.2026', '11.03.2026', 50, 'K1SS+1,5 g'],
+    ['K3', 'Dolgu', 2, '12.03.2026', '13.03.2026', 0, 'K2'],
+  ]);
+  sheet['!merges'] = [utils.decode_range('A1:G1'), utils.decode_range('A2:C2')];
+  const book = utils.book_new();
+  utils.book_append_sheet(book, sheet, 'Program');
+  book.Workbook = { WBProps: { date1904: false } };
+  return new Uint8Array(write(book, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer);
+}
+
+for (const [file, bytes] of [
+  ['dates-1900.xlsx', workbook(false)],
+  ['dates-1904.xlsx', workbook(true)],
+  ['title-rows.xlsx', titleRowsWorkbook()],
 ] as const) {
-  writeFileSync(new URL(file, FIXTURES), workbook(date1904));
+  writeFileSync(new URL(file, FIXTURES), bytes);
   console.log(`Wrote src/import/__fixtures__/${file}`);
 }

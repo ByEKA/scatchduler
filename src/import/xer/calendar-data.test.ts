@@ -143,4 +143,56 @@ describe('parseCalendarData', () => {
       { start: 480, finish: 1440 },
     ]);
   });
+
+  it('reads a root without a name like a root named CalendarData (D69)', () => {
+    const days = [1, 2, 3, 4, 5, 6, 7]
+      .map((n) => day(n, n === 1 ? '' : period('08:00', '12:00') + period('13:00', '17:00')))
+      .join('');
+    const W = `(0||DaysOfWeek()(${days}))`;
+    const E = '(0||Exceptions()((0||0(d|46325)())))';
+    const named = parseCalendarData(`(0||CalendarData()(${W}${E}))`)!;
+    expect(named.repaired).toBe(false);
+    expect(named.week[6]).toEqual([
+      { start: 480, finish: 720 },
+      { start: 780, finish: 1020 },
+    ]);
+    expect(named.exceptions).toEqual([{ date: '2026-10-30', periods: [] }]);
+
+    // P6 5.0 to 6.2: the root has no name and holds DaysOfWeek and Exceptions itself, two spaces
+    // between its entries; an empty CalendarData entry may stand beside them.
+    expect(parseCalendarData(`(0||()(  ${W}  ${E}))`)).toEqual(named);
+    expect(parseCalendarData(`(0||()(  (0||CalendarData()())  ${W}  ${E}))`)).toEqual(named);
+    // Exceptions may be absent.
+    const withoutExceptions = parseCalendarData(`(0||CalendarData()(${W}))`)!;
+    expect(withoutExceptions).toEqual({ ...named, exceptions: [] });
+    expect(parseCalendarData(`(0||()(  ${W}))`)).toEqual(withoutExceptions);
+
+    // Two DaysOfWeek entries: which week is meant can't be told.
+    expect(parseCalendarData(`(0||()(  ${W}  ${W}  ${E}))`)).toBeNull();
+  });
+
+  it('reads a date listed twice with the same hours once, without a repair (D69)', () => {
+    const week = [1, 2, 3, 4, 5, 6, 7]
+      .map((n) => day(n, n === 2 ? period('08:00', '17:00') : ''))
+      .join('\n');
+    const off = (n: number, date: number) => `(0||${n}(d|${date})())`;
+    const morning = (n: number, date: number) =>
+      `(0||${n}(d|${date})(${period('08:00', '12:00')}))`;
+
+    const same = parseCalendarData(
+      data(week, off(0, 46325) + off(1, 46325) + morning(2, 46326) + morning(3, 46326)),
+    )!;
+    expect(same.exceptions).toEqual([
+      { date: '2026-10-30', periods: [] },
+      { date: '2026-10-31', periods: [{ start: 480, finish: 720 }] },
+    ]);
+    expect(same.repaired).toBe(false);
+
+    // Two entries that differ stay a repair, and the working one wins (D53).
+    const differing = parseCalendarData(data(week, off(0, 46325) + morning(1, 46325)))!;
+    expect(differing.exceptions).toEqual([
+      { date: '2026-10-30', periods: [{ start: 480, finish: 720 }] },
+    ]);
+    expect(differing.repaired).toBe(true);
+  });
 });

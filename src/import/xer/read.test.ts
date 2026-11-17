@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import legacy from '@/import/__fixtures__/legacy-p6.xer?bytes';
 import fixture from '@/import/__fixtures__/two-projects.xer?bytes';
 import { decodeText } from '@/import/encoding';
 import { listXerProjects, readXer } from '@/import/xer/read';
@@ -289,9 +290,11 @@ describe('readXer decisions D51-D58', () => {
   it('reports a repaired calendar once and counts it adjusted (D53)', () => {
     const parsed = file();
     const standard = parsed.tables.get('CALENDAR')!.rows.find((r) => r.clndr_id === '1')!;
+    // Two damages: a stray ')' and a date listed twice with different hours (a date listed twice
+    // with the same hours is no damage, D69).
     standard.clndr_data = standard
       .clndr_data!.replace('\x7f(0||Exceptions', ')\x7f(0||Exceptions')
-      .replace('(0||0(d|46324)())', '(0||0(d|46324)())(0||1(d|46324)())');
+      .replace('(0||0(d|46324)())', '(0||0(d|46324)())(0||1(d|46324)((0||0(s|08:00|f|12:00)())))');
     const result = readXer(parsed, '101');
     expect(result.issues.filter((i) => i.code === 'CALENDAR_DATA_REPAIRED')).toEqual([
       expect.objectContaining({
@@ -306,7 +309,10 @@ describe('readXer decisions D51-D58', () => {
       adjusted: 2,
       skipped: 0,
     });
-    expect(result.model.calendars[0]!.exceptions).toEqual([{ date: '2026-10-29', periods: [] }]);
+    // The working entry wins.
+    expect(result.model.calendars[0]!.exceptions).toEqual([
+      { date: '2026-10-29', periods: [{ start: 480, finish: 720 }] },
+    ]);
   });
 
   it('reads an unknown activity type as a task and derives a blank or unknown status (D54)', () => {
@@ -588,6 +594,105 @@ describe('readXer decisions D51-D58', () => {
       adjusted: 1,
       skipped: 2,
     });
+  });
+});
+
+describe('readXer readings from real exports (D68, D69)', () => {
+  const legacyFile = () => tokenizeXer(decodeText(legacy, 'utf-8')) as XerFile;
+
+  it('reads the calendars, options and link types of an older P6 export', () => {
+    const result = readXer(legacyFile(), '201');
+    expect(codes(result.issues)).toEqual([
+      'LINK_TYPE_UNKNOWN',
+      'LINK_TYPE_UNKNOWN',
+      'LINK_TYPE_UNKNOWN',
+      'LINK_TYPE_UNKNOWN',
+    ]);
+    expect(result.counts).toEqual([
+      { entity: 'calendar', read: 3, accepted: 3, adjusted: 0, skipped: 0 },
+      { entity: 'wbs', read: 1, accepted: 1, adjusted: 0, skipped: 0 },
+      { entity: 'activity', read: 4, accepted: 4, adjusted: 0, skipped: 0 },
+      { entity: 'relationship', read: 5, accepted: 5, adjusted: 4, skipped: 0 },
+    ]);
+    const { model } = result;
+    expect(
+      model.relationships.map((r) => `${r.predecessorCode}→${r.successorCode} ${r.type}`),
+    ).toEqual([
+      'L1000→L1010 FS',
+      'L1010→L1020 FF',
+      'L1020→L1030 SF',
+      'L1000→L1030 SS',
+      'L1000→L1020 FS',
+    ]);
+    const messages = result.issues.map((i) => i.message);
+    expect(messages).toContain(
+      "The link L1010 → L1020 has a type we don't know (PR_FF1). It is imported as finish to finish.",
+    );
+    expect(messages).toContain(
+      "The link L1000 → L1020 has a type we don't know (PR_ZZ9). It is imported as finish to start.",
+    );
+    expect(model.settings).toEqual([
+      { key: 'progress_mode', value: 'progress_override' },
+      { key: 'sched_calendar_on_relationship_lag', value: 'rcal_Predecessor' },
+    ]);
+    const [site, crew] = model.calendars;
+    expect(site).toMatchObject({
+      id: '1',
+      hoursPerDay: 8,
+      exceptions: [{ date: '2026-10-30', periods: [] }],
+    });
+    // Saturday is a working day.
+    expect(site!.week[6]).toEqual([
+      { start: 480, finish: 720 },
+      { start: 780, finish: 1020 },
+    ]);
+    expect(crew).toMatchObject({
+      id: '2',
+      exceptions: [
+        { date: '2026-10-30', periods: [] },
+        { date: '2026-10-31', periods: [{ start: 480, finish: 720 }] },
+      ],
+    });
+  });
+
+  it("reads the options from the project's own SCHEDOPTIONS row over PROJECT", () => {
+    const parsed = legacyFile();
+    // PROJECT says retained logic, the project's SCHEDOPTIONS row says not: the row wins.
+    parsed.tables.get('PROJECT')!.rows[0]!.sched_retained_logic = 'Y';
+    // The row of another project, listed first, is not read.
+    parsed.tables.get('SCHEDOPTIONS')!.rows.unshift(
+      row({
+        schedoptions_id: '2',
+        proj_id: '202',
+        sched_retained_logic: 'Y',
+        sched_progress_override: 'N',
+        sched_calendar_on_relationship_lag: 'rcal_Successor',
+        sched_use_expect_end_flag: 'N',
+      }),
+    );
+    expect(readXer(parsed, '201').model.settings).toEqual([
+      { key: 'progress_mode', value: 'progress_override' },
+      { key: 'sched_calendar_on_relationship_lag', value: 'rcal_Predecessor' },
+    ]);
+  });
+
+  it('falls back to PROJECT for an option SCHEDOPTIONS lacks', () => {
+    const parsed = legacyFile();
+    parsed.tables.delete('SCHEDOPTIONS');
+    parsed.tables.get('PROJECT')!.rows[0]!.sched_retained_logic = 'Y';
+    expect(readXer(parsed, '201').model.settings[0]).toEqual({
+      key: 'progress_mode',
+      value: 'retained_logic',
+    });
+    // A file with its options in PROJECT reads as before.
+    expect(readXer(file(), '101').model.settings).toEqual([
+      { key: 'progress_mode', value: 'retained_logic' },
+      { key: 'sched_calendar_on_relationship_lag', value: 'rcal_Successor' },
+      { key: 'act_this_per_link_flag', value: 'Y' },
+      { key: 'add_act_remain_flag', value: 'N' },
+      { key: 'cost_qty_recalc_flag', value: 'N' },
+      { key: 'reset_planned_flag', value: 'N' },
+    ]);
   });
 });
 

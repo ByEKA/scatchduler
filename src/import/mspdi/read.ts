@@ -777,7 +777,7 @@ export function readMspdi(text: string, options: { activityCodeField: string }):
         issues.push(
           makeIssue(
             'LINK_TYPE_UNKNOWN',
-            { ...names, value: typeRaw },
+            { ...names, value: typeRaw, type: 'finish to start' },
             { location, original: typeRaw, used: 'FS' },
           ),
         );

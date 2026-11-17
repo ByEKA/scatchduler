@@ -6,9 +6,14 @@ import type { Period } from '../model';
 // separated by line breaks or 0x7F. `CalendarData` holds `DaysOfWeek` (days 1–7, 1 = Sunday, each
 // with `(s|08:00|f|12:00)` periods) and `Exceptions` (`(d|<days since 1899-12-30>)` with their
 // periods; none = non-working). Known damage is repaired and reported (D53): one stray `)` before
-// `Exceptions`, several `Exceptions` containers, a date listed twice (the working entry wins), and
-// compact `(s|…|f|…)` periods and `(d|<day>(…))` exception records written without the
-// `0||n(…)(…)` wrapper. Anything else that doesn't read cleanly makes the calendar unreadable.
+// `Exceptions`, several `Exceptions` containers, a date listed twice with different hours (the
+// working entry wins), and compact `(s|…|f|…)` periods and `(d|<day>(…))` exception records written
+// without the `0||n(…)(…)` wrapper. Anything else that doesn't read cleanly makes the calendar
+// unreadable.
+//
+// Older exports (P6 5.0 to 6.2) write two things that are not damage (D69): a root entry without a
+// name that holds `DaysOfWeek` and `Exceptions` itself, sometimes beside an empty `CalendarData`
+// entry, and the same exception date twice with the same hours, which is read once.
 
 export interface CalendarData {
   week: Period[][]; // 7 entries, 0 = Sunday; [] = non-working day
@@ -84,7 +89,7 @@ function keyOf(group: Group): string {
  * The entries an entry holds: those of every group after its attributes; null when an entry stands
  * there itself, outside a children group. Given `stray`, an `Exceptions` entry may stand after the
  * children group: one stray `)` before it closed the group early and the final `)` is missing (only
- * CalendarData's entries are read this way; the reading counts as repaired).
+ * the root's entries are read this way; the reading counts as repaired).
  */
 function childrenOf(group: Group, stray?: Reading): Group[] | null {
   const children: Group[] = [];
@@ -254,8 +259,20 @@ function readException(
   return { date, periods };
 }
 
+/** Whether two sorted lists of periods hold the same hours. */
+function samePeriods(a: readonly Period[], b: readonly Period[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((period, k) => period.start === b[k]?.start && period.finish === b[k]?.finish)
+  );
+}
+
 function readCalendar(root: Group, reading: Reading): Omit<CalendarData, 'repaired'> | null {
-  if (keyOf(root) !== 'CalendarData') return null;
+  // A root without a name reads like one named CalendarData (D69). The checks below hold for
+  // both: exactly one DaysOfWeek, among the root's own entries. An empty CalendarData entry beside
+  // it holds nothing and is passed over like any other entry (VIEW, say).
+  const rootKey = keyOf(root);
+  if (rootKey !== 'CalendarData' && rootKey !== '') return null;
   const children = childrenOf(root, reading);
   if (!children) return null;
   const daysOfWeek = children.filter((child) => keyOf(child) === 'DaysOfWeek');
@@ -284,7 +301,9 @@ function readCalendar(root: Group, reading: Reading): Omit<CalendarData, 'repair
       byDate.set(exception.date, exception.periods);
       continue;
     }
-    // A date listed twice: the working entry wins.
+    // A date listed twice with the same hours is read once, as P6 writes it (D69).
+    if (samePeriods(listed, exception.periods)) continue;
+    // Two entries that differ: the working entry wins (D53).
     reading.repaired = true;
     if (listed.length === 0 && exception.periods.length > 0) {
       byDate.set(exception.date, exception.periods);

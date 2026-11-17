@@ -4,7 +4,14 @@ import turkish from '@/import/__fixtures__/turkish-1254.csv?bytes';
 import utf8 from '@/import/__fixtures__/utf8.csv?bytes';
 import { decodeText, detectEncoding } from '@/import/encoding';
 import { csvSource, guessDelimiter } from '@/import/table/csv';
-import { defaultTableMapping, previewTable, readTable } from '@/import/table/normalize';
+import {
+  defaultTableMapping,
+  headerRowGuess,
+  previewTable,
+  readTable,
+  type TableCell,
+  type TableSource,
+} from '@/import/table/normalize';
 
 function load(bytes: Uint8Array) {
   const encoding = detectEncoding(bytes);
@@ -247,5 +254,106 @@ describe('readTable', () => {
       'Calendar Gece was made from its name with the standard week: Monday to Friday from 07:00, 16 hours a day.',
     ]);
     expect(read(16).model.activities[0]!.planned.start).toBe('2026-03-02T08:00');
+  });
+
+  it('does not take a title repeated across a row for the header row (D69)', () => {
+    const text = (value: string): TableCell => ({ kind: 'text', text: value });
+    const repeated = (value: string, times: number) =>
+      Array.from({ length: times }, () => text(value));
+    const sheet = (rows: TableSource['rows'], rowNumbers: number[]): TableSource => ({
+      rows,
+      rowNumbers,
+      sheets: ['Program'],
+      sheet: 'Program',
+      date1904: false,
+      rowsPastWindow: false,
+      columnsPastWindow: false,
+    });
+    const headers = [
+      'Activity ID',
+      'Activity Name',
+      'Duration',
+      'Start',
+      'Finish',
+      '% of Complete',
+      'Predecessors',
+    ].map(text);
+    // A merged title takes its top-left value in every cell of the merge.
+    const title = repeated('Depo programı', 7);
+    const dated = repeated('Tarih: 05.03.2026', 3);
+    expect(headerRowGuess(sheet([title, dated, headers], [1, 2, 4]))).toBe(4);
+    expect(headerRowGuess(sheet([[text('Depo programı'), text('Rev. 2')], headers], [1, 4]))).toBe(
+      1,
+    );
+    expect(headerRowGuess(sheet([title, dated], [1, 2]))).toBe(1);
+  });
+
+  it('counts lag amounts when it guesses the decimal separator (D69)', () => {
+    const table = (durations: [string, string], predecessors: string) =>
+      csvSource(
+        [
+          'Activity ID;Activity Name;Duration;Predecessors',
+          `K1;Kazı;${durations[0]};`,
+          `K2;Temel;${durations[1]};${predecessors}`,
+          '',
+        ].join('\n'),
+        ';',
+      );
+    const comma = table(['5', '3'], 'K1SS+1,5 g');
+    const mapping = defaultTableMapping(comma, { delimiter: ';' });
+    expect(mapping.decimalSeparator).toBe(',');
+    const result = readTable(comma, mapping, { format: 'csv', encoding: null });
+    expect(result.model.relationships).toEqual([
+      {
+        predecessorCode: 'K1',
+        successorCode: 'K2',
+        type: 'SS',
+        lagMinutes: 720,
+        lagElapsed: false,
+      },
+    ]);
+    expect(codes(result.issues)).not.toContain('TABLE_BAD_LINK');
+
+    const guess = (source: TableSource) =>
+      defaultTableMapping(source, { delimiter: ';' }).decimalSeparator;
+    expect(guess(table(['5', '3'], 'K1SS+1.5 d'))).toBe('.');
+    // Without lags the guess is as before: the durations decide, and '.' when nothing votes.
+    expect(guess(table(['5', '3'], 'K1SS'))).toBe('.');
+    expect(guess(table(['2,5', '3'], 'K1SS'))).toBe(',');
+    expect(guess(table(['2.5', '3'], 'K1'))).toBe('.');
+
+    // A ref holding '-' reads as the reader reads it: a dash after a ref the table names starts a
+    // lag, while a ref the table names ("WP-1.1") is no lag and gives no amount.
+    expect(guess(table(['5', '3'], 'K1-1,5'))).toBe(',');
+    const dashed = csvSource(
+      [
+        'Activity ID;Activity Name;Duration;Predecessors',
+        'WP-1.1;One;2,5;',
+        'WP-1.2;Two;3;WP-1.1',
+        'WP-1.3;Three;4;WP-1.2',
+        'WP-1.4;Four;1,5;WP-1.3',
+        'WP-1.5;Five;2;WP-1.4',
+        '',
+      ].join('\n'),
+      ';',
+    );
+    const dashedMapping = defaultTableMapping(dashed, { delimiter: ';' });
+    expect(dashedMapping.decimalSeparator).toBe(',');
+    const dashedResult = readTable(dashed, dashedMapping, { format: 'csv', encoding: null });
+    expect(dashedResult.model.activities.map((a) => a.originalDuration)).toEqual([
+      1200, 1440, 1920, 720, 960,
+    ]);
+    expect(
+      dashedResult.model.relationships.map((r) => [
+        r.predecessorCode,
+        r.successorCode,
+        r.lagMinutes,
+      ]),
+    ).toEqual([
+      ['WP-1.1', 'WP-1.2', 0],
+      ['WP-1.2', 'WP-1.3', 0],
+      ['WP-1.3', 'WP-1.4', 0],
+      ['WP-1.4', 'WP-1.5', 0],
+    ]);
   });
 });

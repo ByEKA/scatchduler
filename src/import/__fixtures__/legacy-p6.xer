@@ -1,0 +1,33 @@
+ERMHDR	6.0	2026-03-20	Project	admin	Planner	dbxDatabaseNoName	Project Management	TRY
+%T	CURRTYPE
+%F	curr_id	decimal_digit_cnt	curr_symbol	decimal_symbol	digit_group_symbol	pos_curr_fmt_type	neg_curr_fmt_type	curr_type	curr_short_name	group_digit_cnt	base_exch_rate
+%R	1	2	₺	.	,	#1.1	(#1.1)	Turkish Lira	TRY	3	1
+%T	PROJECT
+%F	proj_id	proj_short_name	export_flag	last_recalc_date	plan_start_date	clndr_id
+%R	201	LEG-A	Y	2026-03-20 00:00	2026-03-02 00:00	1
+%T	SCHEDOPTIONS
+%F	schedoptions_id	proj_id	sched_retained_logic	sched_progress_override	sched_calendar_on_relationship_lag	sched_use_expect_end_flag
+%R	1	201	N	Y	rcal_Predecessor	Y
+%T	CALENDAR
+%F	clndr_id	clndr_name	clndr_type	base_clndr_id	proj_id	clndr_data
+%R	1	Site 6 Day	CA_Base			(0||()(  (0||DaysOfWeek()(  (0||1()())  (0||2()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||3()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||4()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||5()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||6()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||7()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))))  (0||Exceptions()(  (0||0(d|46325)())))))
+%R	2	Crew	CA_Project	3	201	(0||CalendarData()((0||DaysOfWeek()((0||1()())(0||2()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||3()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||4()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||5()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||6()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))(0||7()())))(0||Exceptions()((0||0(d|46325)())(0||1(d|46325)())(0||2(d|46326)((0||0(s|08:00|f|12:00)())))(0||3(d|46326)((0||0(s|08:00|f|12:00)())))))))
+%R	3	Old layout	CA_Base			(0||()(  (0||CalendarData()())  (0||DaysOfWeek()(  (0||1()())  (0||2()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||3()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||4()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||5()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||6()(  (0||0(s|08:00|f|12:00)())  (0||1(s|13:00|f|17:00)())))  (0||7()())))))
+%T	PROJWBS
+%F	wbs_id	proj_id	parent_wbs_id	seq_num	proj_node_flag	wbs_short_name	wbs_name
+%R	3001	201		0	Y	LEG-A	South Warehouse
+%R	3002	201	3001	10	N	GRW	Groundworks
+%T	TASK
+%F	task_id	proj_id	wbs_id	clndr_id	task_code	task_name	task_type	status_code	phys_complete_pct	complete_pct_type	target_drtn_hr_cnt	remain_drtn_hr_cnt	act_start_date	act_end_date	early_start_date	early_end_date	late_start_date	late_end_date	total_float_hr_cnt	free_float_hr_cnt	cstr_type	cstr_date	target_start_date	target_end_date
+%R	1000	201	3002	1	L1000	Site clearance	TT_Task	TK_Complete	100	CP_Drtn	16	0	2026-03-02 08:00	2026-03-03 17:00	2026-03-02 08:00	2026-03-03 17:00	2026-03-02 08:00	2026-03-03 17:00	0	0			2026-03-02 08:00	2026-03-03 17:00
+%R	1010	201	3002	1	L1010	Excavation	TT_Task	TK_Active	60	CP_Drtn	40	16	2026-03-04 08:00		2026-03-20 08:00	2026-03-21 17:00	2026-03-20 08:00	2026-03-21 17:00	0	0			2026-03-04 08:00	2026-03-09 17:00
+%R	1020	201	3002	2	L1020	Footings	TT_Task	TK_NotStart	0	CP_Drtn	24	24			2026-03-23 08:00	2026-03-25 17:00	2026-03-23 08:00	2026-03-25 17:00	0	0			2026-03-10 08:00	2026-03-12 17:00
+%R	1030	201	3002	2	L1030	Backfill	TT_Task	TK_NotStart	0	CP_Drtn	16	16			2026-03-26 08:00	2026-03-27 17:00	2026-03-26 08:00	2026-03-27 17:00	0	0			2026-03-13 08:00	2026-03-16 17:00
+%T	TASKPRED
+%F	task_pred_id	task_id	pred_task_id	proj_id	pred_proj_id	pred_type	lag_hr_cnt
+%R	1	1010	1000	201	201	PR_FS1	0
+%R	2	1020	1010	201	201	PR_FF1	0
+%R	3	1030	1020	201	201	PR_SF1	0
+%R	4	1030	1000	201	201	PR_SS	8
+%R	5	1020	1000	201	201	PR_ZZ9	0
+%E
