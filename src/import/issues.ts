@@ -95,12 +95,12 @@ export const ISSUE_CATALOG: Readonly<
   FILE_TOO_MANY_ACTIVITIES: {
     severity: 'error',
     group: 'Too many activities',
-    message: 'The file has {n} activities. The limit is 20,000.',
+    message: 'The file has {n} activities. The limit is 50,000.',
   },
   FILE_TOO_MANY_RELATIONSHIPS: {
     severity: 'error',
     group: 'Too many relationships',
-    message: 'The file has {n} relationships. The limit is 40,000.',
+    message: 'The file has {n} relationships. The limit is 150,000.',
   },
   FILE_TOO_MANY_WBS: {
     severity: 'error',

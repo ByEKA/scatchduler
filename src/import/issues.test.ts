@@ -71,10 +71,10 @@ describe('issue catalog', () => {
   });
 
   it('fills the message and formats counts', () => {
-    expect(makeIssue('FILE_TOO_MANY_ACTIVITIES', { n: 20001 })).toEqual({
+    expect(makeIssue('FILE_TOO_MANY_ACTIVITIES', { n: 50001 })).toEqual({
       severity: 'error',
       code: 'FILE_TOO_MANY_ACTIVITIES',
-      message: 'The file has 20,001 activities. The limit is 20,000.',
+      message: 'The file has 50,001 activities. The limit is 50,000.',
       location: null,
       original: null,
       used: null,

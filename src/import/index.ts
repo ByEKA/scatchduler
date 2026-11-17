@@ -74,10 +74,11 @@ export type AnalyzeOutcome =
   | { kind: 'refused'; message: string };
 
 // §5.10's count limits, enforced here (FILE_TOO_MANY_EXCEPTIONS comes from the readers, D57);
-// `calendarNames` bounds the names in a table's Calendar column (D63).
+// `calendarNames` bounds the names in a table's Calendar column (D63); D67 raised activities and
+// relationships to fit the owner's projects.
 const LIMITS = {
-  activities: 20_000,
-  relationships: 40_000,
+  activities: 50_000,
+  relationships: 150_000,
   wbs: 10_000,
   calendars: 200,
   rows: 20_000,

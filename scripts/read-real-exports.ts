@@ -23,7 +23,7 @@ import { tokenizeXer } from '../src/import/xer/tokenize';
 // The extensions the import form takes, and the two it takes only to refuse them (§5.2).
 const READ_EXTENSIONS = new Set(['.xer', '.xml', '.xlsx', '.csv']);
 const REFUSED_EXTENSIONS = new Set(['.mpp', '.xls']);
-const FORM_LIMIT_BYTES = 20 * 1024 * 1024; // §5.10
+const FORM_LIMIT_BYTES = 50 * 1024 * 1024; // §5.10, D67
 const MAX_TOKENS = 40; // distinct shapes shown per kind of cell
 
 const ENTITY_LABELS: Record<ImportReport['counts'][number]['entity'], string> = {
@@ -190,7 +190,7 @@ function tokenLines(source: TableSource, table: TableMapping, indent: string): s
 async function fileLines(path: string, label: string): Promise<string[]> {
   const extension = extname(path).toLowerCase();
   const bytes = new Uint8Array(readFileSync(path));
-  const size = `${number(bytes.length)} bytes${bytes.length > FORM_LIMIT_BYTES ? " (over the form's 20 MB limit)" : ''}`;
+  const size = `${number(bytes.length)} bytes${bytes.length > FORM_LIMIT_BYTES ? " (over the form's 50 MB limit)" : ''}`;
   // The parser sees a neutral name, so no message can repeat the real one.
   const name = `export${extension}`;
   const outcome = await inspect(bytes, name);

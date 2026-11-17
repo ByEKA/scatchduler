@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(28);
+select plan(30);
 
 create function tests.import_path(p_code text, p_suffix text) returns text language sql stable security definer set search_path = '' as $$
   select p.workspace_id || '/' || p.id || '/' || gen_random_uuid() || '.' || p_suffix from public.projects p where p.code = p_code $$;
@@ -39,13 +39,15 @@ select throws_ok($$ insert into public.schedules (project_id, name, source, sour
 select throws_ok($$ insert into public.schedules (project_id, name, source, source_format) values (tests.project_id('P1'), 'Blank xer', 'blank', 'xer') $$, '23514', null, 'blank schedules carry none');
 select throws_ok($$ update public.schedules set source_format = 'mpp' where name = 'Old XER' $$, '23514', null, 'formats come from the list');
 select throws_ok($$ update public.schedules set source_file_size = 0 where name = 'Old XER' $$, '23514', null, 'a stored original has at least one byte');
-select throws_ok($$ update public.schedules set source_file_size = 20971521 where name = 'Old XER' $$, '23514', null, 'and at most 20 MB');
+select throws_ok($$ update public.schedules set source_file_size = 52428801 where name = 'Old XER' $$, '23514', null, 'and at most 50 MB');
+select lives_ok($$ update public.schedules set source_file_size = 52428800 where name = 'Old XER' $$, 'a stored original of exactly 50 MB is accepted');
 select throws_ok($$ update public.schedules set source_file_sha256 = 'ABC' where name = 'Old XER' $$, '23514', null, 'a SHA-256 is 64 lower-case hex digits');
 select throws_ok($$ update public.schedules set source_project_code = repeat('x', 101) where name = 'Old XER' $$, '23514', null, 'source project codes have at most 100 characters');
 select throws_ok($$ update public.schedules set parser_version = repeat('1', 21) where name = 'Old XER' $$, '23514', null, 'parser versions have at most 20 characters');
 select throws_ok($$ update public.schedules set import_mapping = '[]'::jsonb where name = 'Old XER' $$, '23514', null, 'the mapping is an object');
 select throws_ok($$ update public.schedules set import_report = jsonb_build_object('x', repeat('a', 262200)) where name = 'Old XER' $$, '23514', null, 'the report has at most 256 KB');
-select throws_ok($$ update public.schedules set activity_count = 20001 where name = 'Old XER' $$, '23514', null, 'at most 20,000 activities');
+select throws_ok($$ update public.schedules set activity_count = 50001 where name = 'Old XER' $$, '23514', null, 'at most 50,000 activities');
+select lives_ok($$ update public.schedules set activity_count = 50000 where name = 'Old XER' $$, 'and 50,000 activities are accepted');
 select throws_ok($$ insert into public.schedules (project_id, name, source, source_format, source_file_path) values
   (tests.project_id('P1'), 'Dup 1', 'import', 'xer', 'dup/x.xer.gz'), (tests.project_id('P1'), 'Dup 2', 'import', 'xer', 'dup/x.xer.gz') $$,
   '23505', null, 'each stored object belongs to one schedule');

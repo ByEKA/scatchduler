@@ -27,6 +27,7 @@ Replace `<ref>` with the Supabase project ref and `<app origin>` with the app's 
   npx supabase secrets set ALLOWED_ORIGINS=<app origin(s)>
   ```
 
+  - Check the storage settings. `p3_core_limits` raises the `schedule-imports` bucket to 50 MB per file. The project's global upload limit (Storage settings) must be at least 50 MB before it ships.
   - Check CORS for the `invitations` function on the hosted project (P2 spec D24). The local stack can't check this: its Kong gateway adds `Access-Control-Allow-Origin: *` to every functions response and answers full preflights itself, so the local integration test only checks the preflight status (204 / 403, sent without `Access-Control-Request-Method`). On the hosted project:
 
     ```bash

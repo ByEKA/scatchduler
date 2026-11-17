@@ -28,7 +28,7 @@ import { useCurrentContext } from '@/hooks/useCurrentContext';
 import { useImportSchedule } from '@/hooks/useSchedules';
 import { errorMessage } from '@/lib/format';
 
-const FILE_HINT = 'Primavera P6 (.xer), MS Project XML (.xml) or CSV · up to 20 MB';
+const FILE_HINT = 'Primavera P6 (.xer), MS Project XML (.xml) or CSV · up to 50 MB';
 const DROPZONE_HEIGHT = 140;
 // The fields in the order the form shows them. Name and Code register during the form's own
 // render, before the two Controllers around them, so react-hook-form's own error focus would skip

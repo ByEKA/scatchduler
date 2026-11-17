@@ -23,16 +23,16 @@ async function errors(bytes: Uint8Array, name: string) {
 describe('limits (§5.10)', () => {
   it.each([
     [
-      () => generateXer({ activities: 20001, links: 0 }),
+      () => generateXer({ activities: 50001, links: 0 }),
       'a.xer',
       'FILE_TOO_MANY_ACTIVITIES',
-      'The file has 20,001 activities. The limit is 20,000.',
+      'The file has 50,001 activities. The limit is 50,000.',
     ],
     [
-      () => generateXer({ activities: 2, links: 40001 }),
+      () => generateXer({ activities: 2, links: 150001 }),
       'b.xer',
       'FILE_TOO_MANY_RELATIONSHIPS',
-      'The file has 40,001 relationships. The limit is 40,000.',
+      'The file has 150,001 relationships. The limit is 150,000.',
     ],
     [
       () => generateXer({ activities: 2, links: 0, wbs: 10001 }),
@@ -58,9 +58,24 @@ describe('limits (§5.10)', () => {
       'FILE_TOO_MANY_COLUMNS',
       'The sheet has more than 200 columns.',
     ],
-  ])('%#: one past the limit gives its error', async (make, name, code, message) => {
-    expect(await errors(make(), name)).toEqual([[code, message]]);
-  });
+  ])(
+    '%#: one past the limit gives its error',
+    async (make, name, code, message) => {
+      expect(await errors(make(), name)).toEqual([[code, message]]);
+    },
+    60_000,
+  );
+
+  it('gives no FILE_TOO_MANY_* error for 50,000 activities and 150,000 links (D67)', async () => {
+    const bytes = generateXer({ activities: 50000, links: 150000 });
+    const { report } = await analyzed(bytes, 'at-limit.xer');
+    expect(
+      report.issues.filter((i) => i.code.startsWith('FILE_TOO_MANY_')).map((i) => i.code),
+    ).toEqual([]);
+    // Every one of them was read, so the case stays at the limit.
+    const read = (entity: string) => report.counts.find((c) => c.entity === entity)?.read;
+    expect([read('activity'), read('relationship')]).toEqual([50000, 150000]);
+  }, 60_000);
 });
 
 describe('calendar names in a table (§5.10, D63)', () => {

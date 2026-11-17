@@ -38,11 +38,15 @@ describe('schedule schemas', () => {
     expect(
       issues(importScheduleSchema, { ...base, file: new File(['x'], 'BASELINE.XER') }),
     ).toEqual([]);
+    expect(MAX_SCHEDULE_BYTES).toBe(50 * 1024 * 1024);
     const big = new File(['x'], 'big.xer');
-    Object.defineProperty(big, 'size', { value: MAX_SCHEDULE_BYTES + 1 });
+    Object.defineProperty(big, 'size', { value: 50 * 1024 * 1024 + 1 });
     expect(issues(importScheduleSchema, { ...base, file: big })).toEqual([
-      'File must be 20 MB or smaller',
+      'File must be 50 MB or smaller',
     ]);
+    const atLimit = new File(['x'], 'limit.xer');
+    Object.defineProperty(atLimit, 'size', { value: 50 * 1024 * 1024 });
+    expect(issues(importScheduleSchema, { ...base, file: atLimit })).toEqual([]);
   });
 
   it('validates schedule codes and checks them against the project codes', () => {

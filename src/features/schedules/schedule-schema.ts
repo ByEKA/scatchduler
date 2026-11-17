@@ -5,8 +5,8 @@ import { isCodeTaken } from '@/features/files/codes';
 /** The schedule files the import accepts, compared case-insensitively (spec §5.7). */
 export const SCHEDULE_EXTENSIONS = ['.xer', '.xml', '.csv'] as const;
 
-/** 20 MB, the import size limit (spec §5.7, §6.10). */
-export const MAX_SCHEDULE_BYTES = 20 * 1024 * 1024;
+/** 50 MB, the import size limit (P3 core spec §5.10, §6.5, D67). */
+export const MAX_SCHEDULE_BYTES = 50 * 1024 * 1024;
 
 const scheduleName = z
   .string()
@@ -33,7 +33,7 @@ const scheduleFile = z
         error: 'Use a .xer, .xml or .csv file',
         abort: true,
       })
-      .max(MAX_SCHEDULE_BYTES, 'File must be 20 MB or smaller'),
+      .max(MAX_SCHEDULE_BYTES, 'File must be 50 MB or smaller'),
   );
 
 /** The hint under every schedule Code field (P3 core spec §6.4). */
