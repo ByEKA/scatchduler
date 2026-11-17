@@ -75,4 +75,53 @@ describe('project form schema', () => {
       location: { address: null, city: null, country: null, latitude: null, longitude: null },
     });
   });
+
+  it('checks coordinates as a pair, in range and to 6 decimals', () => {
+    expect(issues({ ...valid, latitude: '41.0151', longitude: '' })).toEqual([
+      'Enter both latitude and longitude',
+    ]);
+    expect(issues({ ...valid, latitude: '', longitude: '28.9795' })).toEqual([
+      'Enter both latitude and longitude',
+    ]);
+    expect(issues({ ...valid, latitude: '95', longitude: '28' })).toEqual([
+      'Enter a latitude between -90 and 90',
+    ]);
+    expect(issues({ ...valid, latitude: '41', longitude: '-181' })).toEqual([
+      'Enter a longitude between -180 and 180',
+    ]);
+    expect(issues({ ...valid, latitude: 'north', longitude: '28' })).toEqual([
+      'Enter a latitude between -90 and 90',
+    ]);
+    expect(issues({ ...valid, latitude: '41.1234567', longitude: '28' })).toEqual([
+      'Use up to 6 decimal places',
+    ]);
+    expect(issues({ ...valid, latitude: '41,0151', longitude: '-28,9795' })).toEqual([]);
+    expect(EMPTY_PROJECT_FORM).toMatchObject({
+      status: 'active',
+      stage: '',
+      sector: '',
+      latitude: '',
+      longitude: '',
+    });
+  });
+
+  it('maps the attributes and coordinates', () => {
+    expect(
+      toNewProjectInput(
+        {
+          ...valid,
+          status: 'on_hold',
+          stage: 'pursuit',
+          projectType: 'water',
+          sector: 'public',
+          latitude: '41,0151',
+          longitude: ' -28.9795 ',
+        },
+        'w1',
+      ),
+    ).toMatchObject({
+      attributes: { status: 'on_hold', stage: 'pursuit', projectType: 'water', sector: 'public' },
+      location: { latitude: 41.0151, longitude: -28.9795 },
+    });
+  });
 });

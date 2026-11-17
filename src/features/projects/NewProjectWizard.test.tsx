@@ -49,6 +49,11 @@ async function next(user: User, step: string) {
   expect(await screen.findByText(step)).toBeInTheDocument();
 }
 
+async function choose(user: User, label: string, option: string) {
+  await user.click(screen.getByLabelText(label));
+  await user.click(await screen.findByRole('option', { name: option }));
+}
+
 describe('NewProjectWizard', () => {
   it('validates step 1 before moving on', async () => {
     const { user } = await openWizard();
@@ -245,11 +250,11 @@ describe('NewProjectWizard', () => {
     await waitFor(() => expect(screen.getByLabelText('Project name')).toHaveFocus());
     await fillDetails(user);
     await next(user, 'Step 2 of 4: Attributes');
-    await waitFor(() => expect(screen.getByLabelText('Project type')).toHaveFocus());
+    await waitFor(() => expect(screen.getByLabelText('Status')).toHaveFocus());
     await next(user, 'Step 3 of 4: Client');
     await waitFor(() => expect(screen.getByLabelText('Client name')).toHaveFocus());
     await user.click(screen.getByRole('button', { name: 'Back' }));
-    await waitFor(() => expect(screen.getByLabelText('Project type')).toHaveFocus(), {
+    await waitFor(() => expect(screen.getByLabelText('Status')).toHaveFocus(), {
       timeout: 3000,
     });
   });
@@ -581,5 +586,101 @@ describe('NewProjectWizard', () => {
     expect(await screen.findByText(TAKEN)).toBeInTheDocument();
     expect(screen.getByText('Step 1 of 4: Details')).toBeInTheDocument();
     expect(checkMark()).toBeNull();
+  });
+
+  it('offers the attributes with their defaults and options', async () => {
+    const { user } = await openWizard();
+    await fillDetails(user);
+    await next(user, 'Step 2 of 4: Attributes');
+    expect(screen.getByLabelText('Status')).toHaveTextContent('Active');
+    for (const label of ['Stage', 'Project type', 'Sector'])
+      expect(screen.getByLabelText(label)).toHaveTextContent('None');
+    await user.click(screen.getByLabelText('Status'));
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+      'Active',
+      'On hold',
+      'Completed',
+      'Cancelled',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'Active' }));
+    await user.click(screen.getByLabelText('Stage'));
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+      'None',
+      'Pursuit',
+      'Preconstruction',
+      'Construction',
+      'Closeout',
+      'Completed',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'None' }));
+    await user.click(screen.getByLabelText('Project type'));
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+      'None',
+      'Building',
+      'Infrastructure',
+      'Industrial',
+      'Residential',
+      'Energy',
+      'Transportation',
+      'Water',
+      'Other',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'None' }));
+    await user.click(screen.getByLabelText('Sector'));
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
+      'None',
+      'Public',
+      'Private',
+      'Public–private partnership',
+    ]);
+  });
+
+  it('creates a project with its attributes and a pasted coordinate pair', async () => {
+    const dataLayer = createTestDataLayer();
+    const { user } = await openWizard(dataLayer);
+    await fillDetails(user);
+    await next(user, 'Step 2 of 4: Attributes');
+    await choose(user, 'Status', 'On hold');
+    await choose(user, 'Stage', 'Construction');
+    await choose(user, 'Project type', 'Energy');
+    await choose(user, 'Sector', 'Public–private partnership');
+    await next(user, 'Step 3 of 4: Client');
+    await next(user, 'Step 4 of 4: Location');
+    expect(
+      screen.getByText(
+        'Decimal degrees, for example 41.0151 and 28.9795. Paste both into Latitude to fill the two fields.',
+      ),
+    ).toBeInTheDocument();
+    await user.click(screen.getByLabelText('Latitude'));
+    await user.paste('41.0151, 28.9795');
+    expect(screen.getByLabelText('Latitude')).toHaveValue('41.0151');
+    expect(screen.getByLabelText('Longitude')).toHaveValue('28.9795');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+    expect(await screen.findByText('Project created')).toBeInTheDocument();
+    expect(dataLayer.store.read().projects.find((p) => p.code === '007')).toMatchObject({
+      attributes: {
+        status: 'on_hold',
+        stage: 'construction',
+        projectType: 'energy',
+        sector: 'public_private',
+      },
+      location: { latitude: 41.0151, longitude: 28.9795 },
+    });
+  });
+
+  it('shows coordinate errors under the fields', async () => {
+    const dataLayer = createTestDataLayer();
+    const createProject = vi.spyOn(dataLayer.repository, 'createProject');
+    const { user } = await openWizard(dataLayer);
+    await fillDetails(user);
+    await next(user, 'Step 2 of 4: Attributes');
+    await next(user, 'Step 3 of 4: Client');
+    await next(user, 'Step 4 of 4: Location');
+    await user.type(screen.getByLabelText('Latitude'), '95');
+    await user.click(screen.getByRole('button', { name: 'Create project' }));
+    expect(await screen.findByText('Enter a latitude between -90 and 90')).toBeInTheDocument();
+    expect(screen.getByText('Enter both latitude and longitude')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Latitude')).toHaveFocus());
+    expect(createProject).not.toHaveBeenCalled();
   });
 });

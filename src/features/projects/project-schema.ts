@@ -1,7 +1,14 @@
 import { isBefore, isValid, parseISO } from 'date-fns';
 import { z } from 'zod';
 import type { NewProjectInput } from '@/data/repository';
-import type { ID, ProjectType } from '@/data/types';
+import type { ID, ProjectSector, ProjectStage, ProjectStatus, ProjectType } from '@/data/types';
+import { coordinateDecimals, parseCoordinate } from '@/features/projects/coordinates';
+import {
+  PROJECT_TYPE_OPTIONS,
+  SECTOR_OPTIONS,
+  STAGE_OPTIONS,
+  STATUS_OPTIONS,
+} from '@/lib/project-options';
 
 /** The wizard's steps in order (spec §6.7). */
 export const WIZARD_STEPS = [
@@ -19,7 +26,10 @@ export interface ProjectFormValues {
   code: string;
   coverImage: File | null;
   description: string;
+  status: ProjectStatus;
+  stage: ProjectStage | '';
   projectType: ProjectType | '';
+  sector: ProjectSector | '';
   statusDate: string;
   startDate: string;
   plannedFinishDate: string;
@@ -29,6 +39,8 @@ export interface ProjectFormValues {
   address: string;
   city: string;
   country: string;
+  latitude: string;
+  longitude: string;
 }
 
 export const EMPTY_PROJECT_FORM: ProjectFormValues = {
@@ -36,7 +48,10 @@ export const EMPTY_PROJECT_FORM: ProjectFormValues = {
   code: '',
   coverImage: null,
   description: '',
+  status: 'active',
+  stage: '',
   projectType: '',
+  sector: '',
   statusDate: '',
   startDate: '',
   plannedFinishDate: '',
@@ -46,36 +61,31 @@ export const EMPTY_PROJECT_FORM: ProjectFormValues = {
   address: '',
   city: '',
   country: '',
+  latitude: '',
+  longitude: '',
 };
 
 /** The fields of each step in the order the step shows them; "Next" validates these only. */
 export const STEP_FIELDS: Record<WizardStepId, Array<keyof ProjectFormValues>> = {
   details: ['name', 'code', 'coverImage', 'description'],
-  attributes: ['projectType', 'statusDate', 'startDate', 'plannedFinishDate'],
+  attributes: [
+    'status',
+    'stage',
+    'projectType',
+    'sector',
+    'statusDate',
+    'startDate',
+    'plannedFinishDate',
+  ],
   client: ['clientName', 'contactName', 'contactEmail'],
-  location: ['address', 'city', 'country'],
+  location: ['address', 'city', 'country', 'latitude', 'longitude'],
 };
 
-/** The Project type options in the order the Select lists them (spec §6.7). */
-export const PROJECT_TYPE_OPTIONS: ReadonlyArray<{ value: ProjectType; label: string }> = [
-  { value: 'building', label: 'Building' },
-  { value: 'infrastructure', label: 'Infrastructure' },
-  { value: 'industrial', label: 'Industrial' },
-  { value: 'residential', label: 'Residential' },
-  { value: 'other', label: 'Other' },
-];
-
-/** Every `ProjectType`, so the form accepts any stored type (P3 core spec §4.1). */
-const PROJECT_TYPES = [
-  'building',
-  'residential',
-  'infrastructure',
-  'industrial',
-  'energy',
-  'transportation',
-  'water',
-  'other',
-] as const satisfies readonly ProjectType[];
+// The selects offer every stored value, so the form accepts any stored project (P3 core spec §4.1).
+const PROJECT_STATUSES = STATUS_OPTIONS.map((option) => option.value);
+const PROJECT_STAGES = STAGE_OPTIONS.map((option) => option.value);
+const PROJECT_TYPES = PROJECT_TYPE_OPTIONS.map((option) => option.value);
+const PROJECT_SECTORS = SECTOR_OPTIONS.map((option) => option.value);
 
 /** The photo types the wizard accepts (spec §5.7). */
 export const COVER_IMAGE_TYPES: readonly string[] = ['image/jpeg', 'image/png'];
@@ -92,6 +102,15 @@ export const CODE_TAKEN_MESSAGE = 'This ID is already used in this workspace';
 /** The copy for a date that isn't a real 'YYYY-MM-DD' date (spec §5.7, D12). */
 export const INVALID_DATE_MESSAGE = 'Enter a valid date';
 
+/** Up to 6 decimal places, about 0.1 m (P3 core spec §6.5). */
+const COORDINATE_MAX_DECIMALS = 6;
+
+/** The coordinate fields with their ranges and range copy (P3 core spec §6.5). */
+const COORDINATE_FIELDS = [
+  { name: 'latitude', limit: 90, message: 'Enter a latitude between -90 and 90' },
+  { name: 'longitude', limit: 180, message: 'Enter a longitude between -180 and 180' },
+] as const;
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -105,6 +124,15 @@ function isIsoDate(value: string): boolean {
 
 function optionalText(max: number) {
   return z.string().trim().max(max, `Use ${max} characters or fewer`);
+}
+
+/** The error of one filled coordinate field: not a number or out of range first, then decimals. */
+function coordinateError(text: string, limit: number, rangeMessage: string): string | null {
+  const value = parseCoordinate(text);
+  if (value === null) return null;
+  if (Number.isNaN(value) || Math.abs(value) > limit) return rangeMessage;
+  if (coordinateDecimals(text) > COORDINATE_MAX_DECIMALS) return 'Use up to 6 decimal places';
+  return null;
 }
 
 const optionalDate = z.string().refine((value) => value === '' || isIsoDate(value), {
@@ -137,7 +165,10 @@ export const projectFormSchema = z
     description: z
       .string()
       .max(DESCRIPTION_MAX_LENGTH, `Use ${DESCRIPTION_MAX_LENGTH} characters or fewer`),
+    status: z.enum(PROJECT_STATUSES),
+    stage: z.union([z.enum(PROJECT_STAGES), z.literal('')]),
     projectType: z.union([z.enum(PROJECT_TYPES), z.literal('')]),
+    sector: z.union([z.enum(PROJECT_SECTORS), z.literal('')]),
     statusDate: optionalDate,
     startDate: optionalDate,
     plannedFinishDate: optionalDate,
@@ -152,15 +183,28 @@ export const projectFormSchema = z
     address: optionalText(160),
     city: optionalText(80),
     country: optionalText(80),
+    latitude: z.string(),
+    longitude: z.string(),
   })
-  .superRefine(({ startDate, plannedFinishDate }, ctx) => {
-    if (!isIsoDate(startDate) || !isIsoDate(plannedFinishDate)) return;
-    if (isBefore(parseISO(plannedFinishDate), parseISO(startDate))) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['plannedFinishDate'],
-        message: 'Finish must be on or after the start date',
-      });
+  .superRefine((values, ctx) => {
+    const { startDate, plannedFinishDate } = values;
+    if (isIsoDate(startDate) && isIsoDate(plannedFinishDate)) {
+      if (isBefore(parseISO(plannedFinishDate), parseISO(startDate))) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['plannedFinishDate'],
+          message: 'Finish must be on or after the start date',
+        });
+      }
+    }
+    // Both coordinates or neither; the "both" error goes on the empty one (P3 core spec §6.5).
+    const filled = COORDINATE_FIELDS.filter(({ name }) => values[name].trim() !== '').length;
+    for (const { name, limit, message } of COORDINATE_FIELDS) {
+      const text = values[name];
+      let error: string | null;
+      if (text.trim() !== '') error = coordinateError(text, limit, message);
+      else error = filled === 1 ? 'Enter both latitude and longitude' : null;
+      if (error !== null) ctx.addIssue({ code: 'custom', path: [name], message: error });
     }
   }) satisfies z.ZodType<ProjectFormValues, ProjectFormValues>;
 
@@ -170,8 +214,8 @@ function textOrNull(value: string): string | null {
 }
 
 /**
- * The create request for the form's values: strings trimmed, empty optional values `null`. The
- * form has no status, stage, sector or coordinates yet, so they go as their defaults.
+ * The create request for the form's values: strings trimmed, empty optional values `null`, and the
+ * coordinates as numbers read with either decimal mark.
  */
 export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): NewProjectInput {
   return {
@@ -182,10 +226,10 @@ export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): N
     coverImage: values.coverImage,
     statusDate: textOrNull(values.statusDate),
     attributes: {
-      status: 'active',
-      stage: null,
+      status: values.status,
+      stage: values.stage === '' ? null : values.stage,
       projectType: values.projectType === '' ? null : values.projectType,
-      sector: null,
+      sector: values.sector === '' ? null : values.sector,
       startDate: textOrNull(values.startDate),
       plannedFinishDate: textOrNull(values.plannedFinishDate),
     },
@@ -198,8 +242,8 @@ export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): N
       address: textOrNull(values.address),
       city: textOrNull(values.city),
       country: textOrNull(values.country),
-      latitude: null,
-      longitude: null,
+      latitude: parseCoordinate(values.latitude),
+      longitude: parseCoordinate(values.longitude),
     },
   };
 }
