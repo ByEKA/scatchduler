@@ -33,6 +33,8 @@ export const queryKeys = {
   schedules: (projectId: ID) => ['schedules', projectId] as const,
   /** The schedules of one project, archived included. */
   projectSchedules: (projectId: ID | undefined) => ['schedules', projectId, 'list'] as const,
+  /** One schedule's stored import report; it never changes in Phase 3 core (spec §4.4). */
+  importReport: (scheduleId: ID | undefined) => ['import-report', scheduleId] as const,
   /** The members of one workspace (P2 spec §6.3). */
   members: (workspaceId: ID) => ['members', workspaceId] as const,
   /** Prefix of every member query; a profile change refreshes them all. */

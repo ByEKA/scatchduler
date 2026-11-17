@@ -6,6 +6,12 @@ import type { UpdateScheduleDetailsInput } from '@/data/repository';
 import { compareIds } from '@/data/sort';
 import type { BaselineFlag, ID, ISODate, ISODateTime, Project, Schedule } from '@/data/types';
 
+/**
+ * The schedule fields the rules read and write: a `Schedule` as the repository returns it, or the
+ * mock's stored `MockSchedule`, which derives the two `hasImport…` flags when read.
+ */
+export type RuleSchedule = Omit<Schedule, 'hasImportReport' | 'hasImportMapping'>;
+
 /** R8: the `schedules.code` check constraint. */
 export const SCHEDULE_CODE_PATTERN = /^[A-Za-z0-9_.-]{1,24}$/;
 
@@ -38,7 +44,7 @@ const charLength = (text: string): number => [...text].length;
 
 /** True when a schedule of `projectId` other than `exceptId` has `code`, ignoring case. */
 function isCodeTaken(
-  schedules: readonly Schedule[],
+  schedules: readonly RuleSchedule[],
   projectId: ID,
   code: string,
   exceptId: ID | null,
@@ -60,7 +66,7 @@ function isCodeTaken(
  * schedule of the project has the same code, ignoring case.
  */
 export function checkNewScheduleCode(
-  schedules: readonly Schedule[],
+  schedules: readonly RuleSchedule[],
   projectId: ID,
   code: string,
 ): string {
@@ -79,7 +85,7 @@ export function checkNewScheduleCode(
  * The `listSchedules` order: status date descending with undated schedules last, then newest
  * created, then by id ascending (`compareIds`, Postgres `order by id`).
  */
-export function compareSchedules(a: Schedule, b: Schedule): number {
+export function compareSchedules(a: RuleSchedule, b: RuleSchedule): number {
   if (a.statusDate !== b.statusDate) {
     if (a.statusDate === null) return 1;
     if (b.statusDate === null) return -1;
@@ -90,7 +96,10 @@ export function compareSchedules(a: Schedule, b: Schedule): number {
 }
 
 /** The project's current schedule (R1), or `null` when it has none. */
-export function currentScheduleOf(schedules: readonly Schedule[], projectId: ID): Schedule | null {
+export function currentScheduleOf<S extends RuleSchedule>(
+  schedules: readonly S[],
+  projectId: ID,
+): S | null {
   return schedules.find((s) => s.projectId === projectId && s.isCurrent) ?? null;
 }
 
@@ -98,7 +107,7 @@ export function currentScheduleOf(schedules: readonly Schedule[], projectId: ID)
  * Makes the schedule its project's current one: R4 refuses an archived schedule, and the flag
  * moves from the old current schedule in the same write (R1). `updatedAt` stays (R11).
  */
-export function makeCurrent(schedules: Schedule[], scheduleId: ID): void {
+export function makeCurrent(schedules: RuleSchedule[], scheduleId: ID): void {
   const target = schedules.find((s) => s.id === scheduleId);
   if (!target) throw new RepositoryError('validation', SCHEDULES_GONE);
   if (target.archivedAt !== null) {
@@ -119,11 +128,11 @@ export function makeCurrent(schedules: Schedule[], scheduleId: ID): void {
  * from "not a baseline" into a baseline while the project has no primary becomes the primary one.
  * Text is trimmed (empty notes `null`) and `updatedAt` set to `now` (R11). Returns the schedule.
  */
-export function applyDetails(
-  schedules: Schedule[],
+export function applyDetails<S extends RuleSchedule>(
+  schedules: S[],
   input: UpdateScheduleDetailsInput,
   now: ISODateTime,
-): Schedule {
+): S {
   const schedule = schedules.find((s) => s.id === input.scheduleId);
   if (!schedule) throw new RepositoryError('validation', SCHEDULES_GONE);
   const code = input.code.trim();
@@ -185,10 +194,10 @@ const MAX_SCHEDULE_SET = 500;
  * from one project.", and fewer found than ids "Some schedules are no longer available. Refresh
  * and try again.". Returns the project and the found schedules.
  */
-export function resolveScheduleSet(
-  schedules: readonly Schedule[],
+export function resolveScheduleSet<S extends RuleSchedule>(
+  schedules: readonly S[],
   scheduleIds: readonly ID[],
-): { projectId: ID; found: Schedule[] } | null {
+): { projectId: ID; found: S[] } | null {
   const ids = new Set(scheduleIds);
   if (ids.size === 0) return null;
   if (ids.size > MAX_SCHEDULE_SET) {
@@ -212,7 +221,7 @@ export function resolveScheduleSet(
  * first archive time and a restored one gets `null`. Every named schedule gets `updatedAt` `now`,
  * even when its archive state stays (R11).
  */
-export function applyArchived(found: Schedule[], archived: boolean, now: ISODateTime): void {
+export function applyArchived(found: RuleSchedule[], archived: boolean, now: ISODateTime): void {
   if (archived && found.some((s) => s.isCurrent)) {
     throw new RepositoryError(
       'validation',
@@ -231,7 +240,7 @@ export function applyArchived(found: Schedule[], archived: boolean, now: ISODate
  * of its project (or alone when it is the only one).
  */
 export function checkDeleteKeepsCurrent(
-  schedules: readonly Schedule[],
+  schedules: readonly RuleSchedule[],
   projectId: ID,
   deletedIds: readonly ID[],
 ): void {
@@ -250,7 +259,7 @@ export function checkDeleteKeepsCurrent(
  * write that makes a schedule current or changes the current one's status date; the project's
  * `updatedAt` stays (R11).
  */
-export function syncProjectStatusDate(project: Project, schedules: readonly Schedule[]): void {
+export function syncProjectStatusDate(project: Project, schedules: readonly RuleSchedule[]): void {
   const current = currentScheduleOf(schedules, project.id);
   if (current && project.statusDate !== current.statusDate) {
     project.statusDate = current.statusDate;
@@ -263,7 +272,7 @@ export function syncProjectStatusDate(project: Project, schedules: readonly Sche
  */
 export function checkProjectStatusDate(
   project: Project,
-  schedules: readonly Schedule[],
+  schedules: readonly RuleSchedule[],
   statusDate: ISODate | null,
 ): void {
   const current = currentScheduleOf(schedules, project.id);

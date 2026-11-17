@@ -5,6 +5,8 @@ import type {
   ID,
   ISODate,
   ISODateTime,
+  ImportMapping,
+  ImportReport,
   Project,
   ProjectSector,
   ProjectStage,
@@ -53,6 +55,18 @@ export interface MockInvitation {
   revokedAt: ISODateTime | null;
 }
 
+/**
+ * A stored schedule (P3 core spec §4.5): an import also keeps its source project code, mapping
+ * and report (the report with its first 50 issues only, D22); `hasImportReport` and
+ * `hasImportMapping` are derived from them when the schedule is read, as `schedule_items` does.
+ * The original file isn't stored here; the repository keeps it in memory.
+ */
+export type MockSchedule = Omit<Schedule, 'hasImportReport' | 'hasImportMapping'> & {
+  sourceProjectCode: string | null;
+  importReport: ImportReport | null;
+  importMapping: ImportMapping | null;
+};
+
 /** The whole mock database, stored as one JSON document (spec §5.6, P2 spec §6.4). */
 export interface MockDb {
   version: 3;
@@ -68,7 +82,7 @@ export interface MockDb {
   members: MockMember[];
   invitations: MockInvitation[];
   projects: Project[];
-  schedules: Schedule[];
+  schedules: MockSchedule[];
   shares: MockShare[];
   tasks: Task[];
 }
@@ -402,8 +416,9 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
         updateNumber: schedule.updateNumber,
         archivedAt,
         activityCount: 0,
-        hasImportReport: false,
-        hasImportMapping: false,
+        sourceProjectCode: null,
+        importReport: null,
+        importMapping: null,
         createdAt: updatedAt,
         updatedAt: archivedAt ?? updatedAt,
       });

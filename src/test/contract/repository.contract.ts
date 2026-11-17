@@ -4,8 +4,9 @@
 // seed's.
 import { describe, expect, it } from 'vitest';
 import type { DataRepository } from '@/data/repository';
-import type { ID, ISODateTime, ProjectStatus, Role, Schedule } from '@/data/types';
-import { makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
+import type { ID, ISODateTime, ImportMapping, ProjectStatus, Role, Schedule } from '@/data/types';
+import { analyze } from '@/import/index';
+import { makeImportScheduleInput, makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
 
 /** The seed scenario a fixture starts from (Phase 1 spec §5.6). */
 export type ContractScenario = 'default' | 'empty';
@@ -1171,6 +1172,91 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         ).rejects.toMatchObject({ code: 'forbidden' });
         await expect(viewer.repository.deleteSchedules([viewerRev3!.id])).rejects.toMatchObject({
           code: 'forbidden',
+        });
+      });
+    });
+
+    describe('imports with their report, mapping and original (spec §5.8)', () => {
+      const modelOf = async (blob: Blob, name: string, mapping: ImportMapping) => {
+        const outcome = await analyze(new Uint8Array(await blob.arrayBuffer()), name, mapping);
+        if (outcome.kind !== 'analyzed') throw new Error(outcome.message);
+        return outcome.model;
+      };
+
+      it('stores the mapping, report, counts and format of an import', async () => {
+        const f = await makeFixture();
+        const metro = f.projectIds['002']!;
+        const schedule = await f.repository.importSchedule(await makeImportScheduleInput(metro));
+        expect(schedule).toMatchObject({
+          name: 'North Plant',
+          code: 'NTH-A',
+          source: 'import',
+          sourceFileName: 'two-projects.xer',
+          sourceFormat: 'xer',
+          activityCount: 6,
+          statusDate: '2026-10-15',
+          isCurrent: true,
+          hasImportReport: true,
+          hasImportMapping: true,
+        });
+        expect(await f.repository.getProject(metro)).toMatchObject({
+          statusDate: '2026-10-15',
+          currentSchedule: { id: schedule.id },
+        });
+      });
+
+      it('returns the stored report and mapping, and not_found for unknown schedules', async () => {
+        const f = await makeFixture();
+        const input = await makeImportScheduleInput(f.projectIds['002']!);
+        const schedule = await f.repository.importSchedule(input);
+        expect(await f.repository.getImportReport(schedule.id)).toMatchObject({
+          format: 'xer',
+          file: { name: 'two-projects.xer', sha256: input.report!.file.sha256 },
+          sourceProject: { code: 'NTH-A' },
+          issueTotals: input.report!.issueTotals,
+        });
+        expect(await f.repository.getImportMapping(schedule.id)).toEqual(input.mapping);
+        for (const id of unknownIds()) {
+          await expect(f.repository.getImportReport(id)).rejects.toMatchObject({
+            code: 'not_found',
+          });
+          await expect(f.repository.getImportMapping(id)).rejects.toMatchObject({
+            code: 'not_found',
+          });
+        }
+      });
+
+      it('returns the original bytes under the original name', async () => {
+        const f = await makeFixture();
+        const input = await makeImportScheduleInput(f.projectIds['002']!);
+        const file = await f.repository.getScheduleSourceFile(
+          (await f.repository.importSchedule(input)).id,
+        );
+        expect(file.name).toBe('two-projects.xer');
+        expect(new Uint8Array(await file.arrayBuffer())).toEqual(
+          new Uint8Array(await input.file.arrayBuffer()),
+        );
+      });
+
+      it('reads the same model again from the stored original and mapping (S11)', async () => {
+        const f = await makeFixture();
+        const input = await makeImportScheduleInput(f.projectIds['002']!);
+        const schedule = await f.repository.importSchedule(input);
+        const file = await f.repository.getScheduleSourceFile(schedule.id);
+        const mapping = (await f.repository.getImportMapping(schedule.id))!;
+        expect(await modelOf(file, file.name, mapping)).toEqual(
+          await modelOf(input.file, input.file.name, input.mapping!),
+        );
+      });
+
+      it('has no report, mapping or original for a blank schedule', async () => {
+        const f = await makeFixture();
+        const [main] = await f.repository.listSchedules(f.projectIds['001']!);
+        expect(await f.repository.getImportReport(main!.id)).toBeNull();
+        expect(await f.repository.getImportMapping(main!.id)).toBeNull();
+        await expect(f.repository.getScheduleSourceFile(main!.id)).rejects.toMatchObject({
+          code: 'validation',
+          message: 'This schedule has no original file.',
         });
       });
     });

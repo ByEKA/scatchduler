@@ -2,6 +2,8 @@ import type {
   BaselineFlag,
   ID,
   ISODate,
+  ImportMapping,
+  ImportReport,
   InviteResult,
   Project,
   ProjectAttributes,
@@ -53,11 +55,25 @@ export interface NewScheduleInput {
   code: string; // trimmed by the adapter; required and unique in the project, ignoring case (R8)
 }
 
+/**
+ * One import (spec §4.2). The fields after `file` are optional during the interim import path
+ * (spec §2.4): without a `report` (and, on Supabase, a `stored` copy) the adapters keep the
+ * interim behavior, the format from the file's extension and no mapping or report, as for a
+ * P2-era import.
+ */
 export interface ImportScheduleInput {
   projectId: ID;
   name: string;
   code: string; // as NewScheduleInput's
-  file: File; // Phase 1: metadata only; Phase 2: uploaded to Storage
+  file: File; // the original, as the user chose it
+  /** From the worker's `pack`: the file gzipped for xer, mspdi and csv; the file itself for xlsx. */
+  stored?: Blob;
+  statusDate?: ISODate | null; // null takes the project's (P2)
+  activityCount?: number; // the accepted activities
+  sourceProjectCode?: string | null;
+  mapping?: ImportMapping;
+  /** The stored report (spec §5.10); its parserVersion, format and file.sha256 are stored too. */
+  report?: ImportReport;
 }
 
 /** One save of the Schedule details dialog. */
@@ -118,6 +134,10 @@ export interface DataRepository {
    * schedule of a project becomes its current one (R1).
    */
   createSchedule(input: NewScheduleInput): Promise<Schedule>;
+  /**
+   * Keeps the original file, and with a report its format, activity count, status date (`null`
+   * takes the project's), source project code, mapping and report (spec §5.8).
+   */
   importSchedule(input: ImportScheduleInput): Promise<Schedule>;
   /**
    * The project's schedules, archived included: status date descending with undated ones last,
@@ -155,6 +175,19 @@ export interface DataRepository {
    * does nothing.
    */
   deleteSchedules(scheduleIds: ID[]): Promise<void>;
+  /**
+   * The stored import report (spec §5.8, §5.10); `null` for blank schedules and imports without
+   * one (P2-era). An unknown schedule (or one RLS hides, Supabase only; D34) is 'not_found'
+   * "Schedule not found".
+   */
+  getImportReport(scheduleId: ID): Promise<ImportReport | null>;
+  /** The stored mapping P4 reads the original with (P4 hand-over); the same nulls and errors. */
+  getImportMapping(scheduleId: ID): Promise<ImportMapping | null>;
+  /**
+   * The original bytes under the original name (P4 hand-over). A schedule without a stored file
+   * is 'validation' "This schedule has no original file."; an unknown one 'not_found'.
+   */
+  getScheduleSourceFile(scheduleId: ID): Promise<File>;
 
   /** sharedAt descending. */
   listSharedWithMe(): Promise<SharedScheduleRow[]>;

@@ -13,7 +13,7 @@ import {
   SCHEDULES_GONE,
   syncProjectStatusDate,
 } from '@/data/mock/schedule-rules';
-import type { MockDb, MockInvitation, MockMember } from '@/data/mock/seed';
+import type { MockDb, MockInvitation, MockMember, MockSchedule } from '@/data/mock/seed';
 import type { MockStore } from '@/data/mock/store';
 import type {
   DataRepository,
@@ -29,6 +29,8 @@ import type {
   ID,
   ISODateTime,
   ImportFormat,
+  ImportMapping,
+  ImportReport,
   InviteResult,
   Project,
   ProjectAttributes,
@@ -248,6 +250,89 @@ function importFormatOf(fileName: string): ImportFormat | null {
   }
 }
 
+const SCHEDULE_NOT_FOUND = 'Schedule not found';
+const NO_ORIGINAL_FILE = 'This schedule has no original file.';
+const ORIGINAL_FILE_GONE = "The original file isn't available in demo mode after a reload.";
+
+/** The issues a stored report keeps in the mock, so twenty imports fit `localStorage` (D22). */
+const STORED_REPORT_ISSUES = 50;
+
+// The `schedules` check constraints on an import (spec §4.6, §5.10, D67).
+const MAX_SOURCE_FILE_SIZE = 52_428_800;
+const MAX_ACTIVITY_COUNT = 50_000;
+
+/**
+ * A stored schedule as the repository returns it: `hasImportReport` and `hasImportMapping` are
+ * derived from the stored report and mapping, as `schedule_items` derives them. A document stored
+ * before imports kept them has no such fields, which counts as none.
+ */
+function toSchedule(schedule: MockSchedule): Schedule {
+  return {
+    id: schedule.id,
+    projectId: schedule.projectId,
+    name: schedule.name,
+    code: schedule.code,
+    notes: schedule.notes,
+    statusDate: schedule.statusDate,
+    source: schedule.source,
+    sourceFileName: schedule.sourceFileName,
+    sourceFormat: schedule.sourceFormat,
+    isCurrent: schedule.isCurrent,
+    baseline: schedule.baseline,
+    updateNumber: schedule.updateNumber,
+    archivedAt: schedule.archivedAt,
+    activityCount: schedule.activityCount,
+    hasImportReport: (schedule.importReport ?? null) !== null,
+    hasImportMapping: (schedule.importMapping ?? null) !== null,
+    createdAt: schedule.createdAt,
+    updatedAt: schedule.updatedAt,
+  };
+}
+
+/** The import fields a new schedule stores (blank schedules: `null`). */
+interface ImportDetails {
+  sourceFileName: string;
+  sourceFormat: ImportFormat;
+  /** `null` takes the project's status date, as the database's insert trigger does. */
+  statusDate: Schedule['statusDate'];
+  activityCount: number;
+  sourceProjectCode: string | null;
+  importReport: ImportReport | null;
+  importMapping: ImportMapping | null;
+}
+
+/**
+ * What an import stores (spec §4.5). With a report: its format, the activity count, the status
+ * date, the source project code, the mapping, and the report with its first 50 issues. Without
+ * one (the interim path, spec §2.4): the format from the file's extension and nothing else. The
+ * database's column checks refuse a file outside 1 byte to 50 MB, an activity count outside 0 to
+ * 50,000 and an unknown format, with the plain check copy.
+ */
+function importDetails(input: ImportScheduleInput): ImportDetails {
+  const { file, report } = input;
+  const sourceFormat = report ? report.format : importFormatOf(file.name);
+  const activityCount = report ? (input.activityCount ?? 0) : 0;
+  const valid =
+    sourceFormat !== null &&
+    file.size >= 1 &&
+    file.size <= MAX_SOURCE_FILE_SIZE &&
+    Number.isInteger(activityCount) &&
+    activityCount >= 0 &&
+    activityCount <= MAX_ACTIVITY_COUNT;
+  if (!valid) throw new RepositoryError('validation', INVALID_VALUES);
+  return {
+    sourceFileName: file.name,
+    sourceFormat,
+    statusDate: report ? (input.statusDate ?? null) : null,
+    activityCount,
+    sourceProjectCode: report ? (input.sourceProjectCode ?? null) : null,
+    importReport: report
+      ? { ...report, issues: report.issues.slice(0, STORED_REPORT_ISSUES) }
+      : null,
+    importMapping: report ? (input.mapping ?? null) : null,
+  };
+}
+
 /** An invitable email after trimming and lowercasing; the Edge Function checks the same shape. */
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -295,6 +380,11 @@ export class MockRepository implements DataRepository {
   private readonly failRate: number;
   private readonly random: () => number;
   private readonly now: () => Date;
+  /**
+   * The imported originals by schedule id (spec §4.5, D22). They live in memory only: the store
+   * can't hold files, so after a reload `getScheduleSourceFile` can't give them back.
+   */
+  private readonly originals = new Map<ID, File>();
 
   constructor(options: MockRepositoryOptions) {
     this.store = options.store;
@@ -472,8 +562,9 @@ export class MockRepository implements DataRepository {
   deleteProject(projectId: ID): Promise<void> {
     return this.run('write', () => {
       // One store write, as the database's single transaction (R12): the project, its schedules
-      // and their shares go; its tasks stay without a project (`on delete set null`).
-      this.commit((db) => {
+      // and their shares go; its tasks stay without a project (`on delete set null`). Their
+      // originals go afterwards, as the Supabase adapter removes the stored objects.
+      const deleted = this.commit((db) => {
         const project = db.projects.find((p) => p.id === projectId);
         if (!project) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
         if (!hasRole(db, project.workspaceId, 'owner')) {
@@ -488,16 +579,22 @@ export class MockRepository implements DataRepository {
         for (const task of db.tasks) {
           if (task.projectId === project.id) task.projectId = null;
         }
+        return scheduleIds;
       });
+      for (const id of deleted) this.originals.delete(id);
     });
   }
 
   createSchedule(input: NewScheduleInput): Promise<Schedule> {
-    return this.run('write', () => this.addSchedule(input, 'blank', null));
+    return this.run('write', () => this.addSchedule(input, null));
   }
 
   importSchedule(input: ImportScheduleInput): Promise<Schedule> {
-    return this.run('write', () => this.addSchedule(input, 'import', input.file.name));
+    return this.run('write', () => {
+      const schedule = this.addSchedule(input, input);
+      this.originals.set(schedule.id, input.file);
+      return schedule;
+    });
   }
 
   listSchedules(projectId: ID): Promise<Schedule[]> {
@@ -506,7 +603,8 @@ export class MockRepository implements DataRepository {
       this.store
         .read()
         .schedules.filter((schedule) => schedule.projectId === projectId)
-        .sort(compareSchedules),
+        .sort(compareSchedules)
+        .map(toSchedule),
     );
   }
 
@@ -517,7 +615,7 @@ export class MockRepository implements DataRepository {
         const project = this.editableProjectOf(db, input.scheduleId);
         const schedule = applyDetails(db.schedules, input, timestamp);
         syncProjectStatusDate(project, db.schedules);
-        return schedule;
+        return toSchedule(schedule);
       });
     });
   }
@@ -545,16 +643,36 @@ export class MockRepository implements DataRepository {
   deleteSchedules(scheduleIds: ID[]): Promise<void> {
     return this.run('write', () => {
       // One store write, as the database's single statement: R3 is checked on the state the
-      // whole delete leaves, then the schedules and their shares go.
-      this.commit((db) => {
+      // whole delete leaves, then the schedules and their shares go; their originals afterwards.
+      const deleted = this.commit((db) => {
         const set = this.scheduleSetFor(db, scheduleIds, 'owner');
-        if (!set) return;
-        const deleted = set.found.map((s) => s.id);
-        checkDeleteKeepsCurrent(db.schedules, set.projectId, deleted);
-        const ids = new Set(deleted);
-        db.shares = db.shares.filter((share) => !ids.has(share.scheduleId));
-        db.schedules = db.schedules.filter((s) => !ids.has(s.id));
+        if (!set) return [];
+        const ids = set.found.map((s) => s.id);
+        checkDeleteKeepsCurrent(db.schedules, set.projectId, ids);
+        const gone = new Set(ids);
+        db.shares = db.shares.filter((share) => !gone.has(share.scheduleId));
+        db.schedules = db.schedules.filter((s) => !gone.has(s.id));
+        return ids;
       });
+      for (const id of deleted) this.originals.delete(id);
+    });
+  }
+
+  getImportReport(scheduleId: ID): Promise<ImportReport | null> {
+    return this.run('read', () => this.storedSchedule(scheduleId).importReport ?? null);
+  }
+
+  getImportMapping(scheduleId: ID): Promise<ImportMapping | null> {
+    return this.run('read', () => this.storedSchedule(scheduleId).importMapping ?? null);
+  }
+
+  getScheduleSourceFile(scheduleId: ID): Promise<File> {
+    return this.run('read', () => {
+      const schedule = this.storedSchedule(scheduleId);
+      if (schedule.source !== 'import') throw new RepositoryError('validation', NO_ORIGINAL_FILE);
+      const file = this.originals.get(schedule.id);
+      if (!file) throw new RepositoryError('validation', ORIGINAL_FILE_GONE);
+      return file;
     });
   }
 
@@ -822,7 +940,7 @@ export class MockRepository implements DataRepository {
     db: MockDb,
     scheduleIds: readonly ID[],
     minRole: Role,
-  ): { projectId: ID; found: Schedule[] } | null {
+  ): { projectId: ID; found: MockSchedule[] } | null {
     const set = resolveScheduleSet(db.schedules, scheduleIds);
     if (!set) return null;
     const project = db.projects.find((p) => p.id === set.projectId);
@@ -833,19 +951,27 @@ export class MockRepository implements DataRepository {
     return set;
   }
 
+  /** A stored schedule by id, or 'not_found' "Schedule not found" (no membership filter, D34). */
+  private storedSchedule(scheduleId: ID): MockSchedule {
+    const schedule = this.store.read().schedules.find((s) => s.id === scheduleId);
+    if (!schedule) throw new RepositoryError('not_found', SCHEDULE_NOT_FOUND);
+    return schedule;
+  }
+
   /**
    * Both schedule methods: an editor or owner of the project's workspace adds the schedule with a
    * code the project doesn't use yet (R8, checked after the project and the role, as the
-   * database does); it copies the project's status date and sets the project's `updatedAt` to now.
-   * The project's first schedule becomes current (R1), which keeps the project's status date (R6).
-   * An import takes its format from the file's extension (the interim path, spec §2.4).
+   * database does) and sets the project's `updatedAt` to now. A blank schedule copies the
+   * project's status date; an import stores what `importDetails` gives (`imported`), its status
+   * date or else the project's. The project's first schedule becomes current (R1), and the
+   * project's status date follows it (R6).
    */
   private addSchedule(
     input: { projectId: ID; name: string; code: string },
-    source: ScheduleSource,
-    sourceFileName: string | null,
+    imported: ImportScheduleInput | null,
   ): Schedule {
     const { projectId } = input;
+    const source: ScheduleSource = imported === null ? 'blank' : 'import';
     const timestamp = this.now().toISOString();
     return this.commit((db) => {
       const project = db.projects.find((p) => p.id === projectId);
@@ -854,34 +980,32 @@ export class MockRepository implements DataRepository {
         throw new RepositoryError('forbidden', NO_PERMISSION);
       }
       const code = checkNewScheduleCode(db.schedules, projectId, input.code);
-      const sourceFormat = sourceFileName === null ? null : importFormatOf(sourceFileName);
-      if (source === 'import' && sourceFormat === null) {
-        throw new RepositoryError('validation', INVALID_VALUES);
-      }
-      const schedule: Schedule = {
+      const details = imported === null ? null : importDetails(imported);
+      const schedule: MockSchedule = {
         id: crypto.randomUUID(),
         projectId,
         name: input.name.trim(),
         code,
         notes: null,
-        statusDate: project.statusDate,
+        statusDate: details?.statusDate ?? project.statusDate,
         source,
-        sourceFileName,
-        sourceFormat,
+        sourceFileName: details?.sourceFileName ?? null,
+        sourceFormat: details?.sourceFormat ?? null,
         isCurrent: !db.schedules.some((s) => s.projectId === projectId),
         baseline: 'none',
         updateNumber: null,
         archivedAt: null,
-        activityCount: 0,
-        hasImportReport: false,
-        hasImportMapping: false,
+        activityCount: details?.activityCount ?? 0,
+        sourceProjectCode: details?.sourceProjectCode ?? null,
+        importReport: details?.importReport ?? null,
+        importMapping: details?.importMapping ?? null,
         createdAt: timestamp,
         updatedAt: timestamp,
       };
       db.schedules.push(schedule);
       syncProjectStatusDate(project, db.schedules);
       project.updatedAt = timestamp;
-      return schedule;
+      return toSchedule(schedule);
     });
   }
 }

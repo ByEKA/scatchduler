@@ -5,7 +5,12 @@ import { MockAuthService } from '@/data/mock/MockAuthService';
 import { MockRepository } from '@/data/mock/MockRepository';
 import type { Scenario } from '@/data/mock/seed';
 import { createMockStore, type MockStore } from '@/data/mock/store';
-import type { DataRepository, NewProjectInput, UpdateProjectInput } from '@/data/repository';
+import type {
+  DataRepository,
+  ImportScheduleInput,
+  NewProjectInput,
+  UpdateProjectInput,
+} from '@/data/repository';
 import type { ID, Project, Role } from '@/data/types';
 import { createMemoryStorage } from '@/lib/storage';
 
@@ -53,6 +58,72 @@ export function makeUpdateProjectInput(
     attributes: { ...project.attributes },
     client: { ...project.client },
     location: { ...project.location },
+    ...overrides,
+  };
+}
+
+/** The parser fixtures `makeImportScheduleInput` imports, with their schedule's name and code. */
+const IMPORT_FIXTURES = {
+  'two-projects.xer': {
+    name: 'North Plant',
+    code: 'NTH-A',
+    bytes: () => import('@/import/__fixtures__/two-projects.xer?bytes'),
+  },
+  'dates-1900.xlsx': {
+    name: 'Dates 1900',
+    code: 'D1900',
+    bytes: () => import('@/import/__fixtures__/dates-1900.xlsx?bytes'),
+  },
+} as const;
+
+/** The file name without its last extension. */
+const baseName = (fileName: string): string => fileName.replace(/\.[^.]*$/, '');
+
+/**
+ * A full `ImportScheduleInput` from a parser fixture, built as the import dialog builds it (spec
+ * §5.1): the file is inspected for its mapping (the XER's North Plant project, `sourceProjectId`
+ * 101), analyzed and packed, so `stored`, `mapping` and `report` are real. The status date is the
+ * report's and the activity count its accepted activities. `options.file` replaces the fixture
+ * (read as an XER when its name ends in `.xer`); its name and code are the options' or else the
+ * file name without its extension. Any other option replaces the built value.
+ */
+export async function makeImportScheduleInput(
+  projectId: ID,
+  options: { fixture?: 'two-projects.xer' | 'dates-1900.xlsx' } & Partial<ImportScheduleInput> = {},
+): Promise<ImportScheduleInput> {
+  const { fixture: fixtureName = 'two-projects.xer', ...overrides } = options;
+  // Loaded on first use, so the many tests that import this module never load the parser.
+  const { analyze, inspect, pack } = await import('@/import/index');
+  const fixture = IMPORT_FIXTURES[fixtureName];
+  const file = overrides.file ?? new File([(await fixture.bytes()).default], fixtureName);
+  const named = overrides.file ? { name: baseName(file.name), code: baseName(file.name) } : fixture;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  const inspected = await inspect(bytes, file.name);
+  if (inspected.kind === 'refused') throw new Error(`${file.name}: ${inspected.message}`);
+  const { mapping } = inspected;
+  const analyzed = await analyze(bytes, file.name, mapping);
+  if (analyzed.kind !== 'analyzed') throw new Error(`${file.name}: ${analyzed.message}`);
+  const packed = await pack(bytes, file.name, analyzed.report);
+  const { report } = packed;
+  const gzipped = report.format !== 'xlsx';
+  const stored = new Blob([packed.stored.slice()], {
+    type: gzipped
+      ? 'application/gzip'
+      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+
+  return {
+    projectId,
+    name: named.name,
+    code: named.code,
+    file,
+    stored,
+    statusDate: report.statusDate.date,
+    activityCount: report.counts.find((count) => count.entity === 'activity')?.accepted ?? 0,
+    sourceProjectCode: report.sourceProject.code,
+    mapping,
+    report,
     ...overrides,
   };
 }
