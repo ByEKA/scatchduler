@@ -158,6 +158,9 @@ Minor findings the task reviews left open, for the batched cleanup after the pla
 | Task 14 → Task 22 | A new file waits behind the old one | Requests share one worker; Task 22 should call `parser.cancel()` before inspecting another file (Review Focus 4), so a slow file A doesn't delay, or time out, file B. |
 | Task 14 → Task 23 | V6 still open | The app build emits no worker chunk until the dialog imports `useImportParser` (checked with a two-entry build). Rerun `npm run build && ls dist/assets \| grep -i worker` in Task 22/23. The worker builds as IIFE (Vite's default, V6's fallback): record it with V6; an `import()` inside the worker would not build. |
 | Task 14 | Client paths without a test | Answers arriving out of order (the pinned test answers in order), `worker.ts` routing and transfers, `ok:false` → `no_file`/`failed`, the xlsx Blob type, `dispose()`, the watchdog timing a queued request from when it became the oldest. |
+| Task 15 → Task 23 | A report without a stored copy differs by adapter | Supabase takes the stored-import path only with both `stored` and `report`; the mock keys on `report` alone. No caller sends a report without `stored`, and Task 23 makes every field required; check the two agree then. |
+| Task 15 | `saveFile` has no test of its own | Every hook test mocks it; Task 23's e2e CSV download covers it. A `download.test.ts` would pin the `download` attribute and the URL revoke. |
+| Task 15 | Fallback download name keeps `.gz` | When `source_file_name` is null, `getScheduleSourceFile` names the gunzipped file after its stored path (`{uuid}.xer.gz`). Both adapters always set the name, so only hand-made rows; strip a trailing `.gz`. |
 | Task 8 | Over 500 ids with several non-UUIDs | The mock says "Select 500 schedules or fewer."; Supabase collapses non-UUIDs to one id and says "Some schedules are no longer available.". The UI passes one id (D13). |
 
 ## Owner tasks
