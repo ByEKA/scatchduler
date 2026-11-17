@@ -17,6 +17,6 @@ interface Window {
 
 // The parser's test fixtures as bytes (the `fixtureBytes` loader in vite.config.ts).
 declare module '*?bytes' {
-  const bytes: Uint8Array;
+  const bytes: Uint8Array<ArrayBuffer>;
   export default bytes;
 }
