@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { contrast, parseThemes, runChecks, toRgba } from './check-contrast.mjs';
+import { TOKEN_PAIRS, contrast, parseThemes, runChecks, toRgba } from './check-contrast.mjs';
 
 describe('check-contrast', () => {
   it('computes WCAG ratios', () => {
@@ -26,5 +26,16 @@ describe('check-contrast', () => {
 
   it('passes every required pair for the real tokens', () => {
     expect(runChecks(readFileSync('src/index.css', 'utf8'))).toEqual([]);
+  });
+
+  it('checks the status badge pairs', () => {
+    expect(TOKEN_PAIRS).toEqual(
+      expect.arrayContaining([
+        ['--muted-foreground', ['--muted'], 4.5],
+        ['--success', ['--card'], 3],
+        ['--success', ['--background'], 3],
+        ['--warning-foreground', ['--warning-bg', '--card'], 4.5],
+      ]),
+    );
   });
 });

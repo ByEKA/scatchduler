@@ -48,4 +48,21 @@ describe('ProjectCard', () => {
     expect(link).toHaveClass('truncate');
     expect(link).toHaveAttribute('title', long);
   });
+
+  it('shows the status on the cover unless the project is active', () => {
+    const { unmount } = renderWithProviders(<ProjectCard project={summary('001')} />);
+    expect(screen.queryByText('Active')).not.toBeInTheDocument();
+    unmount();
+    renderWithProviders(<ProjectCard project={summary('004')} />);
+    expect(screen.getByText('On hold')).toBeInTheDocument();
+  });
+
+  it('puts the actions above the stretched link', () => {
+    renderWithProviders(
+      <ProjectCard project={summary('001')} actions={<button type="button">Menu</button>} />,
+    );
+    expect(screen.getByRole('button', { name: 'Menu' }).closest('[data-card-actions]')).toHaveClass(
+      'z-10',
+    );
+  });
 });

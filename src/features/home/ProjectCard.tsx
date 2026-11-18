@@ -1,7 +1,8 @@
 import { Calendar, ChevronRight, Clock } from 'lucide-react';
 import { useState } from 'react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { Link } from 'react-router';
+import { StatusBadge } from '@/components/common/StatusBadge';
 import { FOCUS_OUTLINE_CLASSES } from '@/components/layout/top-bar-parts';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ProjectSummary } from '@/data/types';
@@ -19,12 +20,16 @@ const CARD_CLASSES =
 const COVER_CLASSES =
   'size-full motion-safe:transition-transform motion-safe:duration-200 motion-safe:ease-standard motion-safe:group-hover:scale-[1.03]';
 
-/** The project photo, or the generated cover when there is none or it fails to load (§6.10). */
+/**
+ * The project photo, or the generated cover when there is none or it fails to load (§6.10), with
+ * the status badge in its bottom-left corner unless the project is active (P3 core spec §6.2).
+ */
 function Cover({ project }: { project: ProjectSummary }): ReactElement {
   const [brokenUrl, setBrokenUrl] = useState<string | null>(null);
   const photoUrl = project.coverImageUrl !== brokenUrl ? project.coverImageUrl : null;
+  const status = project.attributes.status;
   return (
-    <div className="h-[126px] shrink-0 overflow-hidden">
+    <div className="relative h-[126px] shrink-0 overflow-hidden">
       {photoUrl !== null ? (
         <img
           data-testid="project-cover"
@@ -43,15 +48,23 @@ function Cover({ project }: { project: ProjectSummary }): ReactElement {
           className={COVER_CLASSES}
         />
       )}
+      {status !== 'active' && <StatusBadge status={status} className="absolute bottom-2 left-2" />}
     </div>
   );
 }
 
 /**
  * A recent project (spec §6.6): the name links to the project's files and stretches over the
- * whole card; the schedules link sits above that stretched area.
+ * whole card; the schedules link sits above that stretched area. `actions` (the Projects page's
+ * project menu) sits in the top-right corner, above the stretched link too (P3 core spec §6.2).
  */
-export function ProjectCard({ project }: { project: ProjectSummary }): ReactElement {
+export function ProjectCard({
+  project,
+  actions,
+}: {
+  project: ProjectSummary;
+  actions?: ReactNode;
+}): ReactElement {
   const now = useNow(60_000);
   const base = `/w/${project.workspaceId}/p/${project.id}`;
 
@@ -63,6 +76,11 @@ export function ProjectCard({ project }: { project: ProjectSummary }): ReactElem
       )}
     >
       <Cover project={project} />
+      {actions !== undefined && (
+        <div data-card-actions="" className="absolute top-2 right-2 z-10">
+          {actions}
+        </div>
+      )}
       <div className="flex min-h-0 flex-1 flex-col px-3 pt-4">
         <div className="flex min-w-0 items-baseline gap-2">
           <Link

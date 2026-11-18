@@ -7,12 +7,14 @@ const TEXT = 4.5;
 const NON_TEXT = 3;
 
 // [foreground, background layers from top to bottom, minimum ratio]; checked in both themes.
-const TOKEN_PAIRS = [
+export const TOKEN_PAIRS = [
   ['--foreground', ['--background'], TEXT],
   ['--foreground', ['--card'], TEXT],
   ['--foreground', ['--popover'], TEXT],
   ['--muted-foreground', ['--background'], TEXT],
   ['--muted-foreground', ['--card'], TEXT],
+  // The Completed status badge (P3 core spec §6.1).
+  ['--muted-foreground', ['--muted'], TEXT],
   ['--subtle-foreground', ['--sidebar'], TEXT],
   ['--sidebar-foreground', ['--sidebar'], TEXT],
   ['--sidebar-accent-foreground', ['--sidebar-accent', '--sidebar'], TEXT],
@@ -26,6 +28,9 @@ const TOKEN_PAIRS = [
   ['--input', ['--popover'], NON_TEXT],
   ['--input', ['--background'], NON_TEXT],
   ['--success', ['--popover'], NON_TEXT],
+  // The Active status badge's dot, on its card chip and on the page (P3 core spec §6.1).
+  ['--success', ['--card'], NON_TEXT],
+  ['--success', ['--background'], NON_TEXT],
 ];
 
 // The welcome banner's date: white at 85 % over the strongest point of the brand-400 highlight
