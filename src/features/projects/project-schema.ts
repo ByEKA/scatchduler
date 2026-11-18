@@ -1,7 +1,17 @@
 import { isBefore, isValid, parseISO } from 'date-fns';
 import { z } from 'zod';
-import type { NewProjectInput } from '@/data/repository';
-import type { ID, ProjectSector, ProjectStage, ProjectStatus, ProjectType } from '@/data/types';
+import type { NewProjectInput, UpdateProjectInput } from '@/data/repository';
+import type {
+  ID,
+  Project,
+  ProjectAttributes,
+  ProjectClient,
+  ProjectLocation,
+  ProjectSector,
+  ProjectStage,
+  ProjectStatus,
+  ProjectType,
+} from '@/data/types';
 import { coordinateDecimals, parseCoordinate } from '@/features/projects/coordinates';
 import {
   PROJECT_TYPE_OPTIONS,
@@ -20,11 +30,16 @@ export const WIZARD_STEPS = [
 
 export type WizardStepId = (typeof WIZARD_STEPS)[number]['id'];
 
-/** What the wizard's fields hold. Optional text is `''` until filled; the photo is `null`. */
+/**
+ * What the wizard's fields hold. Optional text is `''` until filled; the photo is `null`.
+ * `coverImage` is a newly chosen photo; `keepCover` says whether the edited project's current
+ * photo stays when none is chosen ("Remove" clears it). It belongs to no step.
+ */
 export interface ProjectFormValues {
   name: string;
   code: string;
   coverImage: File | null;
+  keepCover: boolean;
   description: string;
   status: ProjectStatus;
   stage: ProjectStage | '';
@@ -47,6 +62,7 @@ export const EMPTY_PROJECT_FORM: ProjectFormValues = {
   name: '',
   code: '',
   coverImage: null,
+  keepCover: true,
   description: '',
   status: 'active',
   stage: '',
@@ -161,6 +177,7 @@ export const projectFormSchema = z
       .max(16, 'Use 16 characters or fewer')
       .regex(/^[A-Za-z0-9_-]*$/, 'Use letters, numbers, - or _'),
     coverImage,
+    keepCover: z.boolean(),
     // The counter shows the length as typed, so the limit applies to it too.
     description: z
       .string()
@@ -213,18 +230,13 @@ function textOrNull(value: string): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
-/**
- * The create request for the form's values: strings trimmed, empty optional values `null`, and the
- * coordinates as numbers read with either decimal mark.
- */
-export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): NewProjectInput {
+/** The form's attributes, client and location as the repository stores them. */
+function projectDetails(values: ProjectFormValues): {
+  attributes: ProjectAttributes;
+  client: ProjectClient;
+  location: ProjectLocation;
+} {
   return {
-    workspaceId,
-    code: values.code.trim(),
-    name: values.name.trim(),
-    description: textOrNull(values.description),
-    coverImage: values.coverImage,
-    statusDate: textOrNull(values.statusDate),
     attributes: {
       status: values.status,
       stage: values.stage === '' ? null : values.stage,
@@ -245,5 +257,73 @@ export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): N
       latitude: parseCoordinate(values.latitude),
       longitude: parseCoordinate(values.longitude),
     },
+  };
+}
+
+/**
+ * The create request for the form's values: strings trimmed, empty optional values `null`, and the
+ * coordinates as numbers read with either decimal mark.
+ */
+export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): NewProjectInput {
+  return {
+    workspaceId,
+    code: values.code.trim(),
+    name: values.name.trim(),
+    description: textOrNull(values.description),
+    coverImage: values.coverImage,
+    statusDate: textOrNull(values.statusDate),
+    ...projectDetails(values),
+  };
+}
+
+/**
+ * The edit form's values for a stored project (P3 core spec D20): missing values `''`, the
+ * coordinates as text, no new photo and the current one kept.
+ */
+export function projectFormValues(project: Project): ProjectFormValues {
+  const { attributes, client, location } = project;
+  return {
+    name: project.name,
+    code: project.code,
+    coverImage: null,
+    keepCover: true,
+    description: project.description ?? '',
+    status: attributes.status,
+    stage: attributes.stage ?? '',
+    projectType: attributes.projectType ?? '',
+    sector: attributes.sector ?? '',
+    statusDate: project.statusDate ?? '',
+    startDate: attributes.startDate ?? '',
+    plannedFinishDate: attributes.plannedFinishDate ?? '',
+    clientName: client.name ?? '',
+    contactName: client.contactName ?? '',
+    contactEmail: client.contactEmail ?? '',
+    address: location.address ?? '',
+    city: location.city ?? '',
+    country: location.country ?? '',
+    latitude: location.latitude === null ? '' : String(location.latitude),
+    longitude: location.longitude === null ? '' : String(location.longitude),
+  };
+}
+
+/**
+ * The update request for the edit form's values, read as `toNewProjectInput` reads them. A chosen
+ * photo replaces the current one, which otherwise stays unless "Remove" cleared `keepCover`. The
+ * status date is left out unless `includeStatusDate`: while the project has a current schedule,
+ * the status date follows it (R6).
+ */
+export function toUpdateProjectInput(
+  values: ProjectFormValues,
+  projectId: ID,
+  options: { includeStatusDate: boolean },
+): UpdateProjectInput {
+  return {
+    projectId,
+    code: values.code.trim(),
+    name: values.name.trim(),
+    description: textOrNull(values.description),
+    cover: values.coverImage ?? (values.keepCover ? 'keep' : 'remove'),
+    ...(options.includeStatusDate ? { statusDate: textOrNull(values.statusDate) } : {}),
+    ...projectDetails(values),
   };
 }

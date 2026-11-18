@@ -92,7 +92,7 @@ export function FieldHint({ id, children }: { id: string; children: ReactNode })
 /** The form values a `SelectField` holds. */
 export type SelectFieldName = 'status' | 'stage' | 'projectType' | 'sector';
 
-type TextFieldName = Exclude<keyof ProjectFormValues, 'coverImage' | SelectFieldName>;
+type TextFieldName = Exclude<keyof ProjectFormValues, 'coverImage' | 'keepCover' | SelectFieldName>;
 
 /** A labelled text, email or date input bound to one form value, with its error under it. */
 export function TextField({
@@ -100,6 +100,7 @@ export function TextField({
   label,
   type = 'text',
   required = false,
+  disabled = false,
   hintId,
   deps,
   onPaste,
@@ -108,6 +109,11 @@ export function TextField({
   label: string;
   type?: 'text' | 'email' | 'date';
   required?: boolean;
+  /**
+   * For a value the form shows but never changes, such as the status date that follows the current
+   * schedule (R6); a `FieldHint` named by `hintId` says why. The value stays in the form.
+   */
+  disabled?: boolean;
   /** The id of a `FieldHint` that describes this field, such as one under its row. */
   hintId?: string;
   /**
@@ -149,6 +155,7 @@ export function TextField({
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy === '' ? undefined : describedBy}
         readOnly={locked}
+        disabled={disabled}
         onPaste={onPaste}
         // The browser draws the date picker icon from the color scheme.
         className={cn(type === 'date' && 'dark:scheme-dark')}

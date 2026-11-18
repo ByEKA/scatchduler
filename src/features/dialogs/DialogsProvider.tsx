@@ -3,11 +3,17 @@ import type { ReactElement, ReactNode } from 'react';
 import type { ID } from '@/data/types';
 
 export type DialogKind =
-  'newSchedule' | 'importSchedule' | 'newProject' | 'newTeamWorkspace' | 'workspaceMembers';
+  | 'newSchedule'
+  | 'importSchedule'
+  | 'newProject'
+  | 'editProject'
+  | 'newTeamWorkspace'
+  | 'workspaceMembers';
 
 export interface DialogOptions {
+  /** The project 'editProject' edits, or the one a schedule dialog starts with. */
   projectId?: ID;
-  /** The workspace whose members 'workspaceMembers' shows. */
+  /** The workspace whose members 'workspaceMembers' shows, or the one 'editProject' edits in. */
   workspaceId?: ID;
 }
 

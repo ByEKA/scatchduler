@@ -3,6 +3,7 @@ import { useId } from 'react';
 import type { ReactElement } from 'react';
 import { Controller, useFormContext, useWatch } from 'react-hook-form';
 import { FileDropzone } from '@/components/common/FileDropzone';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -27,6 +28,7 @@ import { cn } from '@/lib/utils';
  */
 export type CodeCheck = 'idle' | 'checking' | 'available' | 'taken' | 'failed';
 
+const PHOTO_LABEL = 'Project photo';
 const PHOTO_HINT = 'JPG or PNG · up to 5 MB';
 
 function ProjectIdField({ codeCheck }: { codeCheck: CodeCheck }): ReactElement {
@@ -135,10 +137,65 @@ function DescriptionField(): ReactElement {
   );
 }
 
-/** Step 1: name, Project ID with its availability check, photo and description (spec §6.7). */
-export function DetailsStep({ codeCheck }: { codeCheck: CodeCheck }): ReactElement {
+/**
+ * The edited project's photo while it stays (P3 core spec §6.4 "Photo in edit"): a thumbnail with
+ * "Remove", which clears `keepCover`. Read only, it has no "Remove". The image is named by the
+ * field's label, so assistive tech learns the project has a photo, and it describes "Remove".
+ */
+function CurrentPhoto({ url, readOnly }: { url: string; readOnly: boolean }): ReactElement {
+  const { setValue, setFocus } = useFormContext<ProjectFormValues>();
+  const { locked } = useWizardFields();
+  const imageId = useId();
+
+  function remove(): void {
+    // "Remove" goes with the photo, so focus moves to the drop area instead of the page.
+    setFocus('coverImage');
+    setValue('keepCover', false, { shouldDirty: true });
+  }
+
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3 rounded-md bg-muted p-1">
+      <img
+        id={imageId}
+        src={url}
+        alt={PHOTO_LABEL}
+        className="h-16 w-24 shrink-0 rounded-sm bg-background object-cover"
+      />
+      {!readOnly && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-describedby={imageId}
+          disabled={locked}
+          onClick={remove}
+        >
+          Remove
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Step 1: name, Project ID with its availability check, photo and description (spec §6.7). An
+ * edited project's photo (`currentCoverUrl`) shows under the drop area until "Remove" or a chosen
+ * file replaces it.
+ */
+export function DetailsStep({
+  codeCheck,
+  currentCoverUrl = null,
+  readOnly = false,
+}: {
+  codeCheck: CodeCheck;
+  currentCoverUrl?: string | null;
+  readOnly?: boolean;
+}): ReactElement {
   const { control } = useFormContext<ProjectFormValues>();
   const { locked, onFieldChange } = useWizardFields();
+  const keepCover = useWatch({ control, name: 'keepCover' });
+  const coverImage = useWatch({ control, name: 'coverImage' });
+  const showCurrentPhoto = currentCoverUrl !== null && keepCover && coverImage === null;
   return (
     <>
       <FieldRow>
@@ -151,7 +208,7 @@ export function DetailsStep({ codeCheck }: { codeCheck: CodeCheck }): ReactEleme
         render={({ field, fieldState }) => (
           <FileDropzone
             ref={field.ref}
-            label="Project photo"
+            label={PHOTO_LABEL}
             accept={[...COVER_IMAGE_TYPES]}
             maxBytes={MAX_COVER_IMAGE_BYTES}
             hint={PHOTO_HINT}
@@ -168,6 +225,7 @@ export function DetailsStep({ codeCheck }: { codeCheck: CodeCheck }): ReactEleme
           />
         )}
       />
+      {showCurrentPhoto && <CurrentPhoto url={currentCoverUrl} readOnly={readOnly} />}
       <DescriptionField />
     </>
   );

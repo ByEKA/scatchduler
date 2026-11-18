@@ -5,6 +5,7 @@ import {
   useDialogHostState,
   type DialogEntry,
 } from '@/features/dialogs/DialogsProvider';
+import { EditProjectDialog } from '@/features/projects/EditProjectDialog';
 import { NewProjectWizard } from '@/features/projects/NewProjectWizard';
 import { ImportScheduleDialog } from '@/features/schedules/ImportScheduleDialog';
 import { NewScheduleDialog } from '@/features/schedules/NewScheduleDialog';
@@ -19,6 +20,15 @@ function renderDialog(entry: DialogEntry): ReactElement | null {
       return <ImportScheduleDialog projectId={entry.options.projectId} />;
     case 'newProject':
       return <NewProjectWizard />;
+    case 'editProject':
+      // Without both ids there is no project to edit.
+      return entry.options.workspaceId === undefined ||
+        entry.options.projectId === undefined ? null : (
+        <EditProjectDialog
+          workspaceId={entry.options.workspaceId}
+          projectId={entry.options.projectId}
+        />
+      );
     case 'newTeamWorkspace':
       return <NewTeamWorkspaceDialog />;
     case 'workspaceMembers':

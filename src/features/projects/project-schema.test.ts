@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   EMPTY_PROJECT_FORM,
   projectFormSchema,
+  projectFormValues,
   toNewProjectInput,
+  toUpdateProjectInput,
   type ProjectFormValues,
 } from '@/features/projects/project-schema';
+import { createTestDataLayer } from '@/test/fakes';
 
 const valid: ProjectFormValues = { ...EMPTY_PROJECT_FORM, name: 'Pier 9', code: '007' };
 const issues = (values: ProjectFormValues) => {
@@ -123,5 +126,39 @@ describe('project form schema', () => {
       attributes: { status: 'on_hold', stage: 'pursuit', projectType: 'water', sector: 'public' },
       location: { latitude: 41.0151, longitude: -28.9795 },
     });
+  });
+
+  it('round-trips a project through the edit form', () => {
+    const project = createTestDataLayer()
+      .store.read()
+      .projects.find((p) => p.code === '001')!;
+    const values = projectFormValues(project);
+    expect(values).toMatchObject({
+      name: 'Riverside Office Tower',
+      code: '001',
+      status: 'active',
+      stage: 'construction',
+      sector: 'private',
+      latitude: '41.0151',
+      longitude: '28.9795',
+      keepCover: true,
+      coverImage: null,
+    });
+    expect(toUpdateProjectInput(values, project.id, { includeStatusDate: true })).toMatchObject({
+      projectId: project.id,
+      cover: 'keep',
+      statusDate: project.statusDate,
+      location: { city: 'Istanbul', latitude: 41.0151, longitude: 28.9795 },
+    });
+    expect(
+      toUpdateProjectInput({ ...values, keepCover: false }, project.id, {
+        includeStatusDate: false,
+      }),
+    ).not.toHaveProperty('statusDate');
+    expect(
+      toUpdateProjectInput({ ...values, keepCover: false }, project.id, {
+        includeStatusDate: false,
+      }).cover,
+    ).toBe('remove');
   });
 });
