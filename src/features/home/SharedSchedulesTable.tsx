@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { Link } from 'react-router';
 import { EmptyState } from '@/components/common/EmptyState';
 import { SectionError } from '@/components/common/SectionError';
+import { ROW_LINK_CLASSES, TABLE_HEADER_CELL_CLASSES } from '@/components/common/table-classes';
 import { FOCUS_OUTLINE_CLASSES } from '@/components/layout/top-bar-parts';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { SharedScheduleRow } from '@/data/types';
@@ -22,19 +23,9 @@ const COLUMN_CLASSES = {
   statusDate: 'hidden w-1/4 pr-7 pl-1.5 sm:table-cell md:w-[19%]',
 } as const;
 
-const HEADER_CELL_CLASSES =
-  'text-left text-2xs font-medium tracking-[0.04em] text-muted-foreground uppercase';
-
 // All four columns. Below 768 px fewer columns show and the span covers them too, so the cell
 // fills the row at every width.
 const FULL_ROW_SPAN = 4;
-
-// The schedule name stretches over the row through its ::after box, so the whole row is the link.
-// Keyboard focus draws the 2 px outline on that box instead of the link text: inside the row and
-// with the panel's radius, so the panel's rounded overflow clip never cuts it. The ::after sets
-// its own outline style, apart from the link's outline-hidden.
-const ROW_LINK_CLASSES =
-  'block truncate text-sm font-medium outline-hidden after:absolute after:inset-0 after:rounded-lg focus-visible:after:outline-solid focus-visible:after:outline-2 focus-visible:after:-outline-offset-2 focus-visible:after:outline-ring';
 
 /** The sharer's photo, or their initials on a 20 px circle. */
 function SharerAvatar({ person }: { person: SharedScheduleRow['sharedBy'] }): ReactElement {
@@ -188,16 +179,16 @@ export function SharedSchedulesTable(): ReactElement {
         <table aria-labelledby="shared-heading" className="w-full table-fixed">
           <thead>
             <tr className="h-10 border-b bg-muted/50">
-              <th scope="col" className={cn(HEADER_CELL_CLASSES, COLUMN_CLASSES.schedule)}>
+              <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, COLUMN_CLASSES.schedule)}>
                 Schedule
               </th>
-              <th scope="col" className={cn(HEADER_CELL_CLASSES, COLUMN_CLASSES.sharedBy)}>
+              <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, COLUMN_CLASSES.sharedBy)}>
                 Shared by
               </th>
-              <th scope="col" className={cn(HEADER_CELL_CLASSES, COLUMN_CLASSES.shared)}>
+              <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, COLUMN_CLASSES.shared)}>
                 Shared
               </th>
-              <th scope="col" className={cn(HEADER_CELL_CLASSES, COLUMN_CLASSES.statusDate)}>
+              <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, COLUMN_CLASSES.statusDate)}>
                 Status date
               </th>
             </tr>

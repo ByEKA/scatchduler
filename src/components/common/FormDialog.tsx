@@ -3,6 +3,10 @@ import { AlertDialog as AlertDialogPrimitive, Dialog as DialogPrimitive } from '
 import { createContext, useContext, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent, ReactElement, ReactNode } from 'react';
 import {
+  DIALOG_CONTENT_MOTION_CLASSES,
+  DIALOG_OVERLAY_CLASSES,
+} from '@/components/common/dialog-classes';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -30,12 +34,6 @@ const WIDTH_CLASSES = {
   lg: 'w-[560px]',
   xl: 'w-[640px]',
 } as const;
-
-// Spec §6.7 overlay and §6.11 dialog motion, shared by the form dialog and its "Discard changes?"
-// confirmation. The generated content components zoom from 95 % with the default easing.
-const OVERLAY_CLASSES = 'bg-black/60 backdrop-blur-[2px] duration-200 ease-out';
-const CONTENT_MOTION_CLASSES =
-  'duration-200 ease-out data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-98 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-98';
 
 interface Presence {
   open: boolean;
@@ -143,13 +141,13 @@ export function DialogShell({
       }}
     >
       <DialogPortal>
-        <DialogOverlay className={OVERLAY_CLASSES} />
+        <DialogOverlay className={DIALOG_OVERLAY_CLASSES} />
         <DialogPrimitive.Content
           onOpenAutoFocus={onOpenAutoFocus}
           onCloseAutoFocus={handleCloseAutoFocus}
           className={cn(
             'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-48px)] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col gap-5 rounded-xl border bg-popover p-6 text-popover-foreground shadow-popover outline-none',
-            CONTENT_MOTION_CLASSES,
+            DIALOG_CONTENT_MOTION_CLASSES,
             WIDTH_CLASSES[width],
           )}
         >
@@ -222,7 +220,7 @@ export function ConfirmDialog({
       }}
     >
       <AlertDialogPortal>
-        <AlertDialogOverlay className={OVERLAY_CLASSES} />
+        <AlertDialogOverlay className={DIALOG_OVERLAY_CLASSES} />
         {/* data-size and the group class keep the header and footer layout of the ui component's
             size "sm" (centered title, two equal buttons). */}
         <AlertDialogPrimitive.Content
@@ -232,7 +230,7 @@ export function ConfirmDialog({
           onCloseAutoFocus={handleCloseAutoFocus}
           className={cn(
             'group/alert-dialog-content fixed top-1/2 left-1/2 z-50 grid w-80 max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border bg-popover p-6 text-popover-foreground shadow-popover outline-none',
-            CONTENT_MOTION_CLASSES,
+            DIALOG_CONTENT_MOTION_CLASSES,
           )}
         >
           <AlertDialogHeader>
