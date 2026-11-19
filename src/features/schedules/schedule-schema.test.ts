@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import {
   defaultProjectId,
+  importFileSchema,
   importScheduleSchema,
   makeNewScheduleSchema,
   MAX_SCHEDULE_BYTES,
@@ -73,5 +74,20 @@ describe('schedule schemas', () => {
     expect(defaultProjectId(projects, 'gone', 'b')).toBe('b');
     expect(defaultProjectId(projects, 'gone', 'gone')).toBe('a');
     expect(defaultProjectId([], 'a', 'a')).toBeNull();
+  });
+
+  it('accepts the import extensions and refuses MPP and XLS with their messages', () => {
+    const fileIssues = (name: string) => {
+      const result = importFileSchema.safeParse(new File(['x'], name));
+      return result.success ? [] : result.error.issues.map((i) => i.message);
+    };
+    expect(['a.XER', 'b.xml', 'c.xlsx', 'd.CSV'].flatMap(fileIssues)).toEqual([]);
+    expect(fileIssues('plan.pdf')).toEqual(['Use a .xer, .xml, .xlsx or .csv file']);
+    expect(fileIssues('plan.mpp')).toEqual([
+      "MPP files can't be imported. In Microsoft Project, save the file as XML and import that.",
+    ]);
+    expect(fileIssues('old.xls')).toEqual([
+      "Older Excel workbooks (.xls) can't be imported. In Excel, save the file as .xlsx and import that.",
+    ]);
   });
 });

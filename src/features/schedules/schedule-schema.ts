@@ -2,11 +2,48 @@ import { z } from 'zod';
 import type { ID } from '@/data/types';
 import { isCodeTaken } from '@/features/files/codes';
 
-/** The schedule files the import accepts, compared case-insensitively (spec §5.7). */
+/** The schedule files the P2 import dialog accepts, compared case-insensitively (spec §5.7). */
 export const SCHEDULE_EXTENSIONS = ['.xer', '.xml', '.csv'] as const;
+
+/** The schedule files the stepped import accepts (P3 core spec §6.5). */
+export const IMPORT_EXTENSIONS = ['.xer', '.xml', '.xlsx', '.csv'] as const;
+
+/** The MIME type for .xlsx workbooks passed to FileDropzone's file picker (P3 core spec §9). */
+export const XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+/** Extensions refused with tool-specific guidance before inspecting (P3 core spec §5.2). */
+export const REFUSED_EXTENSIONS: Readonly<Record<'.mpp' | '.xls', string>> = {
+  '.mpp':
+    "MPP files can't be imported. In Microsoft Project, save the file as XML and import that.",
+  '.xls':
+    "Older Excel workbooks (.xls) can't be imported. In Excel, save the file as .xlsx and import that.",
+};
 
 /** 50 MB, the import size limit (P3 core spec §5.10, §6.5, D67). */
 export const MAX_SCHEDULE_BYTES = 50 * 1024 * 1024;
+
+/** File check for the stepped import's File step (P3 core spec §6.5, §5.2, D67). */
+export const importFileSchema = z
+  .file()
+  .nullish()
+  .pipe(
+    z.file({ error: 'Choose a file to import' }).superRefine((file, ctx) => {
+      const lower = file.name.toLowerCase();
+      for (const [extension, message] of Object.entries(REFUSED_EXTENSIONS)) {
+        if (lower.endsWith(extension)) {
+          ctx.addIssue({ code: 'custom', message });
+          return;
+        }
+      }
+      if (!IMPORT_EXTENSIONS.some((extension) => lower.endsWith(extension))) {
+        ctx.addIssue({ code: 'custom', message: 'Use a .xer, .xml, .xlsx or .csv file' });
+        return;
+      }
+      if (file.size > MAX_SCHEDULE_BYTES) {
+        ctx.addIssue({ code: 'custom', message: 'File must be 50 MB or smaller' });
+      }
+    }),
+  );
 
 const scheduleName = z
   .string()
