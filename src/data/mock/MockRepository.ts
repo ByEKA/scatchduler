@@ -231,25 +231,6 @@ function storedLocation(location: ProjectLocation): ProjectLocation {
   };
 }
 
-/**
- * The interim import path (spec §2.4): an imported file's format from its extension. `null` for
- * any other file, which the database's source-format check would refuse.
- */
-function importFormatOf(fileName: string): ImportFormat | null {
-  switch (/\.[^.]+$/.exec(fileName)?.[0].toLowerCase()) {
-    case '.xer':
-      return 'xer';
-    case '.xml':
-      return 'mspdi';
-    case '.csv':
-      return 'csv';
-    case '.xlsx':
-      return 'xlsx';
-    default:
-      return null;
-  }
-}
-
 const SCHEDULE_NOT_FOUND = 'Schedule not found';
 const NO_ORIGINAL_FILE = 'This schedule has no original file.';
 const ORIGINAL_FILE_GONE = "The original file isn't available in demo mode after a reload.";
@@ -297,23 +278,19 @@ interface ImportDetails {
   statusDate: Schedule['statusDate'];
   activityCount: number;
   sourceProjectCode: string | null;
-  importReport: ImportReport | null;
-  importMapping: ImportMapping | null;
+  importReport: ImportReport;
+  importMapping: ImportMapping;
 }
 
 /**
- * What an import stores (spec §4.5). With a report: its format, the activity count, the status
- * date, the source project code, the mapping, and the report with its first 50 issues. Without
- * one (the interim path, spec §2.4): the format from the file's extension and nothing else. The
- * database's column checks refuse a file outside 1 byte to 50 MB, an activity count outside 0 to
- * 50,000 and an unknown format, with the plain check copy.
+ * What an import stores (spec §4.5): the report's format, the activity count, the status date,
+ * the source project code, the mapping, and the report with its first 50 issues. The database's
+ * column checks refuse a file outside 1 byte to 50 MB and an activity count outside 0 to 50,000,
+ * with the plain check copy.
  */
 function importDetails(input: ImportScheduleInput): ImportDetails {
-  const { file, report } = input;
-  const sourceFormat = report ? report.format : importFormatOf(file.name);
-  const activityCount = report ? (input.activityCount ?? 0) : 0;
+  const { file, report, activityCount } = input;
   const valid =
-    sourceFormat !== null &&
     file.size >= 1 &&
     file.size <= MAX_SOURCE_FILE_SIZE &&
     Number.isInteger(activityCount) &&
@@ -322,14 +299,12 @@ function importDetails(input: ImportScheduleInput): ImportDetails {
   if (!valid) throw new RepositoryError('validation', INVALID_VALUES);
   return {
     sourceFileName: file.name,
-    sourceFormat,
-    statusDate: report ? (input.statusDate ?? null) : null,
+    sourceFormat: report.format,
+    statusDate: input.statusDate,
     activityCount,
-    sourceProjectCode: report ? (input.sourceProjectCode ?? null) : null,
-    importReport: report
-      ? { ...report, issues: report.issues.slice(0, STORED_REPORT_ISSUES) }
-      : null,
-    importMapping: report ? (input.mapping ?? null) : null,
+    sourceProjectCode: input.sourceProjectCode,
+    importReport: { ...report, issues: report.issues.slice(0, STORED_REPORT_ISSUES) },
+    importMapping: input.mapping,
   };
 }
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ImportIssue } from '@/data/types';
 import type { Database } from '@/data/supabase/database.types';
 import { SupabaseRepository } from '@/data/supabase/SupabaseRepository';
+import { generateXer } from '@/import/testing';
 import { makeImportScheduleInput } from '@/test/fakes';
 import { readLocalStack } from './local-stack';
 import { makeSupabaseRepositoryFixture, signedInClient } from './supabase-fixture';
@@ -51,7 +52,7 @@ describe('imports on the local stack', () => {
     const { pack } = await import('@/import/index');
     const report = (
       await pack(new Uint8Array(await input.file.arrayBuffer()), input.file.name, {
-        ...input.report!,
+        ...input.report,
         issues: Array.from({ length: 500 }, (_, i) => long(i)),
       })
     ).report;
@@ -99,4 +100,23 @@ describe('imports on the local stack', () => {
     expect(await viewer.getImportReport(schedule.id)).toMatchObject({ format: 'xer' });
     expect(await viewer.getImportMapping(schedule.id)).toMatchObject({ sourceProjectId: '101' });
   });
+
+  it('imports a generated 50 MB XER within the client timeout (S5, V8, D67)', async () => {
+    const f = await makeSupabaseRepositoryFixture();
+    const xerBytes = generateXer({
+      activities: 2000,
+      links: 2000,
+      padToBytes: 50 * 1024 * 1024 - 4096,
+    });
+    expect(xerBytes.length).toBeLessThanOrEqual(52428800);
+    const input = await makeImportScheduleInput(f.projectIds['002']!, {
+      file: new File([xerBytes.slice()], 'big.xer'),
+      name: 'Big',
+      code: 'BIG',
+    });
+    expect(input.stored.size).toBeLessThanOrEqual(10 * 1024 * 1024);
+    const started = Date.now();
+    await f.repository.importSchedule(input);
+    expect(Date.now() - started).toBeLessThan(60_000);
+  }, 120_000);
 });

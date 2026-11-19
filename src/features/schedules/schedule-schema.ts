@@ -2,9 +2,6 @@ import { z } from 'zod';
 import type { ID } from '@/data/types';
 import { isCodeTaken } from '@/features/files/codes';
 
-/** The schedule files the P2 import dialog accepts, compared case-insensitively (spec §5.7). */
-export const SCHEDULE_EXTENSIONS = ['.xer', '.xml', '.csv'] as const;
-
 /** The schedule files the stepped import accepts (P3 core spec §6.5). */
 export const IMPORT_EXTENSIONS = ['.xer', '.xml', '.xlsx', '.csv'] as const;
 
@@ -53,26 +50,6 @@ const scheduleName = z
 
 const projectId = z.string({ error: 'Choose a project' }).min(1, 'Choose a project');
 
-function hasScheduleExtension(fileName: string): boolean {
-  const lower = fileName.toLowerCase();
-  return SCHEDULE_EXTENSIONS.some((extension) => lower.endsWith(extension));
-}
-
-// The form holds null until a file is chosen; the parsed value is always a File. The second
-// schema stops at the first failed check, so a large PDF reads as the wrong type only.
-const scheduleFile = z
-  .file()
-  .nullish()
-  .pipe(
-    z
-      .file({ error: 'Choose a file to import' })
-      .refine((file) => hasScheduleExtension(file.name), {
-        error: 'Use a .xer, .xml or .csv file',
-        abort: true,
-      })
-      .max(MAX_SCHEDULE_BYTES, 'File must be 50 MB or smaller'),
-  );
-
 /** The hint under every schedule Code field (P3 core spec §6.4). */
 export const SCHEDULE_CODE_HINT = 'Letters, numbers, ., - or _ · up to 24 characters';
 
@@ -96,19 +73,11 @@ export function makeNewScheduleSchema(taken: readonly string[]) {
   return z.object({ name: scheduleName, code: scheduleCode(taken), projectId });
 }
 
-/** The P2 import dialog's form (the interim import path, P3 core spec §2.4). */
-export function makeImportScheduleSchema(taken: readonly string[]) {
-  return z.object({ file: scheduleFile, name: scheduleName, code: scheduleCode(taken), projectId });
-}
-
-// The schemas without known codes. New schedule checks the chosen project's codes with
-// makeNewScheduleSchema; the interim import dialog checks none, and the server's R8 check answers.
+// The schema without known codes; New schedule checks the chosen project's codes with
+// makeNewScheduleSchema.
 export const newScheduleSchema = makeNewScheduleSchema([]);
 
-export const importScheduleSchema = makeImportScheduleSchema([]);
-
 export type NewScheduleValues = z.infer<typeof newScheduleSchema>;
-export type ImportScheduleValues = z.infer<typeof importScheduleSchema>;
 
 // Defined in a leaf module, so codes.ts can use it without an import cycle.
 export { scheduleNameFromFile } from '@/features/schedules/file-name';
@@ -127,12 +96,7 @@ export function defaultProjectId(
   return candidates.find((id) => id !== undefined && projects.some((p) => p.id === id)) ?? null;
 }
 
-/** The schedule page an imported schedule opens on (spec §4.4). */
-export function schedulePath(workspaceId: ID, projectId: ID, scheduleId: ID): string {
-  return `/w/${workspaceId}/p/${projectId}/schedule?scheduleId=${scheduleId}`;
-}
-
-/** A project's files page, where a new schedule lands (P3 core spec D16). */
+/** A project's files page, where a new or imported schedule lands (P3 core spec D16). */
 export function filesPath(workspaceId: ID, projectId: ID): string {
   return `/w/${workspaceId}/p/${projectId}/files`;
 }

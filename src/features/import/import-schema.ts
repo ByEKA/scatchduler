@@ -172,3 +172,150 @@ export function checkColumns(table: TableMapping): Partial<Record<ColumnErrorKey
 
   return errors;
 }
+
+/** Display labels for the four entity rows of the report Counts table (spec §6.4). */
+export const COUNT_ENTITY_LABELS: Record<'calendar' | 'wbs' | 'activity' | 'relationship', string> =
+  {
+    calendar: 'Calendars',
+    wbs: 'WBS elements',
+    activity: 'Activities',
+    relationship: 'Relationships',
+  };
+
+export const COUNT_ENTITY_ORDER = ['calendar', 'wbs', 'activity', 'relationship'] as const;
+
+/** Display labels for the nine checks in spec §6.4 order. */
+export const CHECK_LABELS: Record<
+  | 'actual_after_status_date'
+  | 'progress_without_actual_start'
+  | 'complete_without_actual_finish'
+  | 'status_date_fallback'
+  | 'ambiguous_milestones'
+  | 'percent_lags'
+  | 'links_on_summaries'
+  | 'external_links'
+  | 'project_dates_differ',
+  string
+> = {
+  actual_after_status_date: 'Actual dates after the status date',
+  progress_without_actual_start: 'Progress without an actual start',
+  complete_without_actual_finish: 'Completed without an actual finish',
+  status_date_fallback: 'Status date filled in',
+  ambiguous_milestones: 'Milestones at an unclear time',
+  percent_lags: 'Percentage lags',
+  links_on_summaries: 'Links on summary tasks',
+  external_links: 'Links to other projects or files',
+  project_dates_differ: 'Project dates differ from activity dates',
+};
+
+/** Issue codes corresponding to each check, used to jump to / expand its group. */
+export const CHECK_ISSUE_CODES: Record<keyof typeof CHECK_LABELS, readonly string[]> = {
+  actual_after_status_date: ['ACTUAL_AFTER_STATUS_DATE'],
+  progress_without_actual_start: ['PROGRESS_WITHOUT_ACTUAL_START'],
+  complete_without_actual_finish: ['COMPLETE_WITHOUT_ACTUAL_FINISH'],
+  status_date_fallback: ['STATUS_DATE_FALLBACK'],
+  ambiguous_milestones: ['MSPDI_MILESTONE_AMBIGUOUS'],
+  percent_lags: ['PERCENT_LAG'],
+  links_on_summaries: ['MSPDI_SUMMARY_LINK'],
+  external_links: ['XER_CROSS_PROJECT_LINK', 'MSPDI_EXTERNAL_LINK'],
+  project_dates_differ: ['PROJECT_DATES_DIFFER'],
+};
+
+export const OUTCOME_GROUP_LABELS = {
+  used: 'Used for dates',
+  kept: 'Kept for display and export',
+  not_read: 'Not read; still in the original file',
+} as const;
+
+export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  task: 'Task',
+  start_milestone: 'Start milestone',
+  finish_milestone: 'Finish milestone',
+  level_of_effort: 'Level of effort',
+  wbs_summary: 'WBS summary',
+};
+
+/** Group titles matching spec §5.12 without importing `@/import/issues` across the S7 boundary. */
+export const ISSUE_GROUP_TITLES: Readonly<Record<string, string>> = {
+  FILE_EMPTY: 'Empty file',
+  FILE_UNREADABLE: "File couldn't be read",
+  FILE_NO_ACTIVITIES: 'No activities',
+  FILE_TOO_MANY_ACTIVITIES: 'Too many activities',
+  FILE_TOO_MANY_RELATIONSHIPS: 'Too many relationships',
+  FILE_TOO_MANY_WBS: 'Too many WBS elements',
+  FILE_TOO_MANY_CALENDARS: 'Too many calendars',
+  FILE_TOO_MANY_EXCEPTIONS: 'Too many calendar exceptions',
+  FILE_TOO_MANY_ROWS: 'Too many rows',
+  FILE_TOO_MANY_COLUMNS: 'Too many columns',
+  TABLE_TOO_MANY_CALENDARS: 'Too many calendars',
+  DUPLICATE_CODE: 'Repeated activity codes',
+  CALENDAR_UNREADABLE: "Calendars that couldn't be read",
+  CALENDAR_BASE_MISSING: 'Calendars without their base',
+  CALENDAR_RECURRENCE_UNSUPPORTED: "Repeating exceptions we can't read",
+  FORMAT_FROM_CONTENT: 'File type taken from the content',
+  ENCODING_GUESSED: 'Text encoding',
+  ENCODING_INVALID_BYTES: 'Text encoding',
+  XER_MULTIPLE_PROJECTS: 'Several projects in the file',
+  XER_CROSS_PROJECT_LINK: 'Links to other projects',
+  XER_RESOURCE_TASK: 'Resource-dependent activities',
+  XER_EXPECTED_FINISH: 'Expected finish dates',
+  XER_CALENDAR_BASE_MISSING: 'Calendars read without their base',
+  XER_UNKNOWN_VALUE: 'Unknown values',
+  XER_DECIMAL_COMMA: 'Decimal commas',
+  CALENDAR_UNUSED_SKIPPED: 'Unused calendars skipped',
+  CALENDAR_RECURRENCE_CAPPED: 'Long repeating exceptions',
+  CALENDAR_MISSING: 'Activities without a calendar',
+  CALENDAR_HOURS_MISMATCH: 'Calendar hours',
+  CALENDAR_DATA_REPAIRED: 'Repaired calendars',
+  CALENDAR_GENERATED_STANDARD: 'Generated calendars',
+  CALENDAR_GENERATED_FROM_NAME: 'Generated calendars',
+  CALENDAR_GENERATED_ELAPSED: 'Generated calendars',
+  MSPDI_SUMMARY_LINK: 'Links on summary tasks',
+  MSPDI_MILESTONE_WITH_DURATION: 'Milestones with a duration',
+  MSPDI_MILESTONE_AMBIGUOUS: 'Milestones at an unclear time',
+  MSPDI_ZERO_DURATION: 'Tasks without a duration',
+  MSPDI_MANUAL_TASK: 'Manually scheduled tasks',
+  MSPDI_MANUAL_START_DROPPED: 'Manually scheduled tasks',
+  MSPDI_INACTIVE_TASK: 'Inactive tasks',
+  MSPDI_EXTERNAL_TASK: 'External tasks',
+  MSPDI_EXTERNAL_LINK: 'Links outside the file',
+  MSPDI_WORK_WEEKS: 'Alternate work weeks',
+  MSPDI_NO_NAMESPACE: 'Non-standard Microsoft Project XML',
+  MSPDI_DATE_ZONE_DROPPED: 'Non-standard Microsoft Project XML',
+  CODE_FALLBACK: 'Activities without a usable code',
+  XML_BAD_CHARACTER: 'Invalid characters',
+  ELAPSED_DURATION: 'Elapsed durations',
+  ELAPSED_LAG: 'Elapsed lags',
+  PERCENT_LAG: 'Percentage lags',
+  LINK_TYPE_UNKNOWN: 'Unknown link types',
+  STATUS_DATE_MISSING: 'Status date',
+  STATUS_DATE_FALLBACK: 'Status date',
+  STATUS_TIME_KEPT: 'Status date',
+  ACTUAL_AFTER_STATUS_DATE: 'Actual dates after the status date',
+  PROGRESS_WITHOUT_ACTUAL_START: 'Progress without an actual start',
+  COMPLETE_WITHOUT_ACTUAL_FINISH: 'Completed without an actual finish',
+  PROJECT_DATES_DIFFER: 'Project dates',
+  TABLE_MISSING_CODE: 'Rows without an activity code',
+  TABLE_MISSING_NAME: 'Activities without a name',
+  TABLE_BAD_NUMBER: 'Unreadable numbers',
+  TABLE_BAD_DURATION: 'Unreadable durations',
+  TABLE_ESTIMATED_DURATION: 'Estimated durations',
+  TABLE_BAD_DATE: 'Unreadable dates',
+  TABLE_UNKNOWN_TYPE: 'Unknown activity types',
+  TABLE_BAD_LINK: 'Unreadable links',
+  TABLE_ROW_SKIPPED: 'Rows skipped',
+  LINK_UNKNOWN_ACTIVITY: 'Links to missing activities',
+  LINK_SELF: 'Activities linked to themselves',
+  LINK_DUPLICATE: 'Repeated links',
+  CONSTRAINT_UNSUPPORTED: 'Unsupported constraints',
+  TEXT_TRUNCATED: 'Shortened text',
+};
+
+export function activityCodeFieldLabel(field: string | null): string {
+  if (field === null || field === 'UID') return 'Unique ID';
+  return field;
+}
+
+export const BLOCKED_ERRORS_MESSAGE =
+  "Fix the errors before importing. This schedule can't be imported as it is.";
+export const CHOOSE_SCHEDULE_MESSAGE = 'Choose at least one schedule to import.';

@@ -3,7 +3,6 @@ import type { ZodType } from 'zod';
 import {
   defaultProjectId,
   importFileSchema,
-  importScheduleSchema,
   makeNewScheduleSchema,
   MAX_SCHEDULE_BYTES,
   newScheduleSchema,
@@ -29,25 +28,18 @@ describe('schedule schemas', () => {
   });
 
   it('validates import files case-insensitively and by size', () => {
-    const base = { name: 'Baseline', code: 'S01', projectId: 'p' };
-    expect(issues(importScheduleSchema, { ...base, file: null })).toEqual([
-      'Choose a file to import',
+    expect(issues(importFileSchema, null)).toEqual(['Choose a file to import']);
+    expect(issues(importFileSchema, new File(['x'], 'plan.pdf'))).toEqual([
+      'Use a .xer, .xml, .xlsx or .csv file',
     ]);
-    expect(issues(importScheduleSchema, { ...base, file: new File(['x'], 'plan.pdf') })).toEqual([
-      'Use a .xer, .xml or .csv file',
-    ]);
-    expect(
-      issues(importScheduleSchema, { ...base, file: new File(['x'], 'BASELINE.XER') }),
-    ).toEqual([]);
+    expect(issues(importFileSchema, new File(['x'], 'BASELINE.XER'))).toEqual([]);
     expect(MAX_SCHEDULE_BYTES).toBe(50 * 1024 * 1024);
     const big = new File(['x'], 'big.xer');
     Object.defineProperty(big, 'size', { value: 50 * 1024 * 1024 + 1 });
-    expect(issues(importScheduleSchema, { ...base, file: big })).toEqual([
-      'File must be 50 MB or smaller',
-    ]);
+    expect(issues(importFileSchema, big)).toEqual(['File must be 50 MB or smaller']);
     const atLimit = new File(['x'], 'limit.xer');
     Object.defineProperty(atLimit, 'size', { value: 50 * 1024 * 1024 });
-    expect(issues(importScheduleSchema, { ...base, file: atLimit })).toEqual([]);
+    expect(issues(importFileSchema, atLimit)).toEqual([]);
   });
 
   it('validates schedule codes and checks them against the project codes', () => {

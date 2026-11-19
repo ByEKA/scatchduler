@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { gunzipSync } from 'fflate';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { makeImportScheduleInput } from '@/test/fakes';
 import { readLocalStack } from './local-stack';
 import { makeSupabaseRepositoryFixture } from './supabase-fixture';
 
@@ -142,14 +143,13 @@ describe('schedule-imports deletes and the interim import (spec §2.4, §4.9)', 
     expect(await exists(ref)).toBe(false);
   });
 
-  it('stores an interim import gzipped under its project, with its format', async () => {
+  it('stores an import gzipped under its project, with its format', async () => {
     const f = await makeSupabaseRepositoryFixture();
-    const schedule = await f.repository.importSchedule({
-      projectId: f.projectIds['002']!,
+    const input = await makeImportScheduleInput(f.projectIds['002']!, {
       name: 'Rev 8',
       code: 'R8',
-      file: new File(['ERMHDR\t20.12'], 'rev8.XER'),
     });
+    const schedule = await f.repository.importSchedule(input);
     const { data } = await admin
       .from('schedules')
       .select('source_format, source_file_size, source_file_path')
@@ -160,15 +160,15 @@ describe('schedule-imports deletes and the interim import (spec §2.4, §4.9)', 
       source_file_size: number;
       source_file_path: string;
     };
-    expect(row).toMatchObject({ source_format: 'xer', source_file_size: 12 });
+    expect(row).toMatchObject({ source_format: 'xer', source_file_size: input.file.size });
     expect(row.source_file_path).toMatch(
       new RegExp(`^${f.workspaces.personal}/${f.projectIds['002']}/[0-9a-f-]{36}\\.xer\\.gz$`),
     );
     const { data: blob } = await admin.storage
       .from('schedule-imports')
       .download(row.source_file_path);
-    expect(new TextDecoder().decode(gunzipSync(new Uint8Array(await blob!.arrayBuffer())))).toBe(
-      'ERMHDR\t20.12',
+    expect(gunzipSync(new Uint8Array(await blob!.arrayBuffer()))).toEqual(
+      new Uint8Array(await input.file.arrayBuffer()),
     );
   });
 });

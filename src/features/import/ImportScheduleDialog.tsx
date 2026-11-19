@@ -1,26 +1,54 @@
 import { Check, Loader2 } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
+import { useLocation, useNavigate } from 'react-router';
+import { toast } from 'sonner';
 import { FormDialog, type DialogWidth } from '@/components/common/FormDialog';
 import { Button } from '@/components/ui/button';
-import type { ID, ImportField, ImportMapping, TableMapping, TextEncodingName } from '@/data/types';
+import { RepositoryError } from '@/data/errors';
+import type {
+  ID,
+  ImportField,
+  ImportMapping,
+  ISODate,
+  TableMapping,
+  TextEncodingName,
+} from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { isCodeTaken, suggestImportCode } from '@/features/files/codes';
+import { isIsoDate } from '@/features/files/details-schema';
 import { ColumnsStep } from '@/features/import/ColumnsStep';
 import { FileStep, type FileInspectState } from '@/features/import/FileStep';
 import {
+  BLOCKED_ERRORS_MESSAGE,
   checkColumns,
+  CHOOSE_SCHEDULE_MESSAGE,
   formatDisplayName,
   IMPORT_FIELD_ORDER,
   type ColumnErrorKey,
 } from '@/features/import/import-schema';
-import { defaultProjectId, importFileSchema } from '@/features/schedules/schedule-schema';
+import { ReviewStep, type AnalyzedProjectRow } from '@/features/import/ReviewStep';
+import {
+  defaultProjectId,
+  filesPath,
+  importFileSchema,
+  scheduleNameFromFile,
+} from '@/features/schedules/schedule-schema';
 import { useScheduleDialogFallback } from '@/features/schedules/useScheduleDialogFallback';
 import { useCurrentContext } from '@/hooks/useCurrentContext';
 import { useImportParser, type InspectOutcome, type TablePreview } from '@/hooks/useImportParser';
+import { useProjectSchedules } from '@/hooks/useProjectSchedules';
+import { useImportSchedule } from '@/hooks/useSchedules';
+import { errorMessage } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 type ImportStepId = 'file' | 'columns' | 'review';
 type ValidInspect = Exclude<InspectOutcome, { kind: 'refused' }>;
+type ScheduleInspect = Extract<InspectOutcome, { kind: 'schedule' }>;
+type XerProjectEntry = ScheduleInspect['projects'][number];
+
+const SCHEDULE_CODE_PATTERN = /^[A-Za-z0-9_.-]*$/;
+const NO_CODES: readonly string[] = [];
 
 const STEP_META: Record<ImportStepId, { label: string; description: string; width: DialogWidth }> =
   {
@@ -131,16 +159,71 @@ function refreshMappedHeaders(
   return next;
 }
 
+/** Flagged XER projects first, then non-flagged, each group in file order (D15). */
+function orderXerProjects(projects: readonly XerProjectEntry[]): XerProjectEntry[] {
+  return [
+    ...projects.filter((project) => project.exportFlag),
+    ...projects.filter((project) => !project.exportFlag),
+  ];
+}
+
+/**
+ * Default selected project in Review (D15, D56): for a single-project file, that row (even with
+ * errors so the user sees its report); for a multi-project XER, the first row without errors
+ * that isn't a baseline, else the first row without errors, else `null`.
+ */
+function pickDefaultProjectId(rows: readonly AnalyzedProjectRow[]): string | null {
+  if (rows.length === 0) return null;
+  if (rows.length === 1) return rows[0]!.project.id;
+  const preferred =
+    rows.find((row) => row.report.issueTotals.error === 0 && row.project.baselineOf === null) ??
+    rows.find((row) => row.report.issueTotals.error === 0);
+  return preferred?.project.id ?? null;
+}
+
+function validateReviewFields(
+  values: { name: string; code: string; statusDate: string; badDate: boolean },
+  existingCodes: readonly string[],
+): { name?: string; code?: string; statusDate?: string } {
+  const errors: { name?: string; code?: string; statusDate?: string } = {};
+  const trimmedName = values.name.trim();
+  if (trimmedName === '') {
+    errors.name = 'Enter a schedule name';
+  } else if (trimmedName.length > 80) {
+    errors.name = 'Use 80 characters or fewer';
+  }
+
+  const trimmedCode = values.code.trim();
+  if (trimmedCode === '') {
+    errors.code = 'Enter a schedule code';
+  } else if (!SCHEDULE_CODE_PATTERN.test(trimmedCode)) {
+    errors.code = 'Use letters, numbers, ., - or _';
+  } else if (trimmedCode.length > 24) {
+    errors.code = 'Use 24 characters or fewer';
+  } else if (isCodeTaken(existingCodes, trimmedCode)) {
+    errors.code = 'This code is already used in this project';
+  }
+
+  if (values.badDate || (values.statusDate !== '' && !isIsoDate(values.statusDate))) {
+    errors.statusDate = 'Enter a valid date';
+  }
+
+  return errors;
+}
+
 /**
  * The stepped schedule import dialog (spec §5.1, §6.4):
  * - File: pick project (from Home) and file, inspect in Web Worker
  * - Columns (xlsx/CSV only): options, column mapping and live "First 10 rows" preview
- * - Review (Task 23): analyze, report view and commit
+ * - Review: multi-project XER picker, Name/Code/Status date, live report view and commit
  */
 export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactElement {
-  const { closeDialog } = useDialogs();
+  const { closeDialog, openDialog } = useDialogs();
   const { status, workspace, projects, project: currentProject } = useCurrentContext();
+  const navigate = useNavigate();
+  const location = useLocation();
   const parser = useImportParser();
+  const importSchedule = useImportSchedule();
 
   const [step, setStep] = useState<ImportStepId>('file');
   const [chosenProjectId, setChosenProjectId] = useState<ID | null>(projectId ?? null);
@@ -158,14 +241,38 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
   const [previewPending, setPreviewPending] = useState(false);
   const [columnErrors, setColumnErrors] = useState<Partial<Record<ColumnErrorKey, string>>>({});
 
+  const [analyzing, setAnalyzing] = useState(false);
+  const [projectRows, setProjectRows] = useState<AnalyzedProjectRow[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [scheduleName, setScheduleName] = useState('');
+  const [nameError, setNameError] = useState<string | undefined>(undefined);
+  const [scheduleCode, setScheduleCode] = useState('');
+  const [codeError, setCodeError] = useState<string | undefined>(undefined);
+  const [statusDate, setStatusDate] = useState('');
+  const [statusDateError, setStatusDateError] = useState<string | undefined>(undefined);
+  const [statusDateEdited, setStatusDateEdited] = useState(false);
+  const [importAlert, setImportAlert] = useState<string | null>(null);
+  const [alertFocusTick, setAlertFocusTick] = useState(0);
+  const [importing, setImporting] = useState(false);
+
   const dropzoneRef = useRef<HTMLButtonElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const codeInputRef = useRef<HTMLInputElement>(null);
+  const statusDateInputRef = useRef<HTMLInputElement>(null);
+  const alertRef = useRef<HTMLParagraphElement>(null);
   const inspectSeqRef = useRef(0);
   const previewSeqRef = useRef(0);
+  const analyzeSeqRef = useRef(0);
+  const submittingRef = useRef(false);
   const controlRefs = useRef<Partial<Record<ColumnErrorKey, HTMLElement | null>>>({});
 
   const registerControl = useCallback((key: ColumnErrorKey, node: HTMLElement | null) => {
     controlRefs.current[key] = node;
   }, []);
+
+  useEffect(() => {
+    if (alertFocusTick > 0) alertRef.current?.focus();
+  }, [alertFocusTick]);
 
   const effectiveProjectId =
     chosenProjectId !== null && projects.some((p) => p.id === chosenProjectId)
@@ -174,7 +281,17 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
         ? defaultProjectId(projects, projectId, currentProject?.id)
         : (projectId ?? null);
 
-  const selectedProject = projects.find((p) => p.id === effectiveProjectId) ?? null;
+  const selectedProject =
+    projects.find((p) => p.id === effectiveProjectId) ??
+    (currentProject?.id === effectiveProjectId ? currentProject : null);
+
+  const { data: projectSchedules } = useProjectSchedules(effectiveProjectId ?? undefined);
+  const existingCodes = useMemo(
+    () =>
+      projectSchedules?.flatMap((schedule) => (schedule.code === null ? [] : [schedule.code])) ??
+      NO_CODES,
+    [projectSchedules],
+  );
 
   const { fallback: contextFallback, onOpenAutoFocus } = useScheduleDialogFallback({
     fields: [{ height: 36 }, { height: 140 }],
@@ -188,9 +305,38 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     ? ['file', 'columns', 'review']
     : ['file', 'review'];
 
+  const activeRow =
+    selectedProjectId === null
+      ? null
+      : (projectRows.find((row) => row.project.id === selectedProjectId) ?? null);
+
+  function applyRowDefaults(row: AnalyzedProjectRow | null, currentFile: File): void {
+    setNameError(undefined);
+    setCodeError(undefined);
+    setStatusDateError(undefined);
+    setStatusDateEdited(false);
+    setImportAlert(null);
+    if (row === null) {
+      setScheduleName('');
+      setScheduleCode('');
+      setStatusDate('');
+      return;
+    }
+    const defaultName =
+      row.report.sourceProject.name?.trim() || scheduleNameFromFile(currentFile.name);
+    const defaultCode = suggestImportCode(existingCodes, {
+      sourceProjectCode: row.report.sourceProject.code,
+      fileName: currentFile.name,
+    });
+    setScheduleName(defaultName);
+    setScheduleCode(defaultCode);
+    setStatusDate(row.initialStatusSource === 'none' ? '' : (row.report.statusDate.date ?? ''));
+  }
+
   function handleFileChange(nextFile: File | null): void {
     inspectSeqRef.current += 1;
     previewSeqRef.current += 1;
+    analyzeSeqRef.current += 1;
     const seq = inspectSeqRef.current;
 
     // Terminate any slow in-flight inspection before starting another (Review Focus 4).
@@ -202,6 +348,17 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     setPreview({ headers: [], rows: [] });
     setPreviewPending(false);
     setColumnErrors({});
+    setAnalyzing(false);
+    setProjectRows([]);
+    setSelectedProjectId(null);
+    setScheduleName('');
+    setScheduleCode('');
+    setStatusDate('');
+    setNameError(undefined);
+    setCodeError(undefined);
+    setStatusDateError(undefined);
+    setStatusDateEdited(false);
+    setImportAlert(null);
     setStep('file');
 
     if (nextFile === null) {
@@ -337,6 +494,243 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     updateTable({ columns: nextColumns });
   }
 
+  async function enterReview(
+    targetMapping: ImportMapping,
+    currentInspected: ValidInspect,
+    currentFile: File,
+    fromStep: 'file' | 'columns',
+  ): Promise<void> {
+    analyzeSeqRef.current += 1;
+    const seq = analyzeSeqRef.current;
+    setAnalyzing(true);
+    setImportAlert(null);
+
+    const handleRefusal = (message: string): void => {
+      setAnalyzing(false);
+      if (fromStep === 'file') {
+        setInspectState({
+          kind: 'refused',
+          message,
+          code: null,
+          format: null,
+          parserVersion: null,
+        });
+      } else {
+        toast.error(message);
+      }
+    };
+
+    try {
+      const rows: AnalyzedProjectRow[] = [];
+      if (
+        currentInspected.kind === 'schedule' &&
+        currentInspected.format === 'xer' &&
+        currentInspected.projects.length > 1
+      ) {
+        for (const project of orderXerProjects(currentInspected.projects)) {
+          const outcome = await parser.analyze(
+            { ...targetMapping, sourceProjectId: project.id },
+            { statusDate: null },
+          );
+          if (analyzeSeqRef.current !== seq) return;
+          if (outcome.kind === 'refused') {
+            handleRefusal(outcome.message);
+            return;
+          }
+          rows.push({
+            project,
+            report: outcome.report,
+            firstActivities: outcome.model.activities.slice(0, 5).map((a) => a.name),
+            initialStatusSource: outcome.report.statusDate.source,
+          });
+        }
+      } else {
+        const outcome = await parser.analyze(targetMapping, { statusDate: null });
+        if (analyzeSeqRef.current !== seq) return;
+        if (outcome.kind === 'refused') {
+          handleRefusal(outcome.message);
+          return;
+        }
+        const singleProject =
+          currentInspected.kind === 'schedule' && currentInspected.projects.length === 1
+            ? currentInspected.projects[0]!
+            : {
+                id: outcome.report.sourceProject.id ?? '__single__',
+                code: outcome.report.sourceProject.code,
+                name: outcome.report.sourceProject.name,
+                exportFlag: true,
+                baselineOf: null,
+              };
+        rows.push({
+          project: singleProject,
+          report: outcome.report,
+          firstActivities: outcome.model.activities.slice(0, 5).map((a) => a.name),
+          initialStatusSource: outcome.report.statusDate.source,
+        });
+      }
+
+      const chosenId = pickDefaultProjectId(rows);
+      const chosenIndex = rows.findIndex((row) => row.project.id === chosenId);
+      const chosenRow = chosenIndex >= 0 ? rows[chosenIndex]! : null;
+      const nextMapping: ImportMapping =
+        currentInspected.kind === 'schedule' &&
+        currentInspected.format === 'xer' &&
+        chosenId !== null
+          ? { ...targetMapping, sourceProjectId: chosenId }
+          : targetMapping;
+
+      // When the file has no status date and the project has one, run the checks against the
+      // project's status date so the stored checks match the schedule (D37) while keeping the
+      // Status date field empty and its "Not in the file…" hint.
+      if (
+        chosenRow !== null &&
+        chosenRow.initialStatusSource === 'none' &&
+        selectedProject?.statusDate != null
+      ) {
+        const rechecked = await parser.analyze(nextMapping, {
+          statusDate: selectedProject.statusDate,
+        });
+        if (analyzeSeqRef.current !== seq) return;
+        if (rechecked.kind === 'analyzed') {
+          rows[chosenIndex] = { ...chosenRow, report: rechecked.report };
+        }
+      }
+
+      setMapping(nextMapping);
+      setProjectRows(rows);
+      setSelectedProjectId(chosenId);
+      applyRowDefaults(chosenIndex >= 0 ? rows[chosenIndex]! : null, currentFile);
+      setStep('review');
+      setAnalyzing(false);
+    } catch (error) {
+      if (analyzeSeqRef.current !== seq || isCancelledError(error)) return;
+      setAnalyzing(false);
+      toast.error(clientErrorMessage(error));
+    }
+  }
+
+  function handleSelectProject(nextId: string): void {
+    if (file === null || mapping === null) return;
+    const row = projectRows.find((item) => item.project.id === nextId) ?? null;
+    if (row === null || row.report.issueTotals.error > 0) return;
+    setSelectedProjectId(nextId);
+    if (inspected?.kind === 'schedule' && inspected.format === 'xer') {
+      setMapping({ ...mapping, sourceProjectId: nextId });
+    }
+    applyRowDefaults(row, file);
+  }
+
+  function currentAnalyzeStatusDate(edited: boolean, fieldValue: string): ISODate | null {
+    if (!edited) return null;
+    if (fieldValue === '') return selectedProject?.statusDate ?? null;
+    return isIsoDate(fieldValue) ? fieldValue : null;
+  }
+
+  function handleStatusDateChange(value: string): void {
+    setStatusDate(value);
+    setStatusDateError(undefined);
+    setStatusDateEdited(true);
+    if (activeRow === null || mapping === null) return;
+    if (value !== '' && !isIsoDate(value)) return;
+
+    const targetId = activeRow.project.id;
+    const rowMapping: ImportMapping =
+      inspected?.kind === 'schedule' && inspected.format === 'xer'
+        ? { ...mapping, sourceProjectId: targetId }
+        : mapping;
+    const effectiveDate: ISODate | null =
+      value === '' ? (selectedProject?.statusDate ?? null) : value;
+
+    analyzeSeqRef.current += 1;
+    const seq = analyzeSeqRef.current;
+    void parser.analyze(rowMapping, { statusDate: effectiveDate }).then(
+      (outcome) => {
+        if (analyzeSeqRef.current !== seq || outcome.kind !== 'analyzed') return;
+        setProjectRows((rows) =>
+          rows.map((row) =>
+            row.project.id === targetId ? { ...row, report: outcome.report } : row,
+          ),
+        );
+        if (outcome.report.issueTotals.error === 0) setImportAlert(null);
+      },
+      (error: unknown) => {
+        if (analyzeSeqRef.current !== seq || isCancelledError(error)) return;
+        toast.error(clientErrorMessage(error));
+      },
+    );
+  }
+
+  function handleActivityCodeFieldChange(field: string): void {
+    if (mapping === null || activeRow === null) return;
+    const nextMapping: ImportMapping = { ...mapping, activityCodeField: field };
+    const targetId = activeRow.project.id;
+    setMapping(nextMapping);
+    analyzeSeqRef.current += 1;
+    const seq = analyzeSeqRef.current;
+    const statusDateOption = currentAnalyzeStatusDate(statusDateEdited, statusDate);
+
+    void parser.analyze(nextMapping, { statusDate: statusDateOption }).then(
+      (outcome) => {
+        if (analyzeSeqRef.current !== seq || outcome.kind !== 'analyzed') return;
+        setProjectRows((rows) =>
+          rows.map((row) =>
+            row.project.id === targetId
+              ? {
+                  ...row,
+                  report: outcome.report,
+                  firstActivities: outcome.model.activities.slice(0, 5).map((a) => a.name),
+                }
+              : row,
+          ),
+        );
+        if (outcome.report.issueTotals.error === 0) setImportAlert(null);
+      },
+      (error: unknown) => {
+        if (analyzeSeqRef.current !== seq || isCancelledError(error)) return;
+        toast.error(clientErrorMessage(error));
+      },
+    );
+  }
+
+  function handleReviewEncodingChange(encoding: TextEncodingName): void {
+    if (mapping === null || inspected?.kind !== 'schedule' || inspected.format !== 'xer') return;
+    const nextMapping: ImportMapping = { ...mapping, encoding };
+    const rowsSnapshot = projectRows;
+    const activeId = selectedProjectId;
+    const activeDateOption = currentAnalyzeStatusDate(statusDateEdited, statusDate);
+    setMapping(nextMapping);
+
+    analyzeSeqRef.current += 1;
+    const seq = analyzeSeqRef.current;
+
+    void (async () => {
+      try {
+        const updated: AnalyzedProjectRow[] = [];
+        for (const row of rowsSnapshot) {
+          const outcome = await parser.analyze(
+            { ...nextMapping, sourceProjectId: row.project.id },
+            { statusDate: row.project.id === activeId ? activeDateOption : null },
+          );
+          if (analyzeSeqRef.current !== seq) return;
+          if (outcome.kind !== 'analyzed') return;
+          updated.push({
+            ...row,
+            project: {
+              ...row.project,
+              name: outcome.report.sourceProject.name ?? row.project.name,
+            },
+            report: outcome.report,
+            firstActivities: outcome.model.activities.slice(0, 5).map((a) => a.name),
+          });
+        }
+        setProjectRows(updated);
+      } catch (error) {
+        if (analyzeSeqRef.current !== seq || isCancelledError(error)) return;
+        toast.error(clientErrorMessage(error));
+      }
+    })();
+  }
+
   function handleFileNext(): void {
     if (effectiveProjectId === null) {
       setProjectError('Choose a project');
@@ -347,16 +741,16 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
       dropzoneRef.current?.focus();
       return;
     }
-    if (inspected === null) return;
+    if (inspected === null || mapping === null || analyzing) return;
     if (inspected.kind === 'table') {
       setStep('columns');
     } else {
-      setStep('review');
+      void enterReview(mapping, inspected, file, 'file');
     }
   }
 
   function handleColumnsNext(): void {
-    if (mapping?.table == null) return;
+    if (mapping?.table == null || inspected === null || file === null || analyzing) return;
     const errors = checkColumns(mapping.table);
     if (Object.keys(errors).length > 0) {
       setColumnErrors(errors);
@@ -365,19 +759,121 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
       return;
     }
     setColumnErrors({});
-    setStep('review');
+    void enterReview(mapping, inspected, file, 'columns');
+  }
+
+  async function handleReviewSubmit(): Promise<void> {
+    if (submittingRef.current || analyzing) return;
+
+    if (projectRows.length > 1 && selectedProjectId === null) {
+      setImportAlert(CHOOSE_SCHEDULE_MESSAGE);
+      setAlertFocusTick((tick) => tick + 1);
+      return;
+    }
+    if (activeRow === null) return;
+    if (activeRow.report.issueTotals.error > 0) {
+      setImportAlert(BLOCKED_ERRORS_MESSAGE);
+      setAlertFocusTick((tick) => tick + 1);
+      return;
+    }
+    setImportAlert(null);
+
+    const badDate = statusDateInputRef.current?.validity.badInput === true;
+    const errors = validateReviewFields(
+      { name: scheduleName, code: scheduleCode, statusDate, badDate },
+      existingCodes,
+    );
+    setNameError(errors.name);
+    setCodeError(errors.code);
+    setStatusDateError(errors.statusDate);
+    if (errors.name !== undefined) {
+      nameInputRef.current?.focus();
+      return;
+    }
+    if (errors.code !== undefined) {
+      codeInputRef.current?.focus();
+      return;
+    }
+    if (errors.statusDate !== undefined) {
+      statusDateInputRef.current?.focus();
+      return;
+    }
+
+    if (effectiveProjectId === null || file === null || mapping === null) return;
+
+    const commitMapping: ImportMapping =
+      inspected?.kind === 'schedule' && inspected.format === 'xer'
+        ? { ...mapping, sourceProjectId: activeRow.project.id }
+        : mapping;
+    const activityCount =
+      activeRow.report.counts.find((count) => count.entity === 'activity')?.accepted ?? 0;
+
+    submittingRef.current = true;
+    setImporting(true);
+    try {
+      const packed = await parser.pack(activeRow.report);
+      const created = await importSchedule.mutateAsync({
+        projectId: effectiveProjectId,
+        name: scheduleName.trim(),
+        code: scheduleCode.trim(),
+        file,
+        stored: packed.stored,
+        statusDate: statusDate === '' ? null : statusDate,
+        activityCount,
+        sourceProjectCode: activeRow.report.sourceProject.code,
+        mapping: commitMapping,
+        report: packed.report,
+      });
+      toast.success('Schedule imported', {
+        action: {
+          label: 'View report',
+          onClick: () =>
+            openDialog('importReport', {
+              projectId: created.projectId,
+              scheduleId: created.id,
+            }),
+        },
+      });
+      closeDialog();
+      const parent =
+        projects.find((p) => p.id === created.projectId) ??
+        (currentProject?.id === created.projectId ? currentProject : null);
+      // Already on that files page: stay, keeping its search (Show archived, D16).
+      const target = parent ? filesPath(parent.workspaceId, parent.id) : null;
+      if (target !== null && location.pathname !== target) void navigate(target);
+    } catch (error) {
+      // Only a failure re-arms the form; after a success the dialog is closing.
+      submittingRef.current = false;
+      setImporting(false);
+      if (error instanceof RepositoryError && error.code === 'conflict') {
+        setCodeError(error.message);
+        codeInputRef.current?.focus();
+      } else {
+        toast.error(errorMessage(error));
+      }
+    }
+  }
+
+  function handleBack(): void {
+    analyzeSeqRef.current += 1;
+    setAnalyzing(false);
+    setImportAlert(null);
+    setStep(step === 'review' && isTable ? 'columns' : 'file');
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     if (step === 'file') handleFileNext();
     else if (step === 'columns') handleColumnsNext();
+    else void handleReviewSubmit();
   }
 
   const meta = STEP_META[step];
   const reading = inspectState.kind === 'reading';
+  const fileBusy = reading || analyzing;
   const fileNextDisabled =
-    reading || inspectState.kind === 'refused' || (file !== null && inspected === null);
+    fileBusy || inspectState.kind === 'refused' || (file !== null && inspected === null);
+  const columnsBusy = previewPending || analyzing;
 
   const targetLine =
     workspace !== null && selectedProject !== null
@@ -399,9 +895,9 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
       header={headerNode}
       width={meta.width}
       isDirty={file !== null}
-      isPending={false}
+      isPending={importing}
       submitLabel={step === 'review' ? 'Import' : 'Next'}
-      pendingLabel="Reading file…"
+      pendingLabel="Importing…"
       onSubmit={handleSubmit}
       onClose={closeDialog}
       onOpenAutoFocus={projectId === undefined ? onOpenAutoFocus : undefined}
@@ -410,33 +906,35 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
         (({ requestClose }) => (
           <>
             {step === 'file' ? (
-              <Button type="button" variant="secondary" onClick={requestClose}>
+              <Button type="button" variant="secondary" disabled={analyzing} onClick={requestClose}>
                 Cancel
               </Button>
             ) : (
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setStep(step === 'review' && isTable ? 'columns' : 'file')}
+                disabled={analyzing || importing}
+                onClick={handleBack}
               >
                 Back
               </Button>
             )}
             {step === 'file' && (
               <Button type="submit" disabled={fileNextDisabled}>
-                {reading && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {reading ? 'Reading file…' : 'Next'}
+                {fileBusy && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {reading ? 'Reading file…' : analyzing ? 'Checking…' : 'Next'}
               </Button>
             )}
             {step === 'columns' && (
-              <Button type="submit" disabled={previewPending}>
-                {previewPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {previewPending ? 'Checking…' : 'Next'}
+              <Button type="submit" disabled={columnsBusy}>
+                {columnsBusy && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {columnsBusy ? 'Checking…' : 'Next'}
               </Button>
             )}
             {step === 'review' && (
-              <Button type="submit" disabled>
-                Import
+              <Button type="submit" disabled={analyzing || importing}>
+                {importing && <Loader2 className="animate-spin" aria-hidden="true" />}
+                {importing ? 'Importing…' : 'Import'}
               </Button>
             )}
           </>
@@ -478,6 +976,46 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
           onTableChange={(patch) => updateTable(patch)}
           onColumnChange={handleColumnChange}
           registerControl={registerControl}
+        />
+      ) : step === 'review' && file !== null ? (
+        <ReviewStep
+          file={file}
+          projectRows={projectRows}
+          selectedProjectId={selectedProjectId}
+          onSelectProject={handleSelectProject}
+          activeRow={activeRow}
+          name={scheduleName}
+          onNameChange={(value) => {
+            setScheduleName(value);
+            if (nameError !== undefined) setNameError(undefined);
+          }}
+          nameError={nameError}
+          nameInputRef={nameInputRef}
+          code={scheduleCode}
+          onCodeChange={(value) => {
+            setScheduleCode(value);
+            if (codeError !== undefined) setCodeError(undefined);
+          }}
+          codeError={codeError}
+          codeInputRef={codeInputRef}
+          statusDate={statusDate}
+          onStatusDateChange={handleStatusDateChange}
+          statusDateError={statusDateError}
+          statusDateInputRef={statusDateInputRef}
+          importAlert={importAlert}
+          alertRef={alertRef}
+          codeFields={inspected?.kind === 'schedule' ? inspected.codeFields : undefined}
+          onActivityCodeField={
+            inspected?.kind === 'schedule' && inspected.format === 'mspdi'
+              ? handleActivityCodeFieldChange
+              : undefined
+          }
+          onEncoding={
+            inspected?.kind === 'schedule' && inspected.format === 'xer'
+              ? handleReviewEncodingChange
+              : undefined
+          }
+          disabled={importing}
         />
       ) : null}
     </FormDialog>

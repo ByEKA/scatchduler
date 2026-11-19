@@ -1,5 +1,6 @@
 import { act, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { RepositoryError } from '@/data/errors';
 import turkish from '@/import/__fixtures__/turkish-1254.csv?bytes';
 import xer from '@/import/__fixtures__/two-projects.xer?bytes';
 import { createImportClient } from '@/import/client';
@@ -169,5 +170,137 @@ describe('ImportScheduleDialog — File and Columns', () => {
     );
     const preview = screen.getByRole('table', { name: 'First 10 rows' });
     expect(await within(preview).findByText('Kazý iþleri')).toBeInTheDocument();
+  });
+});
+
+describe('ImportScheduleDialog — Review and import', () => {
+  async function toReview(user: ReturnType<typeof renderImport>['user'], file: File) {
+    await user.upload(dropzone(), file);
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    if (file.name.endsWith('.csv'))
+      await user.click(await screen.findByRole('button', { name: 'Next' }));
+    return screen.findByText('Check what will be imported.');
+  }
+
+  it('lists the projects of a two-project XER and starts on the flagged one', async () => {
+    const { user } = renderImport({ projectCode: '003' });
+    await toReview(user, new File([xer], 'north.xer'));
+    const table = await screen.findByRole('table', { name: 'Projects in this file' });
+    expect(within(table).getByRole('radio', { name: 'Use NTH-A · North Plant' })).toBeChecked();
+    expect(within(table).getByText('north.xer · NTH-B')).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('North Plant');
+    expect(screen.getByLabelText('Code')).toHaveValue('NTH-A');
+    await user.click(within(table).getByRole('radio', { name: 'Use NTH-B · North Annex' }));
+    await waitFor(() => expect(screen.getByLabelText('Code')).toHaveValue('NTH-B'));
+  });
+
+  it('shows the report view of the chosen schedule', async () => {
+    const { user } = renderImport({ projectCode: '003' });
+    await toReview(user, new File([xer], 'north.xer'));
+    const counts = await screen.findByRole('table', { name: 'Counts' });
+    expect(
+      within(counts)
+        .getAllByRole('row')
+        .map((r) => r.textContent),
+    ).toEqual([
+      'ReadAcceptedAdjustedSkipped',
+      'Calendars3310',
+      'WBS elements2200',
+      'Activities6610',
+      'Relationships6511',
+    ]);
+    expect(screen.getByText('Primavera P6 XER 20.12')).toBeInTheDocument();
+    expect(
+      screen.getByText('Links to other projects or files').nextElementSibling,
+    ).toHaveTextContent('1 findings');
+    expect(
+      screen.getByText('Progress without an actual start').nextElementSibling,
+    ).toHaveTextContent('No findings');
+    expect(screen.getByText('0 errors · 4 warnings · 3 notes')).toBeInTheDocument();
+    expect(screen.getByText('The original file is kept with the schedule.')).toBeInTheDocument();
+    expect(screen.getByText('Mobilisation')).toBeInTheDocument();
+  });
+
+  it('runs the checks again with the status date it will store', async () => {
+    const client = realClient();
+    const analyze = vi.spyOn(client, 'analyze');
+    const { user } = renderImport({ projectCode: '003', client: () => client });
+    await toReview(user, new File([xer], 'north.xer'));
+    const date = screen.getByLabelText('Status date');
+    expect(date).toHaveValue('2026-10-15');
+    expect(screen.getByText('From the file')).toBeInTheDocument();
+    await user.clear(date);
+    await user.type(date, '2026-09-01');
+    await waitFor(() =>
+      expect(analyze).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sourceProjectId: expect.any(String) }),
+        { statusDate: '2026-09-01' },
+      ),
+    );
+  });
+
+  it('imports once, lands on the files page and offers the report', async () => {
+    const { user, dataLayer, project } = renderImport({ projectCode: '003' });
+    const importSchedule = vi.spyOn(dataLayer.repository, 'importSchedule');
+    await toReview(user, new File([xer], 'north.xer'));
+    const button = screen.getByRole('button', { name: 'Import' });
+    act(() => {
+      button.click();
+      button.click();
+    });
+    expect(await screen.findByText('Schedule imported')).toBeInTheDocument();
+    expect(importSchedule).toHaveBeenCalledTimes(1);
+    expect(importSchedule.mock.calls[0]![0]).toMatchObject({
+      name: 'North Plant',
+      code: 'NTH-A',
+      statusDate: '2026-10-15',
+      activityCount: 6,
+      sourceProjectCode: 'NTH-A',
+      mapping: { sourceProjectId: '101' },
+    });
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      `/w/${project!.workspaceId}/p/${project!.id}/files`,
+    );
+    await user.click(screen.getByRole('button', { name: 'View report' }));
+    expect(screen.getByTestId('dialog')).toHaveTextContent('importReport');
+  });
+
+  it('shows a taken code under Code', async () => {
+    const { user, dataLayer } = renderImport({ projectCode: '003' });
+    dataLayer.repository.importSchedule = () =>
+      Promise.reject(new RepositoryError('conflict', 'This code is already used in this project.'));
+    await toReview(user, new File([xer], 'north.xer'));
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    expect(
+      await screen.findByText('This code is already used in this project.'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Code')).toHaveFocus());
+  });
+
+  it('names what blocks Import when every schedule has errors', async () => {
+    const broken = new TextEncoder().encode(
+      'ERMHDR\t20.12\n%T\tPROJECT\n%F\tproj_id\tproj_short_name\n%R\t1\tP1\n%R\t2\tP2\n%E\n',
+    );
+    const { user } = renderImport({ projectCode: '003' });
+    await toReview(user, new File([broken], 'empty.xer'));
+    expect(
+      screen.getAllByText(
+        "Fix the errors before importing. This schedule can't be imported as it is.",
+      ).length,
+    ).toBe(2);
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Choose at least one schedule to import.',
+    );
+  });
+
+  it('refuses to import a single schedule with errors', async () => {
+    const duplicate = new TextEncoder().encode('Code,Name\nA1,One\nA1,Two\n');
+    const { user } = renderImport({ projectCode: '003' });
+    await toReview(user, new File([duplicate], 'dup.csv'));
+    await user.click(screen.getByRole('button', { name: 'Import' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Fix the errors before importing. This schedule can't be imported as it is.",
+    );
   });
 });
