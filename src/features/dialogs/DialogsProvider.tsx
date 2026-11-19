@@ -5,14 +5,18 @@ import type { ID } from '@/data/types';
 export type DialogKind =
   | 'newSchedule'
   | 'importSchedule'
+  | 'scheduleDetails'
+  | 'importReport'
   | 'newProject'
   | 'editProject'
   | 'newTeamWorkspace'
   | 'workspaceMembers';
 
 export interface DialogOptions {
-  /** The project 'editProject' edits, or the one a schedule dialog starts with. */
+  /** The project 'editProject' edits, or the one a schedule dialog opens for. */
   projectId?: ID;
+  /** The schedule 'scheduleDetails' or 'importReport' opens for. */
+  scheduleId?: ID;
   /** The workspace whose members 'workspaceMembers' shows, or the one 'editProject' edits in. */
   workspaceId?: ID;
 }

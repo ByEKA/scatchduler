@@ -1,6 +1,6 @@
 // Schedule code suggestions (P3 core spec §6.4 "Code suggestions", R8). Pure functions over the
 // codes a project already uses; the server's R8 check stays authoritative.
-import type { ScheduleSource } from '@/data/types';
+import type { ID, ISODate, Schedule, ScheduleSource } from '@/data/types';
 import { scheduleNameFromFile } from '@/features/schedules/file-name';
 
 /** The longest schedule code (R8). */
@@ -52,4 +52,30 @@ export function suggestCodeFor(
   return schedule.source === 'import' && schedule.sourceFileName !== null
     ? suggestImportCode(taken, { fileName: schedule.sourceFileName })
     : suggestNewScheduleCode(taken);
+}
+
+/**
+ * Suggested update number for a schedule (spec §6.4): 1 + the number of the project's other
+ * numbered schedules whose status date is on or before `statusDate`, or the highest number + 1
+ * when `statusDate` is null; if taken, the next free number above it.
+ */
+export function suggestUpdateNumber(
+  schedules: ReadonlyArray<Pick<Schedule, 'id' | 'statusDate' | 'updateNumber'>>,
+  scheduleId: ID,
+  statusDate: ISODate | null,
+): number {
+  const others = schedules.filter(
+    (schedule): schedule is Pick<Schedule, 'id' | 'statusDate'> & { updateNumber: number } =>
+      schedule.id !== scheduleId && schedule.updateNumber !== null,
+  );
+  const taken = new Set(others.map((schedule) => schedule.updateNumber));
+  let candidate =
+    statusDate === null
+      ? others.reduce((highest, schedule) => Math.max(highest, schedule.updateNumber), 0) + 1
+      : 1 +
+        others.filter(
+          (schedule) => schedule.statusDate !== null && schedule.statusDate <= statusDate,
+        ).length;
+  while (taken.has(candidate)) candidate += 1;
+  return candidate;
 }
