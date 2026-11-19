@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
 import { useCurrentContext } from '@/hooks/useCurrentContext';
-import { canEdit } from '@/features/workspaces/roles';
+import { canEdit, VIEWER_HINT } from '@/features/workspaces/roles';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNow } from '@/hooks/useNow';
 import { greetingDate } from '@/lib/format';
@@ -22,8 +22,6 @@ const GLASS_CLASSES = 'bg-white/12 text-white inset-ring inset-ring-white/24 hov
 
 // No press feedback on a disabled action.
 const DISABLED_CLASSES = 'cursor-not-allowed opacity-60 motion-safe:active:scale-100';
-
-const VIEWER_HINT = "Viewers can't make changes in this workspace";
 
 /**
  * A banner action. For viewers it stays focusable but does nothing and explains why (P2 spec §5.9,

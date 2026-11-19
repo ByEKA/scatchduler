@@ -64,8 +64,8 @@ export function makeImportScheduleSchema(taken: readonly string[]) {
   return z.object({ file: scheduleFile, name: scheduleName, code: scheduleCode(taken), projectId });
 }
 
-// Until the files page knows a project's codes (Task 20), the dialogs check none and the server's
-// R8 check answers.
+// The schemas without known codes. New schedule checks the chosen project's codes with
+// makeNewScheduleSchema; the interim import dialog checks none, and the server's R8 check answers.
 export const newScheduleSchema = makeNewScheduleSchema([]);
 
 export const importScheduleSchema = makeImportScheduleSchema([]);

@@ -1,8 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId, useLayoutEffect, useRef } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef } from 'react';
 import type { FormEvent, ReactElement } from 'react';
-import { Controller, useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router';
+import { Controller, useForm, useWatch } from 'react-hook-form';
+import { useLocation, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { FormDialog } from '@/components/common/FormDialog';
 import { Input } from '@/components/ui/input';
@@ -15,25 +15,30 @@ import { ProjectField } from '@/features/schedules/ProjectCombobox';
 import {
   defaultProjectId,
   filesPath,
-  newScheduleSchema,
+  makeNewScheduleSchema,
   SCHEDULE_CODE_HINT,
   type NewScheduleValues,
 } from '@/features/schedules/schedule-schema';
 import { useScheduleDialogFallback } from '@/features/schedules/useScheduleDialogFallback';
 import { useCurrentContext } from '@/hooks/useCurrentContext';
+import { useProjectSchedules } from '@/hooks/useProjectSchedules';
 import { useCreateSchedule } from '@/hooks/useSchedules';
 import { errorMessage } from '@/lib/format';
+
+const NO_CODES: readonly string[] = [];
 
 /**
  * Creates a blank schedule and opens its project's files page (spec §6.7; P3 core spec §6.4,
  * D16). The project starts as `projectId`, else the current project, else the workspace's first
- * project; without projects the dialog asks for one first. The code starts as the first free
- * `S` code; until the dialog knows the project's codes (Task 20), the server answers a taken one.
+ * project; without projects the dialog asks for one first. The code follows the chosen project's
+ * first free `S` code until the user edits it, and a code the project already uses reads as taken
+ * before any request (P3 core spec §6.4, §6.5); the server's R8 check stays authoritative.
  */
 export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactElement {
   const { closeDialog } = useDialogs();
   const { status, projects, project } = useCurrentContext();
   const navigate = useNavigate();
+  const location = useLocation();
   const createSchedule = useCreateSchedule();
   const nameId = useId();
   const nameErrorId = useId();
@@ -42,6 +47,11 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
   const codeErrorId = useId();
   // Drops a second submit that arrives before the pending state has rendered.
   const submittingRef = useRef(false);
+  // Set once the user types in Code; from then on it no longer follows the project.
+  const codeEditedRef = useRef(false);
+  // The chosen project's codes as the last render knew them. The list depends on the form's
+  // project, so it is known only after useForm; the resolver runs on submit, after that render.
+  const takenCodesRef = useRef<readonly string[]>(NO_CODES);
   const initialProjectId =
     status === 'ready' ? defaultProjectId(projects, projectId, project?.id) : null;
   const {
@@ -54,13 +64,23 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
     setFocus,
     formState: { errors, isDirty, isSubmitting },
   } = useForm({
-    resolver: zodResolver(newScheduleSchema),
+    resolver: (values, context, options) =>
+      zodResolver(makeNewScheduleSchema(takenCodesRef.current))(values, context, options),
     defaultValues: {
       name: 'New schedule',
-      code: suggestNewScheduleCode([]),
+      code: suggestNewScheduleCode(NO_CODES),
       projectId: initialProjectId ?? '',
     },
   });
+  const chosenProjectId = useWatch({ control, name: 'projectId' });
+  const { data: schedules } = useProjectSchedules(
+    chosenProjectId === '' ? undefined : chosenProjectId,
+  );
+  const takenCodes = useMemo(
+    () => schedules?.flatMap((schedule) => (schedule.code === null ? [] : [schedule.code])),
+    [schedules],
+  );
+  const suggestedCode = takenCodes === undefined ? null : suggestNewScheduleCode(takenCodes);
   const { fallback, onOpenAutoFocus } = useScheduleDialogFallback({
     fields: [{ height: 36 }, { height: 36, hint: true }, { height: 36 }],
     // The default name is selected, so typing replaces it.
@@ -80,6 +100,20 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
     }
   }, [initialProjectId, projects, getValues, resetField]);
 
+  useLayoutEffect(() => {
+    takenCodesRef.current = takenCodes ?? NO_CODES;
+  }, [takenCodes]);
+
+  // Until the user edits Code, it follows the chosen project's suggestion once that project's
+  // schedules are known. It changes as a default, so the form stays pristine. Once a submit has
+  // started it stays: the refetch after a create (or a conflict) would otherwise move it on.
+  useLayoutEffect(() => {
+    if (suggestedCode === null || codeEditedRef.current || submittingRef.current) return;
+    if (getValues('code') !== suggestedCode) {
+      resetField('code', { defaultValue: suggestedCode });
+    }
+  }, [suggestedCode, getValues, resetField]);
+
   async function save(values: NewScheduleValues): Promise<void> {
     if (submittingRef.current) return;
     submittingRef.current = true;
@@ -89,7 +123,9 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
       closeDialog();
       // The picker offers only these projects, so the new schedule's project is among them.
       const parent = projects.find((p) => p.id === schedule.projectId);
-      if (parent) void navigate(filesPath(parent.workspaceId, parent.id));
+      // Already on that files page: stay, keeping its search (Show archived, D16).
+      const target = parent ? filesPath(parent.workspaceId, parent.id) : null;
+      if (target !== null && location.pathname !== target) void navigate(target);
     } catch (error) {
       // Only a failure re-arms the form; after a success the dialog is closing.
       submittingRef.current = false;
@@ -108,6 +144,7 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
 
   const nameError = errors.name?.message;
   const codeError = errors.code?.message;
+  const codeField = register('code');
 
   return (
     <FormDialog
@@ -159,7 +196,11 @@ export function NewScheduleDialog({ projectId }: { projectId?: ID }): ReactEleme
               aria-describedby={codeError ? `${codeHintId} ${codeErrorId}` : codeHintId}
               readOnly={isPending}
               className="font-mono"
-              {...register('code')}
+              {...codeField}
+              onChange={(event) => {
+                codeEditedRef.current = true;
+                void codeField.onChange(event);
+              }}
             />
             <p id={codeHintId} className="text-xs text-muted-foreground">
               {SCHEDULE_CODE_HINT}

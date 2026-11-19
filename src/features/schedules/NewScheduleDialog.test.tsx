@@ -41,7 +41,8 @@ describe('NewScheduleDialog', () => {
   });
 
   it('suggests a code, checks it and shows a taken one under Code', async () => {
-    const { user } = await open();
+    const { user, dataLayer } = await open();
+    const create = vi.spyOn(dataLayer.repository, 'createSchedule');
     const code = screen.getByLabelText('Code');
     expect(code).toHaveValue('S01');
     expect(
@@ -53,10 +54,11 @@ describe('NewScheduleDialog', () => {
     await user.type(code, 'ms-01');
     await user.click(screen.getByRole('button', { name: 'Create schedule' }));
     expect(
-      await screen.findByText('This code is already used in this project.'),
+      await screen.findByText('This code is already used in this project'),
     ).toBeInTheDocument();
     await waitFor(() => expect(code).toHaveFocus());
     expect(screen.getByTestId('dialog')).toHaveTextContent('newSchedule');
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('submits once when the button is clicked twice', async () => {
@@ -150,6 +152,26 @@ describe('NewScheduleDialog', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('Project')).toHaveTextContent('Harbor Logistics Hub'),
     );
+  });
+
+  it("suggests the next free code of the chosen project and checks the project's codes", async () => {
+    const dataLayer = createTestDataLayer();
+    const harbor = dataLayer.store.read().projects.find((p) => p.code === '003')!;
+    dataLayer.store.write((db) => {
+      db.schedules.find((s) => s.code === 'UP-01')!.code = 'S01';
+    });
+    const { user } = renderWithProviders(
+      <OpenDialog kind="newSchedule" options={{ projectId: harbor.id }} />,
+      { route: '/home', path: '/home', dataLayer },
+    );
+    const code = await screen.findByLabelText('Code');
+    await waitFor(() => expect(code).toHaveValue('S02'));
+    await user.clear(code);
+    await user.type(code, 's01');
+    await user.click(screen.getByRole('button', { name: 'Create schedule' }));
+    expect(
+      await screen.findByText('This code is already used in this project'),
+    ).toBeInTheDocument();
   });
 
   it('starts on the current project of the page', async () => {

@@ -23,7 +23,7 @@ it('shows a skeleton while loading and Retry, not Page not found, when the read 
         }),
     );
 
-  const { user } = renderApp(`/w/${personal.id}/p/${riverside.id}/files`, { dataLayer });
+  const { user } = renderApp(`/w/${personal.id}/p/${riverside.id}/dashboard`, { dataLayer });
   expect(await screen.findByTestId('project-heading-skeleton')).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: 'Page not found' })).not.toBeInTheDocument();
 
@@ -35,7 +35,7 @@ it('shows a skeleton while loading and Retry, not Page not found, when the read 
   spy.mockImplementation(listProjects);
   await user.click(within(alert).getByRole('button', { name: 'Retry' }));
   expect(
-    await screen.findByRole('heading', { level: 1, name: 'Riverside Office Tower · Files' }),
+    await screen.findByRole('heading', { level: 1, name: 'Riverside Office Tower · Dashboard' }),
   ).toBeInTheDocument();
 });
 
@@ -47,7 +47,7 @@ it('shows Page not found when the repository says the workspace is gone', async 
   vi.spyOn(dataLayer.repository, 'listProjects').mockRejectedValue(
     new RepositoryError('not_found', 'Workspace not found'),
   );
-  renderApp(`/w/${personal.id}/p/${riverside.id}/files`, { dataLayer });
+  renderApp(`/w/${personal.id}/p/${riverside.id}/dashboard`, { dataLayer });
   expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
   expect(within(screen.getByRole('main')).queryByRole('alert')).not.toBeInTheDocument();
 });

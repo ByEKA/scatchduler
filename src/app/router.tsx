@@ -9,6 +9,7 @@ import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { HomePage } from '@/pages/HomePage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { ProjectFilesPage } from '@/pages/ProjectFilesPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { SignInPage } from '@/pages/SignInPage';
@@ -34,10 +35,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'library', element: <PlaceholderPage title="Library" /> },
       { path: 'assets', element: <PlaceholderPage title="Assets" /> },
       { path: 'w/:workspaceId/projects', element: <ProjectsPage /> },
-      {
-        path: 'w/:workspaceId/p/:projectId/files',
-        element: <ProjectPlaceholderPage section="Files" />,
-      },
+      { path: 'w/:workspaceId/p/:projectId/files', element: <ProjectFilesPage /> },
       {
         path: 'w/:workspaceId/p/:projectId/dashboard',
         element: <ProjectPlaceholderPage section="Dashboard" />,

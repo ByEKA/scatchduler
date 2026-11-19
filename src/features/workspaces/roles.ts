@@ -27,3 +27,6 @@ export function canEdit(workspace: { myRole: Role } | null | undefined): boolean
 export function isOwner(workspace: { myRole: Role } | null | undefined): boolean {
   return workspace?.myRole === 'owner';
 }
+
+/** The Tooltip of every write button a viewer can't use (P2 spec §5.9, P3 core spec §6.1). */
+export const VIEWER_HINT = "Viewers can't make changes in this workspace";

@@ -16,7 +16,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 export function ProjectPlaceholderPage({
   section,
 }: {
-  section: 'Files' | 'Dashboard' | 'Schedule';
+  section: 'Dashboard' | 'Schedule';
 }): ReactElement {
   const { workspaceId, projectId } = useParams();
   const { data: projects, error, isPending, refetch } = useWorkspaceProjects(workspaceId);

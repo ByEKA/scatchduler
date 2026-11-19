@@ -30,10 +30,10 @@ describe('routes', () => {
     const db = dataLayer.store.read();
     const personal = db.workspaces[0]!;
     const riverside = db.projects.find((p) => p.code === '001')!;
-    renderApp(`/w/${personal.id}/p/${riverside.id}/files`, { dataLayer });
+    renderApp(`/w/${personal.id}/p/${riverside.id}/dashboard`, { dataLayer });
     const heading = await screen.findByRole('heading', {
       level: 1,
-      name: 'Riverside Office Tower · Files',
+      name: 'Riverside Office Tower · Dashboard',
     });
     expect(within(screen.getByRole('main')).getByText('001')).toBeInTheDocument();
     expect(heading).toBeInTheDocument();

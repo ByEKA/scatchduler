@@ -23,7 +23,7 @@ import {
   sortProjects,
   withoutFilters,
 } from '@/features/projects/project-list';
-import { canEdit } from '@/features/workspaces/roles';
+import { canEdit, VIEWER_HINT } from '@/features/workspaces/roles';
 import { useWorkspaceProjects } from '@/hooks/useProjects';
 import { useProjectsLayout } from '@/hooks/useProjectsLayout';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
@@ -31,8 +31,6 @@ import { pluralize, shortDate } from '@/lib/format';
 import { optionLabel, PROJECT_TYPE_OPTIONS, STAGE_OPTIONS } from '@/lib/project-options';
 import { cn } from '@/lib/utils';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-
-const VIEWER_HINT = "Viewers can't make changes in this workspace";
 
 const TILE_GRID_CLASSES = 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
 
