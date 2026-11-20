@@ -89,26 +89,6 @@ const toJson = (value: ImportReport | ImportMapping | undefined): Json | null =>
 /** `.png` for PNG covers, `.jpg` for everything else (the bucket takes JPEG and PNG only). */
 const coverExtension = (file: File): string => (file.type === 'image/png' ? '.png' : '.jpg');
 
-/**
- * The interim import path (spec §2.4): the format comes from the file's extension, one of the
- * types the P2 import dialog takes, and names the stored object's suffix (§4.9). Original names
- * never reach the key.
- */
-function interimImportFormat(
-  fileName: string,
-): { format: 'xer' | 'mspdi' | 'csv'; suffix: string } | null {
-  switch (/\.[^.]+$/.exec(fileName)?.[0].toLowerCase()) {
-    case '.xer':
-      return { format: 'xer', suffix: 'xer.gz' };
-    case '.xml':
-      return { format: 'mspdi', suffix: 'xml.gz' };
-    case '.csv':
-      return { format: 'csv', suffix: 'csv.gz' };
-    default:
-      return null;
-  }
-}
-
 export class SupabaseRepository implements DataRepository {
   private readonly client: AppSupabaseClient;
   private readonly signedUrls: SignedUrlCache;
@@ -321,24 +301,17 @@ export class SupabaseRepository implements DataRepository {
   }
 
   /**
-   * With the worker's stored copy and report, uploads the copy under the §4.9 path and inserts the
-   * schedule with what the import read (§4.10); during the interim path (§2.4) the format comes
-   * from the extension and the file is gzipped here. A failed insert removes the upload again.
+   * Uploads the worker's stored copy under `{workspace_id}/{project_id}/{uuid}.{suffix}` (§4.9)
+   * with its own content type and inserts the schedule with what the import read (§4.10). A failed
+   * insert removes the upload again.
    */
   async importSchedule(input: ImportScheduleInput): Promise<Schedule> {
-    if (input.stored !== undefined && input.report !== undefined) {
-      return this.importStored(input, input.stored, input.report);
-    }
     return this.run(async () => {
-      const { file } = input;
-      const stored = interimImportFormat(file.name);
-      if (!stored) throw new RepositoryError('validation', 'Use a .xer, .xml or .csv file.');
+      const { file, stored, report } = input;
       const project = await this.projectRef(input.projectId);
-      const { gzipSync } = await import('fflate');
-      const bytes = gzipSync(new Uint8Array(await file.arrayBuffer()));
-      const path = `${project.workspace_id}/${project.id}/${crypto.randomUUID()}.${stored.suffix}`;
-      const upload = await this.client.storage.from(IMPORTS).upload(path, bytes, {
-        contentType: 'application/gzip',
+      const path = `${project.workspace_id}/${project.id}/${crypto.randomUUID()}.${STORED_SUFFIX[report.format]}`;
+      const upload = await this.client.storage.from(IMPORTS).upload(path, stored, {
+        contentType: stored.type || 'application/octet-stream',
         upsert: false,
       });
       if (upload.error) throw upload.error;
@@ -349,10 +322,18 @@ export class SupabaseRepository implements DataRepository {
           name: input.name.trim(),
           code: input.code.trim(),
           source: 'import',
-          source_format: stored.format,
+          // null takes the project's status date (the insert trigger, P2).
+          status_date: input.statusDate,
+          activity_count: input.activityCount,
+          source_format: report.format,
           source_file_name: file.name,
           source_file_path: path,
           source_file_size: file.size,
+          source_file_sha256: report.file.sha256,
+          source_project_code: input.sourceProjectCode,
+          parser_version: report.parserVersion,
+          import_mapping: toJson(input.mapping),
+          import_report: toJson(report),
         })
         .select('id')
         .single();
@@ -643,57 +624,6 @@ export class SupabaseRepository implements DataRepository {
     if (error) throw toRepositoryError(error, { notFound: PROJECT_NOT_FOUND });
     if (data === null) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
     return data;
-  }
-
-  /**
-   * `importSchedule` with the stored copy and the report: the copy goes to
-   * `{workspace_id}/{project_id}/{uuid}.{suffix}` (§4.9) with its own content type, and the row
-   * takes the import's status date (`null`: the project's, by the insert trigger), activity
-   * count, format, size and hash of the original, source project code, parser version, mapping
-   * and report.
-   */
-  private async importStored(
-    input: ImportScheduleInput,
-    stored: Blob,
-    report: ImportReport,
-  ): Promise<Schedule> {
-    return this.run(async () => {
-      const { file } = input;
-      const project = await this.projectRef(input.projectId);
-      const path = `${project.workspace_id}/${project.id}/${crypto.randomUUID()}.${STORED_SUFFIX[report.format]}`;
-      const upload = await this.client.storage.from(IMPORTS).upload(path, stored, {
-        contentType: stored.type || 'application/octet-stream',
-        upsert: false,
-      });
-      if (upload.error) throw upload.error;
-      const { data, error } = await this.client
-        .from('schedules')
-        .insert({
-          project_id: project.id,
-          name: input.name.trim(),
-          code: input.code.trim(),
-          source: 'import',
-          // null takes the project's status date (the insert trigger, P2).
-          status_date: input.statusDate ?? null,
-          activity_count: input.activityCount ?? 0,
-          source_format: report.format,
-          source_file_name: file.name,
-          source_file_path: path,
-          source_file_size: file.size,
-          source_file_sha256: report.file.sha256,
-          source_project_code: input.sourceProjectCode ?? null,
-          parser_version: report.parserVersion,
-          import_mapping: toJson(input.mapping),
-          import_report: toJson(report),
-        })
-        .select('id')
-        .single();
-      if (error) {
-        await this.removeQuietly(IMPORTS, path);
-        throw error;
-      }
-      return this.scheduleItem(data.id);
-    });
   }
 
   /** One schedule as `schedule_items` shows it, read after a write. */

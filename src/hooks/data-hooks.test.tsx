@@ -18,7 +18,12 @@ import {
 } from '@/hooks/useSchedules';
 import { usePendingTasks, useSetTaskDone } from '@/hooks/useTasks';
 import { useCreateTeamWorkspace, useWorkspaces } from '@/hooks/useWorkspaces';
-import { createTestDataLayer, makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
+import {
+  createTestDataLayer,
+  makeImportScheduleInput,
+  makeNewProjectInput,
+  makeUpdateProjectInput,
+} from '@/test/fakes';
 import { createQueryWrapper } from '@/test/render';
 
 vi.mock('@/lib/image', () => ({
@@ -140,14 +145,11 @@ describe('data hooks', () => {
       result.current.create.mutateAsync({ projectId: projectId('006'), name: 'B', code: 'S01' }),
     );
     await waitFor(() => expect(result.current.recent.data?.[0]?.code).toBe('006'));
-    await act(() =>
-      result.current.importSchedule.mutateAsync({
-        projectId: projectId('005'),
-        name: 'Rev 2',
-        code: 'REV-2',
-        file: new File(['x'], 'rev2.xer'),
-      }),
-    );
+    const importInput = await makeImportScheduleInput(projectId('005'), {
+      name: 'Rev 2',
+      code: 'REV-2',
+    });
+    await act(() => result.current.importSchedule.mutateAsync(importInput));
     await waitFor(() => expect(result.current.recent.data?.[0]?.code).toBe('005'));
   });
 

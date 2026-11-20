@@ -189,4 +189,13 @@ export default defineConfig([
       ],
     },
   },
+  // Spec D47: component and feature tests may import the import client and fixtures while keeping
+  // the data-layer adapter boundary.
+  {
+    files: ['src/**/*.test.{ts,tsx}'],
+    ignores: ['src/data/**', 'src/import/**', 'src/test/**'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [ADAPTER_PATTERN] }],
+    },
+  },
 ]);

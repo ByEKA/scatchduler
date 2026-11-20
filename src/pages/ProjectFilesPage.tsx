@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ProjectSummary, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { ScheduleMenu } from '@/features/files/ScheduleMenu';
 import { SchedulesTable } from '@/features/files/SchedulesTable';
 import { canEdit, VIEWER_HINT } from '@/features/workspaces/roles';
 import { useProject } from '@/hooks/useProjects';
@@ -268,7 +269,14 @@ export function ProjectFilesPage(): ReactElement {
   const workspaces = useWorkspaces();
   const projectQuery = useProject(workspaceId, projectId);
   const [searchParams, setSearchParams] = useSearchParams();
-  const showArchived = searchParams.get('archived') === '1';
+  const urlShowArchived = searchParams.get('archived') === '1';
+  // React Router applies search-param updates inside a transition, so keep the checkbox's
+  // immediate choice until the URL catches up (as ProjectsToolbar does for search).
+  const [pendingArchived, setPendingArchived] = useState<boolean | null>(null);
+  if (pendingArchived !== null && pendingArchived === urlShowArchived) {
+    setPendingArchived(null);
+  }
+  const showArchived = pendingArchived ?? urlShowArchived;
 
   if (workspaceId === undefined || projectId === undefined) return <NotFoundPage />;
   const project = projectQuery.data;
@@ -300,6 +308,7 @@ export function ProjectFilesPage(): ReactElement {
   if (project === undefined || workspace === undefined) return <LoadingHeader />;
 
   function setShowArchived(show: boolean): void {
+    setPendingArchived(show);
     const next = new URLSearchParams(searchParams);
     if (show) next.set('archived', '1');
     else next.delete('archived');
@@ -311,7 +320,19 @@ export function ProjectFilesPage(): ReactElement {
       <ProjectHeader project={project} workspace={workspace} />
       <ProjectCounters project={project} />
       <ArchivedToggle checked={showArchived} onChange={setShowArchived} />
-      <SchedulesTable project={project} workspace={workspace} showArchived={showArchived} />
+      <SchedulesTable
+        project={project}
+        workspace={workspace}
+        showArchived={showArchived}
+        renderMenu={(schedule, schedules) => (
+          <ScheduleMenu
+            schedule={schedule}
+            schedules={schedules}
+            project={project}
+            workspace={workspace}
+          />
+        )}
+      />
     </div>
   );
 }

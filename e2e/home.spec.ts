@@ -58,16 +58,13 @@ test('a project can be created through the wizard', async ({ page }) => {
 
 test('a schedule file can be imported', async ({ page }) => {
   await page.getByRole('button', { name: 'Import schedule', exact: true }).click();
-  await page.locator('input[type="file"]').setInputFiles({
-    name: 'Rev7.XER',
-    mimeType: 'application/octet-stream',
-    buffer: Buffer.from('x'),
-  });
-  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Rev7');
-  await expect(page.getByLabel('Code', { exact: true })).toHaveValue('Rev7');
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles('src/import/__fixtures__/two-projects.xer');
+  await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Import', exact: true }).click();
   await expect(page.getByText('Schedule imported')).toBeVisible();
-  await expect(page).toHaveURL(/\/schedule\?scheduleId=/);
+  await expect(page).toHaveURL(/\/p\/[^/]+\/files$/);
 });
 
 test('a team workspace can be created', async ({ page }) => {

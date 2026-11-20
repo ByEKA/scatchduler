@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import type { Database } from '@/data/supabase/database.types';
-import { makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
+import { makeImportScheduleInput, makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
 import { readLocalStack } from './local-stack';
 import { makeSupabaseRepositoryFixture } from './supabase-fixture';
 
@@ -43,12 +43,9 @@ describe('projects on the local stack', () => {
     const project = await f.repository.createProject(
       makeNewProjectInput(f.workspaces.personal, { code: 'DL1', coverImage: jpeg('c.jpg') }),
     );
-    const imported = await f.repository.importSchedule({
-      projectId: project.id,
-      name: 'Rev 1',
-      code: 'R1',
-      file: new File(['ERMHDR'], 'rev1.xer'),
-    });
+    const imported = await f.repository.importSchedule(
+      await makeImportScheduleInput(project.id, { name: 'Rev 1', code: 'R1' }),
+    );
     const oldPath = `${f.workspaces.personal}/${project.id}/${crypto.randomUUID()}.xer`;
     await admin.storage.from('schedule-imports').upload(oldPath, new Blob(['ERMHDR']));
     await admin.from('schedules').insert({
@@ -81,18 +78,12 @@ describe('projects on the local stack', () => {
   it('removes the stored originals of deleted schedules, P2-era imports included', async () => {
     const f = await makeSupabaseRepositoryFixture();
     const metro = f.projectIds['002']!;
-    const kept = await f.repository.importSchedule({
-      projectId: metro,
-      name: 'Kept',
-      code: 'K1',
-      file: new File(['ERMHDR'], 'kept.xer'),
-    });
-    const gone = await f.repository.importSchedule({
-      projectId: metro,
-      name: 'Gone',
-      code: 'G1',
-      file: new File(['ERMHDR'], 'gone.xer'),
-    });
+    const kept = await f.repository.importSchedule(
+      await makeImportScheduleInput(metro, { name: 'Kept', code: 'K1' }),
+    );
+    const gone = await f.repository.importSchedule(
+      await makeImportScheduleInput(metro, { name: 'Gone', code: 'G1' }),
+    );
     const oldPath = `${f.workspaces.personal}/${metro}/${crypto.randomUUID()}.csv`;
     await admin.storage.from('schedule-imports').upload(oldPath, new Blob(['a;b']));
     const { data: old } = await admin

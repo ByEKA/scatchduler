@@ -81,4 +81,23 @@ describe('import client', () => {
     const packed = await client.pack(outcome.report);
     expect(packed.stored.type).toBe('application/gzip');
   });
+
+  it('rejects open requests with failed when the worker errors or fails to start', async () => {
+    const { worker } = fakeWorker(() => undefined);
+    const client = createImportClient({ createWorker: () => worker });
+    const pending = client.inspect(file);
+    worker.onerror?.({ message: 'script load failed' });
+    await expect(pending).rejects.toMatchObject({ code: 'failed', message: 'script load failed' });
+    expect(worker.terminated).toBe(true);
+
+    const broken = createImportClient({
+      createWorker: () => {
+        throw new Error('worker blocked');
+      },
+    });
+    await expect(broken.inspect(file)).rejects.toMatchObject({
+      code: 'failed',
+      message: 'worker blocked',
+    });
+  });
 });

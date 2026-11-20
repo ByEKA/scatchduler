@@ -33,6 +33,10 @@ describe('import boundaries (S7)', () => {
     ['src/hooks/a.ts', "import { analyze } from '@/import';", 1],
     ['src/hooks/a.ts', "import type { AnalyzeOutcome } from '@/import';", 0],
     ['src/features/a.tsx', "import { gzipSync } from 'fflate/browser';", 1],
+    // Spec D47: test files outside src/import and src/test may import @/import/** and fixtures,
+    // while keeping the adapter boundary.
+    ['src/features/import/a.test.tsx', "import { createImportClient } from '@/import/client';", 0],
+    ['src/features/import/a.test.tsx', "import { seed } from '@/data/mock/seed';", 1],
   ])('%s: %s gives %i restricted-import errors', async (filePath, code, errors) => {
     expect(await restrictedImports(filePath, code)).toBe(errors);
   });

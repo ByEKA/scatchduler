@@ -75,3 +75,58 @@ test('an invited person accepts and lands in the team workspace', async ({ page,
   ).toBeVisible();
   await context.close();
 });
+
+test('an imported XER becomes current, shows its report and gives back its original', async ({
+  page,
+}) => {
+  await signIn(page, 'deniz.kaya@example.com');
+  await page
+    .getByRole('region', { name: 'Recent projects' })
+    .getByRole('link', { name: 'Metro Line Extension' })
+    .click();
+  await page.getByRole('button', { name: 'Import schedule' }).first().click();
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles('src/import/__fixtures__/two-projects.xer');
+  await page.getByRole('button', { name: 'Next' }).click();
+  const code = `E2E-${Date.now() % 100000}`;
+  await page.getByLabel('Code', { exact: true }).fill(code);
+  await page.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(page.getByText('Schedule imported')).toBeVisible();
+  const row = page
+    .getByRole('table', { name: 'Schedules' })
+    .getByRole('row')
+    .filter({ hasText: code });
+  await expect(row).toBeVisible();
+  await page.getByRole('button', { name: 'Actions for North Plant' }).first().click();
+  await page.getByRole('menuitem', { name: 'View import report' }).click();
+  await expect(page.getByRole('dialog', { name: 'Import report' })).toContainText(
+    'two-projects.xer',
+  );
+  await page.getByRole('button', { name: 'Close' }).last().click();
+  await page.getByRole('button', { name: 'Actions for North Plant' }).first().click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('menuitem', { name: 'Download original file' }).click();
+  expect((await download).suggestedFilename()).toBe('two-projects.xer');
+});
+
+test('a viewer sees the files page actions disabled', async ({ page }) => {
+  await signIn(page, 'elif.arslan@example.com');
+  await page
+    .getByRole('region', { name: 'Workspaces' })
+    .getByRole('button', { name: /^Site Operations/ })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('link', { name: 'Projects' })
+    .click();
+  await page.getByRole('link', { name: 'Tunnel Ventilation Upgrade' }).first().click();
+  await expect(page.getByRole('button', { name: 'New schedule' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  await expect(page.getByRole('button', { name: 'Import schedule' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+});

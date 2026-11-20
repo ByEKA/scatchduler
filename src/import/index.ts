@@ -45,6 +45,7 @@ export type InspectOutcome =
   | {
       kind: 'schedule';
       format: 'xer' | 'mspdi';
+      formatVersion: string | null;
       fileName: string;
       size: number;
       sha256: string;
@@ -406,6 +407,7 @@ export async function inspect(bytes: Uint8Array, fileName: string): Promise<Insp
         return {
           kind: 'schedule',
           format: 'xer',
+          formatVersion: xer?.version ?? null,
           ...base,
           encoding: decoded.encoding,
           projects,
@@ -425,6 +427,7 @@ export async function inspect(bytes: Uint8Array, fileName: string): Promise<Insp
         return {
           kind: 'schedule',
           format: 'mspdi',
+          formatVersion: null,
           ...base,
           encoding: null,
           projects: [],

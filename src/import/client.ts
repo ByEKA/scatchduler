@@ -41,6 +41,8 @@ export interface WorkerLike {
   postMessage(message: unknown, transfer?: Transferable[]): void;
   terminate(): void;
   onmessage: ((event: { data: unknown }) => void) | null;
+  onerror?: ((event: unknown) => void) | null;
+  onmessageerror?: ((event: unknown) => void) | null;
 }
 
 export interface ImportClient {
@@ -139,22 +141,26 @@ export function createImportClient(
   }
 
   /** Ends the transport: the worker is terminated and every open request rejected. */
-  function close(reason: 'timeout' | 'cancelled'): void {
+  function close(reason: 'timeout' | 'cancelled' | 'failed', message?: string): void {
     if (watchdog !== null) clearTimeout(watchdog.timer);
     watchdog = null;
     if (transport?.kind === 'worker') {
       transport.worker.onmessage = null;
+      transport.worker.onerror = null;
+      transport.worker.onmessageerror = null;
       transport.worker.terminate();
     }
     transport = null;
     const open = [...pending.values()];
     pending.clear();
     for (const request of open) {
-      request.reject(
-        reason === 'timeout'
-          ? new ImportClientError('timeout', TOO_SLOW)
-          : new ImportClientError('cancelled'),
-      );
+      if (reason === 'timeout') {
+        request.reject(new ImportClientError('timeout', TOO_SLOW));
+      } else if (reason === 'failed') {
+        request.reject(new ImportClientError('failed', message ?? 'failed'));
+      } else {
+        request.reject(new ImportClientError('cancelled'));
+      }
     }
   }
 
@@ -183,7 +189,12 @@ export function createImportClient(
   }
 
   function open(): Transport {
-    const worker = createWorker();
+    let worker: WorkerLike | null;
+    try {
+      worker = createWorker();
+    } catch (error) {
+      throw new ImportClientError('failed', messageOf(error));
+    }
     if (worker === null) {
       return {
         kind: 'thread',
@@ -191,6 +202,8 @@ export function createImportClient(
       };
     }
     worker.onmessage = (event) => receive(event.data);
+    worker.onerror = (event) => close('failed', messageOf(event));
+    worker.onmessageerror = () => close('failed');
     return { kind: 'worker', worker };
   }
 
@@ -205,7 +218,15 @@ export function createImportClient(
     if (disposed) return Promise.reject(new ImportClientError('cancelled'));
     if (transport === null) {
       if (type !== 'inspect') return Promise.reject(new ImportClientError('no_file'));
-      transport = open();
+      try {
+        transport = open();
+      } catch (error) {
+        return Promise.reject(
+          error instanceof ImportClientError
+            ? error
+            : new ImportClientError('failed', messageOf(error)),
+        );
+      }
     }
     const target = transport;
     lastId += 1;

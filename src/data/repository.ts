@@ -55,25 +55,20 @@ export interface NewScheduleInput {
   code: string; // trimmed by the adapter; required and unique in the project, ignoring case (R8)
 }
 
-/**
- * One import (spec §4.2). The fields after `file` are optional during the interim import path
- * (spec §2.4): without a `report` (and, on Supabase, a `stored` copy) the adapters keep the
- * interim behavior, the format from the file's extension and no mapping or report, as for a
- * P2-era import.
- */
+/** One import (spec §4.2, §5.8). */
 export interface ImportScheduleInput {
   projectId: ID;
   name: string;
   code: string; // as NewScheduleInput's
   file: File; // the original, as the user chose it
   /** From the worker's `pack`: the file gzipped for xer, mspdi and csv; the file itself for xlsx. */
-  stored?: Blob;
-  statusDate?: ISODate | null; // null takes the project's (P2)
-  activityCount?: number; // the accepted activities
-  sourceProjectCode?: string | null;
-  mapping?: ImportMapping;
+  stored: Blob;
+  statusDate: ISODate | null; // null takes the project's (P2)
+  activityCount: number; // the accepted activities
+  sourceProjectCode: string | null;
+  mapping: ImportMapping;
   /** The stored report (spec §5.10); its parserVersion, format and file.sha256 are stored too. */
-  report?: ImportReport;
+  report: ImportReport;
 }
 
 /** One save of the Schedule details dialog. */

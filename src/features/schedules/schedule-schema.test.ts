@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ZodType } from 'zod';
 import {
   defaultProjectId,
-  importScheduleSchema,
+  importFileSchema,
   makeNewScheduleSchema,
   MAX_SCHEDULE_BYTES,
   newScheduleSchema,
@@ -28,25 +28,18 @@ describe('schedule schemas', () => {
   });
 
   it('validates import files case-insensitively and by size', () => {
-    const base = { name: 'Baseline', code: 'S01', projectId: 'p' };
-    expect(issues(importScheduleSchema, { ...base, file: null })).toEqual([
-      'Choose a file to import',
+    expect(issues(importFileSchema, null)).toEqual(['Choose a file to import']);
+    expect(issues(importFileSchema, new File(['x'], 'plan.pdf'))).toEqual([
+      'Use a .xer, .xml, .xlsx or .csv file',
     ]);
-    expect(issues(importScheduleSchema, { ...base, file: new File(['x'], 'plan.pdf') })).toEqual([
-      'Use a .xer, .xml or .csv file',
-    ]);
-    expect(
-      issues(importScheduleSchema, { ...base, file: new File(['x'], 'BASELINE.XER') }),
-    ).toEqual([]);
+    expect(issues(importFileSchema, new File(['x'], 'BASELINE.XER'))).toEqual([]);
     expect(MAX_SCHEDULE_BYTES).toBe(50 * 1024 * 1024);
     const big = new File(['x'], 'big.xer');
     Object.defineProperty(big, 'size', { value: 50 * 1024 * 1024 + 1 });
-    expect(issues(importScheduleSchema, { ...base, file: big })).toEqual([
-      'File must be 50 MB or smaller',
-    ]);
+    expect(issues(importFileSchema, big)).toEqual(['File must be 50 MB or smaller']);
     const atLimit = new File(['x'], 'limit.xer');
     Object.defineProperty(atLimit, 'size', { value: 50 * 1024 * 1024 });
-    expect(issues(importScheduleSchema, { ...base, file: atLimit })).toEqual([]);
+    expect(issues(importFileSchema, atLimit)).toEqual([]);
   });
 
   it('validates schedule codes and checks them against the project codes', () => {
@@ -73,5 +66,20 @@ describe('schedule schemas', () => {
     expect(defaultProjectId(projects, 'gone', 'b')).toBe('b');
     expect(defaultProjectId(projects, 'gone', 'gone')).toBe('a');
     expect(defaultProjectId([], 'a', 'a')).toBeNull();
+  });
+
+  it('accepts the import extensions and refuses MPP and XLS with their messages', () => {
+    const fileIssues = (name: string) => {
+      const result = importFileSchema.safeParse(new File(['x'], name));
+      return result.success ? [] : result.error.issues.map((i) => i.message);
+    };
+    expect(['a.XER', 'b.xml', 'c.xlsx', 'd.CSV'].flatMap(fileIssues)).toEqual([]);
+    expect(fileIssues('plan.pdf')).toEqual(['Use a .xer, .xml, .xlsx or .csv file']);
+    expect(fileIssues('plan.mpp')).toEqual([
+      "MPP files can't be imported. In Microsoft Project, save the file as XML and import that.",
+    ]);
+    expect(fileIssues('old.xls')).toEqual([
+      "Older Excel workbooks (.xls) can't be imported. In Excel, save the file as .xlsx and import that.",
+    ]);
   });
 });

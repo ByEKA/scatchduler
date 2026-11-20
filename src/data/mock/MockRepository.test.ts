@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { MockRepository } from '@/data/mock/MockRepository';
 import { createMockStore, type MockStore } from '@/data/mock/store';
 import { createMemoryStorage } from '@/lib/storage';
-import { makeNewProjectInput } from '@/test/fakes';
+import { makeImportScheduleInput, makeNewProjectInput } from '@/test/fakes';
 
 const now = new Date('2026-10-14T10:00:00.000Z');
 let store: MockStore;
@@ -106,13 +106,15 @@ describe('MockRepository', () => {
   });
 
   it('records imported schedules and rejects unknown projects', async () => {
-    const imported = await repo.importSchedule({
-      projectId: project('002').id,
-      name: 'Rev 7',
-      code: 'REV-7',
-      file: new File(['x'], 'rev7.XER'),
+    const imported = await repo.importSchedule(
+      await makeImportScheduleInput(project('002').id, { name: 'Rev 7', code: 'REV-7' }),
+    );
+    expect(imported).toMatchObject({
+      source: 'import',
+      sourceFileName: 'two-projects.xer',
+      hasImportReport: true,
+      hasImportMapping: true,
     });
-    expect(imported).toMatchObject({ source: 'import', sourceFileName: 'rev7.XER' });
     await expect(
       repo.createSchedule({ projectId: 'nope', name: 'X', code: 'X' }),
     ).rejects.toMatchObject({

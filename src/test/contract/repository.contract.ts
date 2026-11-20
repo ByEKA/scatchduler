@@ -164,13 +164,15 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
 
     it('records imported schedules and rejects unknown projects', async () => {
       const f = await makeFixture();
-      const imported = await f.repository.importSchedule({
-        projectId: f.projectIds['002']!,
-        name: 'Rev 7',
-        code: 'REV-7',
-        file: new File(['x'], 'rev7.XER'),
+      const imported = await f.repository.importSchedule(
+        await makeImportScheduleInput(f.projectIds['002']!, { name: 'Rev 7', code: 'REV-7' }),
+      );
+      expect(imported).toMatchObject({
+        source: 'import',
+        sourceFileName: 'two-projects.xer',
+        hasImportReport: true,
+        hasImportMapping: true,
       });
-      expect(imported).toMatchObject({ source: 'import', sourceFileName: 'rev7.XER' });
       for (const id of unknownIds()) {
         await expect(
           f.repository.createSchedule({ projectId: id, name: 'X', code: 'X' }),
@@ -195,12 +197,9 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         f.repository.createSchedule({ projectId: riverside, name: 'X', code: ' ms-01 ' }),
       ).rejects.toMatchObject(taken);
       await expect(
-        f.repository.importSchedule({
-          projectId: riverside,
-          name: 'X',
-          code: 'MS-01',
-          file: new File(['x'], 'x.xer'),
-        }),
+        f.repository.importSchedule(
+          await makeImportScheduleInput(riverside, { name: 'X', code: 'MS-01' }),
+        ),
       ).rejects.toMatchObject(taken);
       expect(
         await f.repository.createSchedule({
@@ -463,12 +462,9 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           f.repository.createSchedule({ projectId: tunnel, name: 'Nope', code: 'NOPE' }),
         ).rejects.toMatchObject({ code: 'forbidden' });
         await expect(
-          f.repository.importSchedule({
-            projectId: tunnel,
-            name: 'Nope',
-            code: 'NOPE',
-            file: new File(['x'], 'x.xer'),
-          }),
+          f.repository.importSchedule(
+            await makeImportScheduleInput(tunnel, { name: 'Nope', code: 'NOPE' }),
+          ),
         ).rejects.toMatchObject({ code: 'forbidden' });
       });
 
@@ -878,12 +874,9 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           name: 'First',
           code: 'S01',
         });
-        const imported = await f.repository.importSchedule({
-          projectId: mill,
-          name: 'Rev',
-          code: 'R1',
-          file: new File(['x'], 'rev.XML'),
-        });
+        const imported = await f.repository.importSchedule(
+          await makeImportScheduleInput(mill, { name: 'Rev', code: 'R1' }),
+        );
         expect(first).toMatchObject({
           isCurrent: true,
           baseline: 'none',
@@ -897,8 +890,8 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         });
         expect(imported).toMatchObject({
           isCurrent: false,
-          sourceFormat: 'mspdi',
-          hasImportReport: false,
+          sourceFormat: 'xer',
+          hasImportReport: true,
         });
         expect(
           (await f.repository.listProjects(f.workspaces.personal)).map((p) => [

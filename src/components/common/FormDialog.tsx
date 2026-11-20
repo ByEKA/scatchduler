@@ -27,13 +27,18 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
-// Dialog widths from spec §6.7: team workspace 440, new schedule 520, import 560, new project 640.
+// Dialog widths from spec §6.7 and P3 core spec §6.4: team workspace 440, new schedule 520,
+// schedule details 560, new project / import File 640, import Columns 760, import Review 880.
 const WIDTH_CLASSES = {
   sm: 'w-[440px]',
   md: 'w-[520px]',
   lg: 'w-[560px]',
   xl: 'w-[640px]',
+  '2xl': 'w-[760px]',
+  '3xl': 'w-[880px]',
 } as const;
+
+export type DialogWidth = keyof typeof WIDTH_CLASSES;
 
 interface Presence {
   open: boolean;
@@ -92,8 +97,8 @@ export interface DialogShellProps {
   description?: string;
   /** Shown under the title and description, outside the body (the wizard's stepper). */
   header?: ReactNode;
-  /** sm 440 px, md 520 px, lg 560 px, xl 640 px. */
-  width: 'sm' | 'md' | 'lg' | 'xl';
+  /** sm 440 px, md 520 px, lg 560 px, xl 640 px, 2xl 760 px, 3xl 880 px. */
+  width: DialogWidth;
   /** Escape, a click outside and the header close button call this; the caller decides. */
   onCloseRequest: () => void;
   /** Disables the header close button (while saving). */
@@ -255,8 +260,8 @@ export interface FormDialogProps {
   description?: string;
   /** Shown under the title and description, outside the scrolling body (the wizard's stepper). */
   header?: ReactNode;
-  /** sm 440 px, md 520 px, lg 560 px, xl 640 px. */
-  width: 'sm' | 'md' | 'lg' | 'xl';
+  /** sm 440 px, md 520 px, lg 560 px, xl 640 px, 2xl 760 px, 3xl 880 px. */
+  width: DialogWidth;
   isDirty: boolean;
   isPending: boolean;
   submitLabel: string;

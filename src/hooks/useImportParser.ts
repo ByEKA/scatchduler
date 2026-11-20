@@ -31,10 +31,10 @@ function lazyImportClient(factory: () => ImportClient): LazyImportClient {
     preview: (table, encoding) => run((current) => current.preview(table, encoding)),
     analyze: (mapping, options) => run((current) => current.analyze(mapping, options)),
     pack: (report) => run((current) => current.pack(report)),
-    cancel: () => client?.cancel(),
+    cancel: () => client?.cancel?.(),
     dispose: () => {
       closed = true;
-      client?.dispose();
+      client?.dispose?.();
       client = null;
     },
     open: () => {
