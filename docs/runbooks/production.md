@@ -68,6 +68,8 @@ Never edit a migration that has reached production — add a new one. Run `npm r
 
 Data stays in the EU region; we store names, emails and work data only. Storing personal data of people in Turkey on EU servers is a cross-border transfer under KVKK, so before inviting people outside the lab, check the requirements with ITU's data-protection contact and publish a privacy notice. This note is not legal advice.
 
+Stored original schedule files can hold third parties' personal data (resource names and rates, the exporting user, email addresses); every member of the workspace can read them, and they are kept until their schedule is deleted. The `schedule-imports` delete policy change ships with the next rollout.
+
 ## Record
 
 The owner fills this in after the first deployment and copies V1(d) and V6 into `docs/superpowers/plans/2026-10-15-phase2-verification.md`.
