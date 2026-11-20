@@ -4,7 +4,7 @@
 |---|---|
 | **Spec** | `docs/superpowers/specs/2026-11-05-phase3-core-design.md` (§8 assumptions V1–V9, §2.2 success criteria) |
 | **Plan** | `docs/superpowers/plans/2026-11-05-phase3-core.md` (Task 1 checks V1–V7; Task 23 checks V6 and V8; Task 24 checks V9 and adds the final results) |
-| **Status** | Task 1, 2026-11-06: V1–V5 and V7 hold, so the design's primary path applies and no §8 fallback is in use. One difference from the spec's wording: the SheetJS CE 0.20.3 package ships no NOTICE file (V1). V6, V8 and V9 are pending; the parts of V2–V5 that need a worker or another browser wait for Task 23 and the [owner checklist](#owner-checklist). |
+| **Status** | Task 1, 2026-11-06: V1–V5 and V7 hold, so the design's primary path applies and no §8 fallback is in use (except SheetJS CE 0.20.3 shipping no NOTICE file, V1). Task 23, 2026-11-19: V6 (Chromium IIFE worker) and V8 (50 MB XER in CI) pass. Task 24, 2026-11-20: V9 passes on all 64 P6 XER files (68 projects, 0 errors), the English P6 workbook and all 11 refused `.mpp`/`.xls` files, with three gaps deferred by owner consent (Microsoft Project XML, Turkish Excel export and per-file source-tool totals); every automated suite passes (see [Final results](#final-results)). Production/cross-browser checks and the deferred V9 items wait in the [owner checklist](#owner-checklist). |
 
 ## Environment
 
@@ -35,14 +35,14 @@ V2–V5 and V7's download are checked by `integration/p3-assumptions.itest.ts` (
 | # | Assumption | Result | Date |
 |---|---|---|---|
 | V1 | The five dependencies have no open advisory, carry the expected licences, and the licence script finds each licence and NOTICE file | pass, no fallback. `npm audit --omit=dev` → `found 0 vulnerabilities`. `fast-xml-parser` 5.12.0 (at least 5.3.5), `papaparse` 5.7.0, `fflate` 0.8.3 and `@tanstack/react-table` 8.21.3 are MIT; `xlsx` 0.20.3 is Apache-2.0. `npm run build` ends with `Wrote 119 packages to …\dist\third-party-licenses.txt`; the file has 119 `License:` lines and lists all five packages, each with its `LICENSE` text, and the `xlsx` entry reads `License: Apache-2.0` followed by `--- LICENSE ---`. Difference from the spec's wording: the SheetJS 0.20.3 tarball has no NOTICE file (it ships `LICENSE` and `dist/LICENSE`, the same Apache-2.0 text ending in "Copyright (C) 2012-present SheetJS LLC"), so the licence file has no `--- NOTICE` section (`grep -c` → `0`). Apache-2.0 §4(d) asks for a NOTICE only when the work includes one, so the `LICENSE` text is the whole notice; the script would pick a NOTICE up if a later package shipped one | 2026-11-06 |
-| V2 | SheetJS CE installs from `vendor/` offline, honors `dense`, `sheets`, `sheetRows` and the 1904 flag, and writes workbooks in both date systems that it reads back with the same serials | pass for every part checked here, no fallback. `rm -rf node_modules && npm ci --offline` succeeds (`added 498 packages`) and `npm ls xlsx` shows `xlsx@0.20.3`. A workbook written with `utils.aoa_to_sheet` and `write({ bookType: 'xlsx', type: 'array' })` reads back with `Workbook.WBProps.date1904` as written and the serial `46096.5` unchanged, in both date systems; `read` with `sheets: ['Plan']` and `sheetRows: 1` lists both sheet names, parses only `Plan` and returns only its first row. Not checked here: SheetJS in a module worker (Task 14's worker, Task 23's e2e in Chromium) and whether current Excel and LibreOffice open the generated workbooks without a repair prompt (owner checklist item 4, once Task 12 writes the fixtures) | 2026-11-06 |
-| V3 | `fast-xml-parser` with `processEntities: false` leaves `&amp;` and character references as written; `parseTagValue: false`, `isArray` and `removeNSPrefix` behave as §5.6 | pass in Node, no fallback: `<Name>Kazı &amp; Dolgu &#x130;</Name>` reads as `Kazı &amp; Dolgu &#x130;`, `1.10` stays the text `1.10`, the default namespace is dropped and a single `Task` is an array. In a worker: Task 23's e2e (Chromium) | 2026-11-06 |
-| V4 | Papa Parse parses a decoded string with an explicit delimiter | pass in Node, no fallback: `'Kod;Süre\nA1;2,5\n'` with `delimiter: ';'` gives `[['Kod', 'Süre'], ['A1', '2,5']]`. In a worker: Task 23's e2e (Chromium) | 2026-11-06 |
-| V5 | `TextDecoder` supports `windows-1254`, `windows-1252`, `utf-16le/be` with `fatal` | pass in Node 24, no fallback: `windows-1254` decodes `DD FE F0` as `İşğ`, `windows-1252` decodes `8E` as `Ž`, both UTF-16 orders decode `İ`, and a fatal UTF-8 decoder throws on `FD`. Node 22: the CI `supabase` job runs the same test. Chromium worker: Task 23's e2e. Firefox and Safari workers: owner checklist item 2 | 2026-11-06 |
+| V2 | SheetJS CE installs from `vendor/` offline, honors `dense`, `sheets`, `sheetRows` and the 1904 flag, and writes workbooks in both date systems that it reads back with the same serials | pass for every part checked here, no fallback. `rm -rf node_modules && npm ci --offline` succeeds (`added 498 packages`) and `npm ls xlsx` shows `xlsx@0.20.3`. A workbook written with `utils.aoa_to_sheet` and `write({ bookType: 'xlsx', type: 'array' })` reads back with `Workbook.WBProps.date1904` as written and the serial `46096.5` unchanged, in both date systems; `read` with `sheets: ['Plan']` and `sheetRows: 1` lists both sheet names, parses only `Plan` and returns only its first row. Not checked here: whether current Excel and LibreOffice open the generated workbooks without a repair prompt (owner checklist item 4) | 2026-11-06 |
+| V3 | `fast-xml-parser` with `processEntities: false` leaves `&amp;` and character references as written; `parseTagValue: false`, `isArray` and `removeNSPrefix` behave as §5.6 | pass in Node and Chromium worker (`import.spec.ts` / `worker-*.js`), no fallback: `<Name>Kazı &amp; Dolgu &#x130;</Name>` reads as `Kazı &amp; Dolgu &#x130;`, `1.10` stays the text `1.10`, the default namespace is dropped and a single `Task` is an array | 2026-11-06, 2026-11-19 |
+| V4 | Papa Parse parses a decoded string with an explicit delimiter | pass in Node and Chromium worker (`import.spec.ts` Windows-1254 CSV test), no fallback: `'Kod;Süre\nA1;2,5\n'` with `delimiter: ';'` gives `[['Kod', 'Süre'], ['A1', '2,5']]` | 2026-11-06, 2026-11-19 |
+| V5 | `TextDecoder` supports `windows-1254`, `windows-1252`, `utf-16le/be` with `fatal` | pass in Node 24, Node 22 (CI) and Chromium worker (`import.spec.ts`), no fallback: `windows-1254` decodes `DD FE F0` as `İşğ`, `windows-1252` decodes `8E` as `Ž`, both UTF-16 orders decode `İ`, and a fatal UTF-8 decoder throws on `FD`. Firefox and Safari workers: owner checklist item 2 | 2026-11-06, 2026-11-19 |
 | V6 | A Vite module worker builds, loads under the CSP and has `crypto.subtle` | pass (Chromium): the worker builds as Vite's default IIFE bundle (`dist/assets/worker-*.js`, V6's fallback), loads from the preview build and hashes with `crypto.subtle` (`import.spec.ts`, `home.spec.ts`). Production CSP: owner checklist item 1 | 2026-11-19 |
 | V7 | `storage.download(path)` returns an object's bytes; `storage.objects.owner_id` holds the uploader's id as text and policies can read it; SQL deletes of `storage.objects` are refused | pass, no fallback. `download` returns the exact 7 bytes a signed-in workspace owner uploaded to `schedule-imports`. `information_schema` lists `owner_id` as `text` (the older `owner` is `uuid`), and the object the test uploaded has `owner_id` equal to the uploader's `auth.users.id::text`. A `for delete` policy using `owner_id = (select auth.uid())::text` is created without error (inside a transaction that was rolled back). A plain `delete from storage.objects` fails with "Direct deletion from storage tables is not allowed. Use the Storage API instead." (`storage.protect_delete()`, exit 1); after `set local storage.allow_delete_query = 'true'` it succeeds (exit 0), which Task 4's pgTAP `06_storage` relies on. So the adapter removes objects through the Storage API | 2026-11-06 |
-| V8 | The 20 MB generated XER compresses to 4 MB or less, and its upload and insert finish inside 60 s on the local stack | pending — Task 23; production: owner checklist item 3 | — |
-| V9 | The owner's real exports read without errors and their counts match the source tools' totals | pending — Task 24 | — |
+| V8 | The 50 MB generated XER (raised from 20 MB in D67) compresses to 10 MB or less, and its upload and insert finish inside 60 s on the local stack | pass on the CI Supabase stack: the generated 52,424,584-byte XER (`2,000` activities, `2,000` links) packs gzipped to **1,219,252 bytes** (1.16 MB, 2.33%, well under 10 MB), and `integration/imports.itest.ts` completes upload + insert in **4,800 ms** (4.8 s vs 60 s timeout). Production: owner checklist item 3 | 2026-11-19 |
+| V9 | The owner's real exports read without errors and their counts match the source tools' totals | pass with owner-accepted gaps (2026-11-20): 64 P6 XER files (68 projects across P6 5.0–7.0, including five 10k+ activity files up to 23,457 activities / 67,260 links in 2,613 ms) and the English P6 `.xlsx` export all read with **0 errors**, and all 11 `.mpp`/`.xls` files are refused with their §5.2 copy; P6 8.0 XERs also read with 0 errors in the 2026-11-17 local run. Gaps deferred by the owner on 2026-11-20 (owner checklist item 5): Microsoft Project XML (MSPDI), Turkish `.xlsx` export, and per-file source-tool totals | 2026-11-20 |
 
 ## V9 early read (2026-11-16, D66)
 
@@ -89,19 +89,70 @@ V2–V5 and V7's download are checked by `integration/p3-assumptions.itest.ts` (
 - **Not shown by the script:** the settings now read from `SCHEDOPTIONS`. The script prints no settings; its shapes show that in each of the seven P6 versions the table's fields include `proj_id`, `sched_retained_logic` and `sched_progress_override`. The fixture `legacy-p6.xer` pins the reading.
 - Every other count and issue code is as in the first read. Difference 8 needs no fix: `legacy-p6.xer` has no hour counts, and its hours per day come from the work week.
 
+**Task 24 final read (2026-11-20, after Task 13b / D67 and Tasks 21–23 at `01e4ffb`).** `npm run real-exports` and `npm run real-exports -- --shapes` over the owner's real-exports collection (77 files read from a temporary folder outside the repo, deleted immediately afterwards: 64 XER [61 loose + 3 extracted from `.zip`], 2 `.xlsx`, 10 `.mpp`, 1 `.xls`; 8 `.rar` archives were not extracted in the Linux VM where `unrar` is absent — their P6 8.0 XERs were already verified in the 2026-11-17 local run).
+
+| Format / version | Files | Projects | Errors | Notes |
+|---|---|---|---|---|
+| P6 XER 5.0 | 28 | 29 | 0 | includes the largest file: 23,457 activities, 67,260 links, 38.5 MB, read in 2,613 ms |
+| P6 XER 5.0.2000 | 1 | 1 | 0 | 4,648 activities, 11,887 accepted links (23 `LINK_TYPE_UNKNOWN`, 79 `LINK_DUPLICATE`), UTF-8 |
+| P6 XER 6.0 | 2 | 2 | 0 | 19,202 activities / 52,826 links (28.9 MB, 2,409 ms) and 16,146 activities / 47,286 links (30.1 MB, 1,942 ms) |
+| P6 XER 6.0.0 | 26 | 29 | 0 | includes three 2-project XERs with `XER_CROSS_PROJECT_LINK` |
+| P6 XER 6.2 | 2 | 2 | 0 | 3,353 activities / 8,938 links each (517–566 ms) |
+| P6 XER 7.0 | 5 | 5 | 0 | includes two 11,426-activity / 32,407-link files (670–713 ms) |
+| Excel `.xlsx` (English P6 export) | 1 | 1 | 0 | header row 3; 8 fields auto-mapped (`Activity ID`, `Activity Name`, `Original Duration`, `Start`, `Finish`, `Actual Start`, `Actual Finish`, `% of Complete`); 79 activities, 1 `TABLE_MISSING_NAME` warning |
+| Excel `.xlsx` (English summary sheet) | 1 | 1 | 1 | header row 5 (`Ser.`, `Item`, `Progress %`, `Notes`); expected `FILE_NO_ACTIVITIES` until user maps columns manually |
+| `.mpp` / `.xls` | 11 | — | — | all 10 `.mpp` and 1 `.xls` cleanly refused with §5.2 guidance |
+
+- **Totals across the 70 analyzed schedules:** 146,338 activities, 362,508 relationships, 23,043 WBS elements, 795 calendars (`0` unreadable, `0` repaired). Zero exceptions thrown.
+- **Difference 5 resolved (D67):** All three files that previously exceeded the old 20 MB / 20,000-activity / 40,000-relationship limits now read cleanly with **0 errors**, bringing XER errors to **0 / 68 projects**.
+- **S5 10k+ budget:** All five projects over 10,000 activities (11,426 to 23,457 activities, up to 67,260 links) read and check in **0.67–2.61 s** (budget: `< 5 s`).
+- **Owner-accepted gaps (2026-11-20):** The owner confirmed proceeding with Phase 3 core completion while deferring the following to later testing (tracked in [Owner checklist](#owner-checklist) item 5):
+  1. Real Microsoft Project XML (`.xml` / MSPDI) export (the collection has `.mpp` files only; MSPDI milestone placement and recurrence exception type numbers remain covered by committed fixtures only).
+  2. Real Turkish Excel (`.xlsx`) export (both workbooks in the collection are English; Turkish link types, lags, duration units, dates and constraint names remain covered by committed fixtures only).
+  3. Per-file source-tool totals comparison (activities, links, WBS elements, calendars read from P6 / MS Project / Excel).
+
 ## Owner checklist
 
-Each item needs the owner (a browser other than Chromium, a desktop application or the production project). Tick the box and fill in the result line.
+Each item needs the owner (a browser other than Chromium, a desktop application, the production project, or deferred real exports). Tick the box and fill in the result line.
 
-- [ ] **1. Worker under the production CSP (V6).** On the production deployment, an import reaches the Columns or Review step, so the module worker loads under `default-src 'self'`.
+- [ ] **1. Worker under the production CSP (V6).** On the production deployment, an import reaches the Columns or Review step, so the worker loads under `default-src 'self'`.
   - Result:
 - [ ] **2. Firefox and Safari (V5).** Importing the Windows-1254 CSV fixture in Firefox and in Safari shows the Turkish letters correctly, so both decode `windows-1254` in a worker.
   - Result:
-- [ ] **3. V8 on production.** With the next rollout, the 20 MB generated XER imports on the production project inside the 60 s client timeout.
+- [ ] **3. V8 on production.** With the next rollout, the 50 MB generated XER imports on the production project inside the 60 s client timeout.
   - Result:
-- [ ] **4. Generated workbooks (V2).** Once Task 12 has written `src/import/__fixtures__/dates-1900.xlsx` and `dates-1904.xlsx`, both open in current Excel and LibreOffice without a repair prompt.
+- [ ] **4. Generated workbooks (V2).** Both `src/import/__fixtures__/dates-1900.xlsx` and `dates-1904.xlsx` open in current Excel and LibreOffice without a repair prompt.
+  - Result:
+- [ ] **5. Deferred V9 real-export checks (S12).** Test a real Microsoft Project XML (MSPDI) export (confirming milestone times and exception recurrence types), a real Turkish Excel (`.xlsx`) export (confirming Turkish link/lag/duration/date/constraint tokens), and compare parser counts against source-tool totals for each format.
   - Result:
 
 ## Final results
 
-Filled in by Task 24.
+Recorded in Task 24 on 2026-11-20 at `01e4ffb` plus this commit's doc updates (`npm run check`, `npm run build`, `npm run test:e2e`, `npm run check:secrets` locally and full `app` + `supabase` CI jobs on GitHub Actions).
+
+| Check | Command | Result |
+|---|---|---|
+| Static checks, unit, component, parser, script and contract tests (mock) | `npm run check` | typecheck clean; lint `0 errors, 13 warnings` (the 13 standing `react-refresh/only-export-components` warnings); Vitest `123 passed (123)` files, `831 passed (831)` tests; `Contrast OK: 43 checks passed` |
+| Mock e2e | `npm run test:e2e` | `25 passed` (Chromium) |
+| pgTAP | `npm run test:db` | `Files=10, Tests=272`, `Result: PASS` (GitHub Actions CI `supabase` job) |
+| Generated database types | `npx supabase gen types typescript --local` diff | current, empty diff (GitHub Actions CI `supabase` job) |
+| Integration (assumptions, bootstrap, storage, projects, imports incl. 50 MB V8, invitations, repository and auth contracts on Supabase) | `npm run test:integration` | `9 passed (9)` files, `92 passed (92)` tests (GitHub Actions CI `supabase` job; 50 MB XER V8 test in `4,800 ms`) |
+| Supabase e2e | `npm run test:e2e:supabase` | `6 passed` (GitHub Actions CI `supabase` job) |
+| Build, licence file and secrets check | `npm run build && test -s dist/third-party-licenses.txt && npm run check:secrets` | built (`dist/assets/worker-*.js` IIFE worker emitted; 119 production packages in `dist/third-party-licenses.txt`); `No secrets found in dist/` (both default and `--mode supabase` in CI) |
+
+### Success criteria
+
+| # | Result |
+|---|---|
+| S1 | pass: repository contract passes on mock (`npm run check`) and on Supabase (`npm run test:integration`, 92 tests) |
+| S2 | pass: `npm run test:db` (`Files=10, Tests=272`) covers RLS, views, all 9 RPCs, triggers and `schedule-imports` storage policies |
+| S3 | pass: R1–R12 verified by `npm run test:db` and the contract suite on both adapters |
+| S4 | pass: `src/import/goldens.test.ts` and format/damaged/refusal tests pass in `npm run check` (`831` tests) |
+| S5 | pass: `src/import/budget.test.ts` parses and checks 50,000 activities / 150,000 links in ~1.6 s; V8 50 MB XER packs to 1.16 MB (`<= 10 MB`) and imports in `4.8 s` (`< 60 s`) in CI `integration/imports.itest.ts` |
+| S6 | pass: `npm run test:e2e` (`25 passed`, including `projects.spec.ts`, `files.spec.ts`, `import.spec.ts`, `home.spec.ts`) and `npm run test:e2e:supabase` (`6 passed`) |
+| S7 | pass: ESLint passes with `0 errors` and `scripts/import-boundaries.test.mjs` (`23 tests`) pins every layer rule including D47 |
+| S8 | pass: GitHub Actions CI (`app` and `supabase` jobs) passes every check and confirms generated database types are current |
+| S9 | pass: viewer disabled-action tests pass in component tests, contract tests, `test:db`, and `e2e-supabase/supabase.spec.ts` |
+| S10 | pass: `scripts/third-party-licenses.test.mjs` passes and every build emits non-empty `dist/third-party-licenses.txt` (119 packages) |
+| S11 | pass: hand-over round trip (`getScheduleSourceFile` + `getImportMapping` → `analyze` gives identical `ImportModel`) passes on mock (`repository.contract.ts`) and Supabase (`integration/imports.itest.ts`) |
+| S12 | pass with owner-accepted gaps (2026-11-20): all 64 P6 XERs (68 projects) and English P6 `.xlsx` read with 0 errors; MS Project XML, Turkish `.xlsx` and source-tool totals deferred to [Owner checklist](#owner-checklist) item 5 with owner consent |

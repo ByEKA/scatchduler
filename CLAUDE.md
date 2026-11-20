@@ -2,7 +2,7 @@
 
 Project memory for Claude Code. Read it at the start of every session.
 
-**Status:** Phase 2 complete (v0.2.0). Phase 3 core in progress (usability first) — spec `docs/superpowers/specs/2026-11-05-phase3-core-design.md`; then a Phase 4 core.
+**Status:** Phase 3 core complete. Next: the Phase 4 core spec.
 
 Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
 
