@@ -1,5 +1,5 @@
 import { ChartGantt, Download, FileUp, Info, Plus } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
@@ -12,9 +12,11 @@ import type { ScheduleDocument } from '@/data/schedule-types';
 import type { Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
-import { buildVisibleRows } from '@/features/schedule/rows';
+import { buildVisibleRows, SCHEDULE_ROW_HEIGHT } from '@/features/schedule/rows';
 import { ScheduleGantt, type ScheduleGanttHandle } from '@/features/schedule/ScheduleGantt';
 import { ScheduleGrid } from '@/features/schedule/ScheduleGrid';
+import { ScheduleSearch } from '@/features/schedule/ScheduleSearch';
+import { findMatchingActivityIds } from '@/features/schedule/search';
 import { SplitPane } from '@/features/schedule/SplitPane';
 import { useScheduleEditor } from '@/features/schedule/useScheduleEditor';
 import { canEdit } from '@/features/workspaces/roles';
@@ -42,8 +44,22 @@ function ScheduleEditorWorkspace({
   });
   const gridScrollRef = useRef<HTMLDivElement>(null);
   const ganttRef = useRef<ScheduleGanttHandle>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [zoom, setZoom] = useState<GanttZoom>('week');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [matchIndex, setMatchIndex] = useState(0);
+  const [filterActive, setFilterActive] = useState(false);
+
+  const matches = useMemo(
+    () => findMatchingActivityIds(editor.document.activities, searchQuery),
+    [editor.document.activities, searchQuery],
+  );
+
+  const filterActivityIds = useMemo<ReadonlySet<string> | null>(() => {
+    if (!filterActive || searchQuery.trim() === '') return null;
+    return new Set(matches);
+  }, [filterActive, matches, searchQuery]);
 
   const visibleRows = useMemo(
     () =>
@@ -52,8 +68,9 @@ function ScheduleEditorWorkspace({
         editor.summary,
         editor.rollups,
         editor.collapsedWbsIds,
+        filterActivityIds,
       ),
-    [editor.collapsedWbsIds, editor.document, editor.rollups, editor.summary],
+    [editor.collapsedWbsIds, editor.document, editor.rollups, editor.summary, filterActivityIds],
   );
 
   const handleGanttScrollTop = useCallback((nextTop: number) => {
@@ -63,9 +80,56 @@ function ScheduleEditorWorkspace({
     }
   }, []);
 
+  const jumpAndScrollToActivity = useCallback(
+    (activityId: string) => {
+      editor.jumpToActivity(activityId);
+      const targetIdx = visibleRows.findIndex((r) => r.key === `act:${activityId}`);
+      if (targetIdx >= 0) {
+        const nextTop = Math.max(0, (targetIdx - 2) * SCHEDULE_ROW_HEIGHT);
+        handleGanttScrollTop(nextTop);
+      }
+    },
+    [editor, handleGanttScrollTop, visibleRows],
+  );
+
+  const handleSearchQueryChange = useCallback(
+    (nextQuery: string) => {
+      setSearchQuery(nextQuery);
+      setMatchIndex(0);
+      const nextMatches = findMatchingActivityIds(editor.document.activities, nextQuery);
+      if (nextMatches.length > 0) {
+        jumpAndScrollToActivity(nextMatches[0]!);
+      }
+    },
+    [editor.document.activities, jumpAndScrollToActivity],
+  );
+
+  const handleSearchStep = useCallback(
+    (delta: 1 | -1) => {
+      if (matches.length === 0) return;
+      const nextIdx = (matchIndex + delta + matches.length) % matches.length;
+      setMatchIndex(nextIdx);
+      jumpAndScrollToActivity(matches[nextIdx]!);
+    },
+    [jumpAndScrollToActivity, matchIndex, matches],
+  );
+
+  // Global Ctrl+F / Cmd+F focuses the schedule activity search box (spec §7.2, S11).
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   return (
     <div className="flex h-[calc(100dvh-48px-36px)] min-h-[480px] flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
           {schedule.code !== null && schedule.code.trim() !== '' && (
@@ -74,6 +138,16 @@ function ScheduleEditorWorkspace({
             </span>
           )}
         </div>
+        <ScheduleSearch
+          inputRef={searchInputRef}
+          query={searchQuery}
+          onQueryChange={handleSearchQueryChange}
+          matches={matches}
+          activeIndex={matchIndex}
+          onStep={handleSearchStep}
+          filterActive={filterActive}
+          onToggleFilter={() => setFilterActive((prev) => !prev)}
+        />
       </div>
       <SplitPane
         left={
