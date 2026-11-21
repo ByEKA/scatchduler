@@ -38,4 +38,37 @@ describe('check-contrast', () => {
       ]),
     );
   });
+
+  it('declares all twelve --gantt-* tokens in both themes and checks the four non-text pairs', () => {
+    const css = readFileSync('src/index.css', 'utf8');
+    const { light, dark } = parseThemes(css);
+    const expected = [
+      '--gantt-bar',
+      '--gantt-bar-progress',
+      '--gantt-critical',
+      '--gantt-critical-progress',
+      '--gantt-summary',
+      '--gantt-milestone',
+      '--gantt-link',
+      '--gantt-link-driving',
+      '--gantt-weekend',
+      '--gantt-status-line',
+      '--gantt-today-line',
+      '--gantt-grid-line',
+    ];
+    for (const name of expected) {
+      expect(light[name], `light ${name}`).toBeDefined();
+      expect(dark[name], `dark ${name}`).toBeDefined();
+    }
+    const checked = TOKEN_PAIRS.map(([fg]) => fg);
+    expect(checked).toEqual(
+      expect.arrayContaining([
+        '--gantt-bar',
+        '--gantt-critical',
+        '--gantt-status-line',
+        '--gantt-summary',
+      ]),
+    );
+    expect(runChecks(css)).toEqual([]);
+  });
 });
