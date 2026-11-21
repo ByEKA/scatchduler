@@ -165,7 +165,7 @@ export function mapScheduleItem(row: ScheduleItemRow): Schedule {
     row.locked_by !== null && row.locked_at !== null && row.lock_expires_at !== null
       ? {
           userId: row.locked_by,
-          userName: row.locked_by_name ?? 'Another user',
+          userName: optionalText(row.locked_by_name) ?? 'Another user',
           lockedAt: toIso(row.locked_at),
           expiresAt: toIso(row.lock_expires_at),
         }
@@ -204,7 +204,7 @@ export function mapScheduleLock(row: {
 }): NonNullable<Schedule['lock']> {
   return {
     userId: row.user_id,
-    userName: row.user_name,
+    userName: optionalText(row.user_name) ?? 'Another user',
     lockedAt: toIso(row.locked_at),
     expiresAt: toIso(row.expires_at),
   };

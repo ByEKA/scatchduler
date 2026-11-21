@@ -13,6 +13,15 @@ import type {
   UpdateProjectInput,
   UpdateScheduleDetailsInput,
 } from '@/data/repository';
+import {
+  countScheduleActivities,
+  decodeScheduleDocument,
+  encodeScheduleDocument,
+  SCHEDULE_DATA_BUCKET,
+  SCHEDULE_DATA_MIME,
+  ScheduleCodecError,
+  scheduleDataPath,
+} from '@/data/schedule-codec';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import { compareMembers, compareWorkspaces } from '@/data/sort';
 import type { AppSupabaseClient } from '@/data/supabase/client';
@@ -24,6 +33,7 @@ import {
   mapProject,
   mapProjectSummary,
   mapScheduleItem,
+  mapScheduleLock,
   mapSharedRow,
   mapSubscription,
   mapTask,
@@ -484,45 +494,167 @@ export class SupabaseRepository implements DataRepository {
     });
   }
 
+  /**
+   * Downloads and decodes the current gzipped `ScheduleDocument` snapshot from `schedule-data`
+   * (P4 core spec §4.2, §4.3 R12, V5). Returns `{ document: null, dataRevision: 0 }` when the
+   * schedule has not been materialized yet.
+   */
   async getScheduleDocument(
-    _scheduleId: ID,
+    scheduleId: ID,
   ): Promise<{ document: ScheduleDocument | null; dataRevision: number }> {
-    void _scheduleId;
-    throw new RepositoryError('unknown', 'Not implemented yet.');
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('schedules')
+        .select('data_file_path, data_revision')
+        .eq('id', asUuid(scheduleId))
+        .maybeSingle();
+      if (error) throw error;
+      if (data === null) throw new RepositoryError('not_found', SCHEDULE_NOT_FOUND);
+      if (data.data_file_path === null) {
+        return { document: null, dataRevision: 0 };
+      }
+      const download = await this.client.storage
+        .from(SCHEDULE_DATA_BUCKET)
+        .download(data.data_file_path);
+      if (download.error) throw download.error;
+      try {
+        const document = await decodeScheduleDocument(download.data);
+        return { document, dataRevision: data.data_revision };
+      } catch (err) {
+        if (err instanceof ScheduleCodecError) {
+          throw new RepositoryError('validation', err.message);
+        }
+        throw err;
+      }
+    });
   }
 
+  /**
+   * Uploads an initial snapshot and records it via `materialize_schedule_data` (R7). If the RPC
+   * fails or another editor materialized first, the redundant upload is removed best-effort.
+   */
   async materializeScheduleDocument(
-    _input: MaterializeScheduleInput,
+    input: MaterializeScheduleInput,
   ): Promise<{ dataRevision: number }> {
-    void _input;
-    throw new RepositoryError('unknown', 'Not implemented yet.');
+    return this.run(async () => {
+      const ref = await this.scheduleStorageRef(input.scheduleId);
+      const blob = await this.encodeSnapshot(input.document);
+      const path = scheduleDataPath(ref.workspaceId, ref.projectId, ref.scheduleId);
+      const upload = await this.client.storage.from(SCHEDULE_DATA_BUCKET).upload(path, blob, {
+        contentType: SCHEDULE_DATA_MIME,
+        upsert: false,
+      });
+      if (upload.error) throw upload.error;
+      const { data, error } = await this.client.rpc('materialize_schedule_data', {
+        p_schedule_id: ref.scheduleId,
+        p_data_file_path: path,
+        p_activity_count: countScheduleActivities(input.document),
+        p_calculation_mode: input.document.settings.displayMode,
+      });
+      if (error) {
+        await this.removeQuietly(SCHEDULE_DATA_BUCKET, path);
+        throw error;
+      }
+      // If another editor already materialized this schedule, the RPC kept their path.
+      const { data: current } = await this.client
+        .from('schedules')
+        .select('data_file_path')
+        .eq('id', ref.scheduleId)
+        .maybeSingle();
+      if (current?.data_file_path && current.data_file_path !== path) {
+        await this.removeQuietly(SCHEDULE_DATA_BUCKET, path);
+      }
+      return { dataRevision: data };
+    });
   }
 
+  /**
+   * Uploads a new snapshot and commits it via `save_schedule_data` (R5, R6, R9). Cleans up the
+   * new upload if the RPC rejects, or cleans up the replaced snapshot best-effort on success.
+   */
   async saveScheduleDocument(
-    _input: SaveScheduleDocumentInput,
+    input: SaveScheduleDocumentInput,
   ): Promise<{ schedule: Schedule; dataRevision: number }> {
-    void _input;
-    throw new RepositoryError('unknown', 'Not implemented yet.');
+    return this.run(async () => {
+      const ref = await this.scheduleStorageRef(input.scheduleId);
+      const blob = await this.encodeSnapshot(input.document);
+      const path = scheduleDataPath(ref.workspaceId, ref.projectId, ref.scheduleId);
+      const upload = await this.client.storage.from(SCHEDULE_DATA_BUCKET).upload(path, blob, {
+        contentType: SCHEDULE_DATA_MIME,
+        upsert: false,
+      });
+      if (upload.error) throw upload.error;
+      const statusDate =
+        input.document.settings.statusDate === null
+          ? null
+          : input.document.settings.statusDate.slice(0, 10);
+      const { data, error } = await this.client.rpc('save_schedule_data', {
+        p_schedule_id: ref.scheduleId,
+        p_expected_revision: input.expectedRevision,
+        p_data_file_path: path,
+        p_activity_count: countScheduleActivities(input.document),
+        p_calculation_mode: input.document.settings.displayMode,
+        // Generated types mark nullable SQL arguments as required string; null clears status_date.
+        p_status_date: statusDate as string,
+      });
+      if (error) {
+        await this.removeQuietly(SCHEDULE_DATA_BUCKET, path);
+        throw error;
+      }
+      const row = data[0];
+      if (!row) {
+        await this.removeQuietly(SCHEDULE_DATA_BUCKET, path);
+        throw new RepositoryError('unknown', 'Something went wrong. Please try again.');
+      }
+      const previousPath: string | null = row.previous_data_file_path;
+      if (previousPath && previousPath !== path) {
+        await this.removeQuietly(SCHEDULE_DATA_BUCKET, previousPath);
+      }
+      const schedule = await this.scheduleItem(ref.scheduleId);
+      return { schedule, dataRevision: row.data_revision };
+    });
   }
 
-  async acquireScheduleLock(_scheduleId: ID): Promise<ScheduleLock> {
-    void _scheduleId;
-    throw new RepositoryError('unknown', 'Not implemented yet.');
+  async acquireScheduleLock(scheduleId: ID): Promise<ScheduleLock> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('acquire_schedule_lock', {
+        p_schedule_id: asUuid(scheduleId),
+      });
+      if (error) throw error;
+      const row = data[0];
+      if (!row) throw new RepositoryError('unknown', 'Something went wrong. Please try again.');
+      return mapScheduleLock(row);
+    });
   }
 
-  async renewScheduleLock(_scheduleId: ID): Promise<ScheduleLock> {
-    void _scheduleId;
-    throw new RepositoryError('unknown', 'Not implemented yet.');
+  async renewScheduleLock(scheduleId: ID): Promise<ScheduleLock> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('renew_schedule_lock', {
+        p_schedule_id: asUuid(scheduleId),
+      });
+      if (error) throw error;
+      const row = data[0];
+      if (!row) throw new RepositoryError('unknown', 'Something went wrong. Please try again.');
+      return mapScheduleLock(row);
+    });
   }
 
-  async releaseScheduleLock(_scheduleId: ID): Promise<void> {
-    void _scheduleId;
-    throw new RepositoryError('unknown', 'Not implemented yet.');
+  async releaseScheduleLock(scheduleId: ID): Promise<void> {
+    return this.run(async () => {
+      const { error } = await this.client.rpc('release_schedule_lock', {
+        p_schedule_id: asUuid(scheduleId),
+      });
+      if (error) throw error;
+    });
   }
 
-  async forceReleaseScheduleLock(_scheduleId: ID): Promise<void> {
-    void _scheduleId;
-    throw new RepositoryError('unknown', 'Not implemented yet.');
+  async forceReleaseScheduleLock(scheduleId: ID): Promise<void> {
+    return this.run(async () => {
+      const { error } = await this.client.rpc('force_release_schedule_lock', {
+        p_schedule_id: asUuid(scheduleId),
+      });
+      if (error) throw error;
+    });
   }
 
   async listSharedWithMe(): Promise<SharedScheduleRow[]> {
@@ -688,6 +820,33 @@ export class SupabaseRepository implements DataRepository {
       .single();
     if (error) throw error;
     return mapScheduleItem(data);
+  }
+
+  /** The schedule, project and workspace ids for an R8 snapshot upload path. */
+  private async scheduleStorageRef(
+    scheduleId: ID,
+  ): Promise<{ scheduleId: ID; projectId: ID; workspaceId: ID }> {
+    const { data, error } = await this.client
+      .from('schedules')
+      .select('id, project_id')
+      .eq('id', asUuid(scheduleId))
+      .maybeSingle();
+    if (error) throw error;
+    if (data === null) throw new RepositoryError('not_found', SCHEDULE_NOT_FOUND);
+    const project = await this.projectRef(data.project_id);
+    return { scheduleId: data.id, projectId: project.id, workspaceId: project.workspace_id };
+  }
+
+  /** Encodes a `ScheduleDocument` snapshot, converting codec errors to `validation`. */
+  private async encodeSnapshot(document: ScheduleDocument): Promise<Blob> {
+    try {
+      return await encodeScheduleDocument(document);
+    } catch (err) {
+      if (err instanceof ScheduleCodecError) {
+        throw new RepositoryError('validation', err.message);
+      }
+      throw err;
+    }
   }
 
   /** A signed URL for the cover at `path`, or `null` without a cover. */
