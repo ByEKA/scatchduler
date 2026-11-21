@@ -1,22 +1,164 @@
-import { ChartGantt, FileUp, Plus } from 'lucide-react';
+import { ChartGantt, Download, FileUp, Info, Plus } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router';
+import { toast } from 'sonner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PAGE_HEADING_CLASSES } from '@/components/common/PlaceholderPage';
 import { SectionError } from '@/components/common/SectionError';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { ScheduleDocument } from '@/data/schedule-types';
+import type { Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { SplitPane } from '@/features/schedule/SplitPane';
+import { useScheduleEditor } from '@/features/schedule/useScheduleEditor';
 import { canEdit } from '@/features/workspaces/roles';
+import { useDownloadSourceFile } from '@/hooks/useImportReport';
 import { useProject } from '@/hooks/useProjects';
 import { useProjectSchedules } from '@/hooks/useProjectSchedules';
+import { useScheduleDocument } from '@/hooks/useScheduleDocument';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { isNotFoundError } from '@/lib/format';
+import { errorMessage, isNotFoundError } from '@/lib/format';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
+function ScheduleEditorWorkspace({
+  schedule,
+  initialDocument,
+  initialRevision,
+}: {
+  schedule: Schedule;
+  initialDocument: ScheduleDocument;
+  initialRevision: number;
+}): ReactElement {
+  const editor = useScheduleEditor({
+    schedule,
+    initialDocument,
+    initialRevision,
+  });
+
+  return (
+    <div className="flex h-[calc(100dvh-48px-36px)] min-h-[480px] flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
+          {schedule.code !== null && schedule.code.trim() !== '' && (
+            <span className="shrink-0 rounded-sm bg-muted px-1.5 py-px font-mono text-2xs font-medium text-muted-foreground">
+              {schedule.code}
+            </span>
+          )}
+        </div>
+      </div>
+      <SplitPane
+        left={
+          <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+            {editor.document.activities.length} activities
+          </div>
+        }
+        right={
+          <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
+            Gantt timeline
+          </div>
+        }
+      />
+      <div role="status" aria-live="polite" className="sr-only">
+        {editor.lastAnnouncement}
+      </div>
+    </div>
+  );
+}
+
+function ScheduleDocumentHost({
+  schedule,
+  workspace,
+}: {
+  schedule: Schedule;
+  workspace: WorkspaceSummary;
+}): ReactElement {
+  const docState = useScheduleDocument(schedule, workspace.myRole);
+  const downloadSource = useDownloadSourceFile();
+
+  if (docState.status === 'loading') {
+    return (
+      <div className="flex flex-col gap-3">
+        <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-[460px] w-full" />
+      </div>
+    );
+  }
+
+  if (docState.status === 'materializing') {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
+          <span className="text-sm text-muted-foreground">Preparing schedule…</span>
+        </div>
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-[460px] w-full" />
+      </div>
+    );
+  }
+
+  if (docState.status === 'needs_editor') {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
+        <EmptyState
+          icon={Info}
+          title="Not ready yet"
+          description="This schedule hasn't been opened by an editor yet."
+        />
+      </div>
+    );
+  }
+
+  if (docState.status === 'legacy_import') {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
+        <EmptyState
+          icon={Download}
+          title="Re-import needed"
+          description="This schedule was imported before the schedule editor was added. Download the original file and import it again to open it."
+          action={
+            <Button
+              type="button"
+              size="sm"
+              disabled={downloadSource.isPending}
+              onClick={() => {
+                void downloadSource
+                  .mutateAsync(schedule.id)
+                  .catch((err) => toast.error(errorMessage(err)));
+              }}
+            >
+              <Download aria-hidden="true" />
+              Download original file
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  if (docState.status === 'error') {
+    return <SectionError error={docState.error} onRetry={() => window.location.reload()} className="py-16" />;
+  }
+
+  return (
+    <ScheduleEditorWorkspace
+      key={schedule.id}
+      schedule={schedule}
+      initialDocument={docState.document}
+      initialRevision={docState.dataRevision}
+    />
+  );
+}
+
 /**
- * Schedule editor route (`/w/:workspaceId/p/:projectId/schedule`). Resolves `?scheduleId=` or the
- * project's current schedule; expanded with full editor shell, grid, Gantt and inspector in Tasks 23–35.
+ * Schedule editor route (`/w/:workspaceId/p/:projectId/schedule`, spec §7.2). Resolves
+ * `?scheduleId=` or the project's current schedule, handles unmaterialized/legacy/empty states,
+ * and mounts the interactive schedule editor workspace.
  */
 export function SchedulePage(): ReactElement {
   const { workspaceId, projectId } = useParams();
@@ -65,7 +207,7 @@ export function SchedulePage(): ReactElement {
     return (
       <div className="flex flex-col gap-3">
         <Skeleton className="h-7 w-64" />
-        <Skeleton className="h-80 w-full" />
+        <Skeleton className="h-[460px] w-full" />
       </div>
     );
   }
@@ -120,16 +262,5 @@ export function SchedulePage(): ReactElement {
     );
   }
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
-        {schedule.code !== null && schedule.code.trim() !== '' && (
-          <span className="rounded-sm bg-muted px-1.5 py-px font-mono text-2xs font-medium text-muted-foreground">
-            {schedule.code}
-          </span>
-        )}
-      </div>
-    </div>
-  );
+  return <ScheduleDocumentHost key={schedule.id} schedule={schedule} workspace={workspace} />;
 }
