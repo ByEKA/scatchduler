@@ -193,7 +193,7 @@ test('imports XER, opens As imported, edits, calculates, saves to schedule-data 
   await expect(a1030Row).toContainText('8 d');
 
   // Add a predecessor relationship (A1010 -> A1030 SS)
-  await page.getByRole('button', { name: 'Details' }).click();
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
   await page.getByRole('tab', { name: 'Relationships' }).click();
   const predSection = page.getByRole('region', { name: 'Predecessors' });
   const predTable = predSection.getByRole('table');
@@ -228,7 +228,7 @@ test('imports XER, opens As imported, edits, calculates, saves to schedule-data 
   await expect(reloadedRow).toContainText('8 d');
 
   await reloadedRow.click();
-  const detailsBtn = page.getByRole('button', { name: 'Details' });
+  const detailsBtn = page.getByRole('button', { name: 'Details', exact: true });
   if ((await detailsBtn.getAttribute('aria-pressed')) !== 'true') {
     await detailsBtn.click();
   }
