@@ -316,22 +316,35 @@ export class SupabaseRepository implements DataRepository {
 
   /**
    * Uploads the worker's stored copy under `{workspace_id}/{project_id}/{uuid}.{suffix}` (§4.9)
-   * with its own content type and inserts the schedule with what the import read (§4.10). A failed
-   * insert removes the upload again.
+   * and the initial gzipped `ScheduleDocument` under `schedule-data` (P4 §4.2, R8), then inserts
+   * the schedule row. A failed upload or insert removes uploaded objects best effort.
    */
   async importSchedule(input: ImportScheduleInput): Promise<Schedule> {
     return this.run(async () => {
-      const { file, stored, report } = input;
+      const { file, stored, dataStored, calculationMode, report } = input;
       const project = await this.projectRef(input.projectId);
+      const scheduleId = crypto.randomUUID();
       const path = `${project.workspace_id}/${project.id}/${crypto.randomUUID()}.${STORED_SUFFIX[report.format]}`;
+      const dataPath = scheduleDataPath(project.workspace_id, project.id, scheduleId);
       const upload = await this.client.storage.from(IMPORTS).upload(path, stored, {
         contentType: stored.type || 'application/octet-stream',
         upsert: false,
       });
       if (upload.error) throw upload.error;
+      const dataUpload = await this.client.storage
+        .from(SCHEDULE_DATA_BUCKET)
+        .upload(dataPath, dataStored, {
+          contentType: SCHEDULE_DATA_MIME,
+          upsert: false,
+        });
+      if (dataUpload.error) {
+        await this.removeQuietly(IMPORTS, path);
+        throw dataUpload.error;
+      }
       const { data, error } = await this.client
         .from('schedules')
         .insert({
+          id: scheduleId,
           project_id: project.id,
           name: input.name.trim(),
           code: input.code.trim(),
@@ -348,11 +361,16 @@ export class SupabaseRepository implements DataRepository {
           parser_version: report.parserVersion,
           import_mapping: toJson(input.mapping),
           import_report: toJson(report),
+          data_file_path: dataPath,
+          calculation_mode: calculationMode,
         })
         .select('id')
         .single();
       if (error) {
-        await this.removeQuietly(IMPORTS, path);
+        await Promise.all([
+          this.removeQuietly(IMPORTS, path),
+          this.removeQuietly(SCHEDULE_DATA_BUCKET, dataPath),
+        ]);
         throw error;
       }
       return this.scheduleItem(data.id);

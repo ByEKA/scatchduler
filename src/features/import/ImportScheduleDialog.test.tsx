@@ -250,14 +250,23 @@ describe('ImportScheduleDialog — Review and import', () => {
     });
     expect(await screen.findByText('Schedule imported')).toBeInTheDocument();
     expect(importSchedule).toHaveBeenCalledTimes(1);
-    expect(importSchedule.mock.calls[0]![0]).toMatchObject({
+    const submitted = importSchedule.mock.calls[0]![0];
+    expect(submitted).toMatchObject({
       name: 'North Plant',
       code: 'NTH-A',
       statusDate: '2026-10-15',
       activityCount: 6,
       sourceProjectCode: 'NTH-A',
       mapping: { sourceProjectId: '101' },
+      calculationMode: 'as_imported',
     });
+    expect(submitted.dataStored).toBeInstanceOf(Blob);
+    expect(submitted.dataStored.size).toBeGreaterThan(0);
+    const created = await importSchedule.mock.results[0]!.value;
+    const loaded = await dataLayer.repository.getScheduleDocument(created.id);
+    expect(loaded.dataRevision).toBe(1);
+    expect(loaded.document?.activities).toHaveLength(6);
+    expect(loaded.document?.activities[0]?.code).toBe('A1000');
     expect(screen.getByTestId('location')).toHaveTextContent(
       `/w/${project!.workspaceId}/p/${project!.id}/files`,
     );

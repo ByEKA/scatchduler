@@ -1,12 +1,31 @@
 import { createContext, useContext, useEffect, useMemo } from 'react';
+import { encodeScheduleDocument } from '@/data/schedule-codec';
+import type { CalculationDisplayMode } from '@/data/schedule-types';
+import type { ISODate } from '@/data/types';
+import { materializeImportModel } from '@/engine/client';
 import { createImportClient, ImportClientError, type ImportClient } from '@/import/client';
+import type { ImportModel } from '@/import/model';
 
-// The import dialog's parser (P3 core spec §4.4, §5.3). Components never import src/import (S7);
-// they take the client and its types from here. Tests provide a fake or an in-thread client
-// through ImportClientFactoryContext.
+// The import dialog's parser (P3 core spec §4.4, §5.3). Components never import src/import or
+// src/engine (S7); they take the client, snapshot packer and types from here. Tests provide a fake
+// or an in-thread client through ImportClientFactoryContext.
 
 export type { ImportClient } from '@/import/client';
+export type { ImportModel } from '@/import/model';
 export type { AnalyzeOutcome, InspectOutcome, TablePreview } from '@/import/protocol';
+
+/**
+ * Materializes an analyzed `ImportModel` into a `ScheduleDocument` and gzips it for initial
+ * `schedule-data` upload during import commit (P4 spec §4.2).
+ */
+export async function packSnapshot(
+  model: ImportModel,
+  statusDate: ISODate | null,
+): Promise<{ dataStored: Blob; calculationMode: CalculationDisplayMode }> {
+  const document = await materializeImportModel(model, { scheduleStatusDate: statusDate });
+  const dataStored = await encodeScheduleDocument(document);
+  return { dataStored, calculationMode: document.settings.displayMode };
+}
 
 export const ImportClientFactoryContext = createContext<() => ImportClient>(() =>
   createImportClient(),

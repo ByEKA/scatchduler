@@ -232,13 +232,23 @@ export async function makeImportScheduleInput(
       : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
 
+  const { fromImportModel } = await import('@/engine/materialize');
+  const { encodeScheduleDocument } = await import('@/data/schedule-codec');
+  const statusDate =
+    overrides.statusDate !== undefined ? overrides.statusDate : report.statusDate.date;
+  const document = fromImportModel(analyzed.model, { scheduleStatusDate: statusDate });
+  const dataStored = overrides.dataStored ?? (await encodeScheduleDocument(document));
+  const calculationMode = overrides.calculationMode ?? document.settings.displayMode;
+
   return {
     projectId,
     name: named.name,
     code: named.code,
     file,
     stored,
-    statusDate: report.statusDate.date,
+    dataStored,
+    calculationMode,
+    statusDate,
     activityCount: report.counts.find((count) => count.entity === 'activity')?.accepted ?? 0,
     sourceProjectCode: report.sourceProject.code,
     mapping,

@@ -1196,7 +1196,15 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           isCurrent: true,
           hasImportReport: true,
           hasImportMapping: true,
+          hasScheduleData: true,
+          dataRevision: 1,
+          calculationMode: 'as_imported',
         });
+        const loaded = await f.repository.getScheduleDocument(schedule.id);
+        expect(loaded.dataRevision).toBe(1);
+        expect(loaded.document?.activities).toHaveLength(6);
+        expect(loaded.document?.activities[0]?.code).toBe('A1000');
+        expect(loaded.document?.settings.displayMode).toBe('as_imported');
         expect(await f.repository.getProject(metro)).toMatchObject({
           statusDate: '2026-10-15',
           currentSchedule: { id: schedule.id },
@@ -1322,33 +1330,45 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
       it('materializes idempotently without moving updatedAt, and saves with lock and revision guards (R5–R7, R10)', async () => {
         const f = await makeFixture();
         const metro = f.projectIds['002']!;
-        const imported = await f.repository.importSchedule(await makeImportScheduleInput(metro));
-        const originalUpdatedAt = imported.updatedAt;
-        const originalReport = await f.repository.getImportReport(imported.id);
-        const originalMapping = await f.repository.getImportMapping(imported.id);
-
+        const blank = await f.repository.createSchedule({
+          projectId: metro,
+          name: 'Unmaterialized Blank',
+          code: 'MAT-0',
+        });
+        const blankUpdatedAt = blank.updatedAt;
         const initialDoc = makeSampleScheduleDocument({
-          sourceFormat: 'xer',
+          sourceFormat: null,
           settings: {
             ...makeSampleScheduleDocument().settings,
-            displayMode: 'as_imported',
+            displayMode: 'calculated',
             statusDate: '2026-10-15T08:00',
           },
         });
         expect(
           await f.repository.materializeScheduleDocument({
-            scheduleId: imported.id,
+            scheduleId: blank.id,
             document: initialDoc,
           }),
         ).toEqual({ dataRevision: 1 });
-        expect((await f.repository.listSchedules(metro))[0]!.updatedAt).toBe(originalUpdatedAt);
-        // Second materialize is idempotent.
+        expect(
+          (await f.repository.listSchedules(metro)).find((s) => s.id === blank.id)!.updatedAt,
+        ).toBe(blankUpdatedAt);
+        // Second materialize is idempotent and keeps initialDoc.
         expect(
           await f.repository.materializeScheduleDocument({
-            scheduleId: imported.id,
-            document: makeSampleScheduleDocument(),
+            scheduleId: blank.id,
+            document: makeSampleScheduleDocument({ activities: [] }),
           }),
         ).toEqual({ dataRevision: 1 });
+        expect(await f.repository.getScheduleDocument(blank.id)).toEqual({
+          document: initialDoc,
+          dataRevision: 1,
+        });
+
+        const imported = await f.repository.importSchedule(await makeImportScheduleInput(metro));
+        await f.repository.setCurrentSchedule(imported.id);
+        const originalReport = await f.repository.getImportReport(imported.id);
+        const originalMapping = await f.repository.getImportMapping(imported.id);
 
         // Save requires an active lock (R5).
         const updatedDoc = makeSampleScheduleDocument({

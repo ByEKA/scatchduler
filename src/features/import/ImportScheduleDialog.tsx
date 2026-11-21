@@ -36,7 +36,13 @@ import {
 } from '@/features/schedules/schedule-schema';
 import { useScheduleDialogFallback } from '@/features/schedules/useScheduleDialogFallback';
 import { useCurrentContext } from '@/hooks/useCurrentContext';
-import { useImportParser, type InspectOutcome, type TablePreview } from '@/hooks/useImportParser';
+import {
+  packSnapshot,
+  useImportParser,
+  type ImportModel,
+  type InspectOutcome,
+  type TablePreview,
+} from '@/hooks/useImportParser';
 import { useProjectSchedules } from '@/hooks/useProjectSchedules';
 import { useImportSchedule } from '@/hooks/useSchedules';
 import { errorMessage } from '@/lib/format';
@@ -265,6 +271,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
   const analyzeSeqRef = useRef(0);
   const submittingRef = useRef(false);
   const controlRefs = useRef<Partial<Record<ColumnErrorKey, HTMLElement | null>>>({});
+  const modelsRef = useRef<Map<string, ImportModel>>(new Map());
 
   const registerControl = useCallback((key: ColumnErrorKey, node: HTMLElement | null) => {
     controlRefs.current[key] = node;
@@ -341,6 +348,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
 
     // Terminate any slow in-flight inspection before starting another (Review Focus 4).
     parser.cancel?.();
+    modelsRef.current.clear();
     setFile(nextFile);
     setFileError(undefined);
     setInspected(null);
@@ -522,6 +530,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
 
     try {
       const rows: AnalyzedProjectRow[] = [];
+      const nextModels = new Map<string, ImportModel>();
       if (
         currentInspected.kind === 'schedule' &&
         currentInspected.format === 'xer' &&
@@ -537,6 +546,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
             handleRefusal(outcome.message);
             return;
           }
+          nextModels.set(project.id, outcome.model);
           rows.push({
             project,
             report: outcome.report,
@@ -561,6 +571,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
                 exportFlag: true,
                 baselineOf: null,
               };
+        nextModels.set(singleProject.id, outcome.model);
         rows.push({
           project: singleProject,
           report: outcome.report,
@@ -592,10 +603,12 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
         });
         if (analyzeSeqRef.current !== seq) return;
         if (rechecked.kind === 'analyzed') {
+          nextModels.set(chosenRow.project.id, rechecked.model);
           rows[chosenIndex] = { ...chosenRow, report: rechecked.report };
         }
       }
 
+      modelsRef.current = nextModels;
       setMapping(nextMapping);
       setProjectRows(rows);
       setSelectedProjectId(chosenId);
@@ -646,6 +659,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     void parser.analyze(rowMapping, { statusDate: effectiveDate }).then(
       (outcome) => {
         if (analyzeSeqRef.current !== seq || outcome.kind !== 'analyzed') return;
+        modelsRef.current.set(targetId, outcome.model);
         setProjectRows((rows) =>
           rows.map((row) =>
             row.project.id === targetId ? { ...row, report: outcome.report } : row,
@@ -672,6 +686,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     void parser.analyze(nextMapping, { statusDate: statusDateOption }).then(
       (outcome) => {
         if (analyzeSeqRef.current !== seq || outcome.kind !== 'analyzed') return;
+        modelsRef.current.set(targetId, outcome.model);
         setProjectRows((rows) =>
           rows.map((row) =>
             row.project.id === targetId
@@ -706,6 +721,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
     void (async () => {
       try {
         const updated: AnalyzedProjectRow[] = [];
+        const nextModels = new Map(modelsRef.current);
         for (const row of rowsSnapshot) {
           const outcome = await parser.analyze(
             { ...nextMapping, sourceProjectId: row.project.id },
@@ -713,6 +729,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
           );
           if (analyzeSeqRef.current !== seq) return;
           if (outcome.kind !== 'analyzed') return;
+          nextModels.set(row.project.id, outcome.model);
           updated.push({
             ...row,
             project: {
@@ -723,6 +740,7 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
             firstActivities: outcome.model.activities.slice(0, 5).map((a) => a.name),
           });
         }
+        modelsRef.current = nextModels;
         setProjectRows(updated);
       } catch (error) {
         if (analyzeSeqRef.current !== seq || isCancelledError(error)) return;
@@ -807,18 +825,34 @@ export function ImportScheduleDialog({ projectId }: { projectId?: ID }): ReactEl
         : mapping;
     const activityCount =
       activeRow.report.counts.find((count) => count.entity === 'activity')?.accepted ?? 0;
+    const submittedStatusDate: ISODate | null = statusDate === '' ? null : statusDate;
+    const effectiveStatusDate: ISODate | null =
+      submittedStatusDate ?? selectedProject?.statusDate ?? null;
 
     submittingRef.current = true;
     setImporting(true);
     try {
-      const packed = await parser.pack(activeRow.report);
+      let activeModel = modelsRef.current.get(activeRow.project.id);
+      if (activeModel === undefined) {
+        const analyzed = await parser.analyze(commitMapping, { statusDate: effectiveStatusDate });
+        if (analyzed.kind !== 'analyzed') {
+          throw new Error(analyzed.message);
+        }
+        activeModel = analyzed.model;
+      }
+      const [packed, snapshot] = await Promise.all([
+        parser.pack(activeRow.report),
+        packSnapshot(activeModel, effectiveStatusDate),
+      ]);
       const created = await importSchedule.mutateAsync({
         projectId: effectiveProjectId,
         name: scheduleName.trim(),
         code: scheduleCode.trim(),
         file,
         stored: packed.stored,
-        statusDate: statusDate === '' ? null : statusDate,
+        dataStored: snapshot.dataStored,
+        calculationMode: snapshot.calculationMode,
+        statusDate: submittedStatusDate,
         activityCount,
         sourceProjectCode: activeRow.report.sourceProject.code,
         mapping: commitMapping,
