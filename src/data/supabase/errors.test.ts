@@ -38,6 +38,16 @@ describe('toRepositoryError', () => {
       'Another change was saved at the same time. Refresh and try again.',
     ],
     [
+      pg('23505', 'duplicate key value violates unique constraint "schedules_data_file_path_uq"'),
+      'conflict',
+      'Another change was saved at the same time. Refresh and try again.',
+    ],
+    [
+      pg('40001', 'This schedule is being edited by Olive.', 'app'),
+      'conflict',
+      'This schedule is being edited by Olive.',
+    ],
+    [
       pg('23514', 'A workspace needs at least one owner.', 'app'),
       'validation',
       'A workspace needs at least one owner.',

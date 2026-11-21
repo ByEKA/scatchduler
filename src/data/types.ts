@@ -1,3 +1,5 @@
+import type { CalculationDisplayMode } from './schedule-types';
+
 export type ID = string; // UUID v4
 export type ISODate = string; // 'YYYY-MM-DD'
 export type ISODateTime = string; // ISO 8601, e.g. '2026-10-14T09:30:00.000Z'
@@ -121,6 +123,15 @@ export type ImportFormat = 'xer' | 'mspdi' | 'xlsx' | 'csv';
 
 export type BaselineFlag = 'none' | 'baseline' | 'primary';
 
+export const LOCK_TTL_MS = 15 * 60_000;
+
+export interface ScheduleLock {
+  userId: ID;
+  userName: string;
+  lockedAt: ISODateTime;
+  expiresAt: ISODateTime;
+}
+
 /** The app map's ScheduleVersion (P3 full D2); the UI says "schedule" everywhere. */
 export interface Schedule {
   id: ID;
@@ -136,9 +147,13 @@ export interface Schedule {
   baseline: BaselineFlag;
   updateNumber: number | null;
   archivedAt: ISODateTime | null;
-  activityCount: number; // 0 for blank schedules; set by import
+  activityCount: number; // 0 for blank schedules; set by import or save
   hasImportReport: boolean; // false for blank schedules and P2-era imports
   hasImportMapping: boolean;
+  lock: ScheduleLock | null; // null when unlocked or expired
+  dataRevision: number; // 0 until the first snapshot is stored
+  hasScheduleData: boolean;
+  calculationMode: CalculationDisplayMode;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

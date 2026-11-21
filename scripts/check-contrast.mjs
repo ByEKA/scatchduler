@@ -31,6 +31,11 @@ export const TOKEN_PAIRS = [
   // The Active status badge's dot, on its card chip and on the page (P3 core spec §6.1).
   ['--success', ['--card'], NON_TEXT],
   ['--success', ['--background'], NON_TEXT],
+  // Gantt bars, critical bars, status line and WBS summary brackets on the card surface (P4 core spec §7.3).
+  ['--gantt-bar', ['--card'], NON_TEXT],
+  ['--gantt-critical', ['--card'], NON_TEXT],
+  ['--gantt-status-line', ['--card'], NON_TEXT],
+  ['--gantt-summary', ['--card'], NON_TEXT],
 ];
 
 // The welcome banner's date: white at 85 % over the strongest point of the brand-400 highlight

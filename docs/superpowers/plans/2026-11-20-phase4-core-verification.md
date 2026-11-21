@@ -6,12 +6,12 @@ Filled in during execution of `docs/superpowers/plans/2026-11-20-phase4-core.md`
 
 | # | Assumption (spec §8) | Verified at | Result | Notes |
 |---|---|---|---|---|
-| V1 | `@tanstack/react-virtual` (MIT) and `fast-check` (MIT, dev) have zero prod advisories and appear in `dist/third-party-licenses.txt` | Task 1 | Pending | |
+| V1 | `@tanstack/react-virtual` (MIT) and `fast-check` (MIT, dev) have zero prod advisories and appear in `dist/third-party-licenses.txt` | Task 1 | Passed | `@tanstack/react-virtual@3.14.26` (MIT, in `dist/third-party-licenses.txt`), `fast-check@4.10.3` (MIT, dev); `npm audit --omit=dev` = 0 advisories |
 | V2 | `src/engine/worker.ts` builds as a second Vite worker chunk independent of `src/import/worker.ts` without bundling parser libraries | Task 1 / Task 18 | Pending | |
 | V3 | Engine solves 10k activities / 15k links in < 300 ms (< 1 s CI) and 50k / 150k in < 2 s (< 5 s CI) without stack overflow | Task 16 | Pending | |
 | V4 | Oracle fidelity against committed fixtures and local `real-exports/` P6-calculated XERs achieves ratcheted parity on `es/ef/ls/lf/tf/ff` and driving path | Task 17 | Pending | |
-| V5 | Supabase `schedule-data` storage RLS subquery against `public.schedules` works cleanly for both workspace members and share recipients without recursion | Task 3 / Task 6 (CI) | Pending | |
-| V6 | A 50,000-activity `ScheduleDocument` compresses to ≤ 10 MB gzipped and completes open + save round-trip cleanly within 10 s on local/CI Supabase | Task 6 (CI) | Pending | |
+| V5 | Supabase `schedule-data` storage RLS subquery against `public.schedules` works cleanly for both workspace members and share recipients without recursion | Task 3 / Task 6 (CI) | Passed | Verified in `supabase/tests/11_schedule_data.test.sql` and `integration/schedule-data.itest.ts` (PR #4 CI run 44905395452) |
+| V6 | A 50,000-activity `ScheduleDocument` compresses to ≤ 10 MB gzipped and completes open + save round-trip cleanly within 10 s on local/CI Supabase | Task 6 (CI) | Passed | `integration/schedule-data.itest.ts` 50k/150k gzipped ≤ 10 MB and full test completed in 5.79 s on CI (PR #4 run 44905395452) |
 | V7 | Canvas 2D Gantt renders 10,000-row schedule frames in < 16 ms in Chromium with viewport culling | Task 29 / Task 36 | Pending | |
 | V8 | Lock release on tab close + 15-min TTL prevents stuck locks in normal use | Task 31 / Task 37 | Pending | |
 
@@ -21,7 +21,7 @@ Baseline at `4216215`: `npm run check` 123 files / 831 tests, `Contrast OK: 43 c
 
 | Batch | PR | `check` (files / tests / contrast) | `test:db` | `test:integration` | `test:e2e` | `test:e2e:supabase` |
 |---|---|---|---|---|---|---|
-| A (Tasks 1–6) | | | | | | |
+| A (Tasks 1–6) | #4 | 125 / 867 / 51 | 11 / 323 | 10 / 102 | 25 | 6 |
 | B (Tasks 7–10) | | | | | | |
 | C (Tasks 11–17) | | | | | | |
 | D (Tasks 18–22) | | | | | | |

@@ -144,7 +144,8 @@ select lives_ok($$ select public.set_schedules_archived(array[]::uuid[], true) $
 select throws_ok($$ select * from public.delete_schedules(array[tests.schedule_id('C')]) $$, '42501', null, 'R10: editors cannot delete schedules');
 select tests.authenticate_as(tests.user_id('olive@test.dev'));
 select throws_ok($$ select * from public.delete_schedules(array[tests.schedule_id('B')]) $$, '23514', 'Make another schedule current before deleting this one.', 'R3: not the current schedule while others stay');
-select results_eq($$ select * from public.delete_schedules(array[tests.schedule_id('C')]) $$, $$ values ('crew/p1/c.xer'::text) $$, 'owners delete a schedule and get its stored path');
+select results_eq($$ select bucket, path from public.delete_schedules(array[tests.schedule_id('C')]) $$,
+  $$ values ('schedule-imports'::text, 'crew/p1/c.xer'::text) $$, 'owners delete a schedule and get its stored path');
 select lives_ok($$ select * from public.delete_schedules(array[tests.schedule_id('X3'), tests.schedule_id('Y3')]) $$, 'R3: the current schedule goes with every other one');
 select lives_ok($$ select * from public.delete_schedules(array[tests.schedule_id('Y4'), tests.schedule_id('X4')]) $$, 'R3: in either order');
 select lives_ok($$ delete from public.schedules where project_id = tests.project_id('P2') $$, 'R3: direct deletes are checked after the whole statement');

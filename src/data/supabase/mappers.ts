@@ -161,6 +161,15 @@ export function mapProjectSummary(row: ProjectSummaryRow, coverUrl: string | nul
 
 /** A `schedule_items` row; the view never carries the stored path, mapping or report. */
 export function mapScheduleItem(row: ScheduleItemRow): Schedule {
+  const lock =
+    row.locked_by !== null && row.locked_at !== null && row.lock_expires_at !== null
+      ? {
+          userId: row.locked_by,
+          userName: optionalText(row.locked_by_name) ?? 'Another user',
+          lockedAt: toIso(row.locked_at),
+          expiresAt: toIso(row.lock_expires_at),
+        }
+      : null;
   return {
     id: need(row.id, 'id'),
     projectId: need(row.project_id, 'project_id'),
@@ -178,8 +187,26 @@ export function mapScheduleItem(row: ScheduleItemRow): Schedule {
     activityCount: need(row.activity_count, 'activity_count'),
     hasImportReport: need(row.has_import_report, 'has_import_report'),
     hasImportMapping: need(row.has_import_mapping, 'has_import_mapping'),
+    lock,
+    dataRevision: need(row.data_revision, 'data_revision'),
+    hasScheduleData: need(row.has_schedule_data, 'has_schedule_data'),
+    calculationMode: need(row.calculation_mode, 'calculation_mode') as Schedule['calculationMode'],
     createdAt: toIso(need(row.created_at, 'created_at')),
     updatedAt: toIso(need(row.updated_at, 'updated_at')),
+  };
+}
+
+export function mapScheduleLock(row: {
+  user_id: string;
+  user_name: string;
+  locked_at: string;
+  expires_at: string;
+}): NonNullable<Schedule['lock']> {
+  return {
+    userId: row.user_id,
+    userName: optionalText(row.user_name) ?? 'Another user',
+    lockedAt: toIso(row.locked_at),
+    expiresAt: toIso(row.expires_at),
   };
 }
 

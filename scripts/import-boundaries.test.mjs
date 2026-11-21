@@ -37,6 +37,25 @@ describe('import boundaries (S7)', () => {
     // while keeping the adapter boundary.
     ['src/features/import/a.test.tsx', "import { createImportClient } from '@/import/client';", 0],
     ['src/features/import/a.test.tsx', "import { seed } from '@/data/mock/seed';", 1],
+    // Phase 4 core engine and Gantt renderer boundaries (spec §3, S7).
+    ['src/engine/a.ts', "import { useState } from 'react';", 1],
+    ['src/engine/a.ts', "import { useNow } from '@/hooks/useNow';", 1],
+    ['src/engine/a.ts', "import { seed } from '@/data/mock/seed';", 1],
+    ['src/engine/a.ts', "import type { ScheduleDocument } from '@/data/schedule-types';", 0],
+    ['src/engine/a.ts', "import type { ID } from '@/data/types';", 0],
+    ['src/engine/a.ts', "import { analyze } from '@/import/index';", 1],
+    ['src/engine/a.ts', "import Papa from 'papaparse';", 1],
+    ['src/engine/materialize.ts', "import type { ImportModel } from '@/import/model';", 0],
+    ['src/engine/materialize.ts', "import { emptyModel } from '@/import/model';", 1],
+    ['src/engine/client.ts', "import { solve } from './index';", 1],
+    ['src/engine/client.ts', "import type { EngineRequest } from './protocol';", 0],
+    ['src/features/a.tsx', "import { createEngineClient } from '@/engine/client';", 1],
+    ['src/features/a.tsx', "import type { ResolvedRules } from '@/engine/index';", 0],
+    ['src/hooks/a.ts', "import { createEngineClient } from '@/engine/client';", 0],
+    ['src/hooks/a.ts', "import { solve } from '@/engine/index';", 1],
+    ['src/features/schedule/gantt/renderer.ts', "import { useState } from 'react';", 1],
+    ['src/features/schedule/gantt/renderer.ts', "import type { GanttScene } from './renderer';", 0],
+    ['src/features/schedule/a.test.tsx', "import { createEngineClient } from '@/engine/client';", 0],
   ])('%s: %s gives %i restricted-import errors', async (filePath, code, errors) => {
     expect(await restrictedImports(filePath, code)).toBe(errors);
   });

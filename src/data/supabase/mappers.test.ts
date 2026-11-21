@@ -4,6 +4,7 @@ import {
   mapMember,
   mapProjectSummary,
   mapScheduleItem,
+  mapScheduleLock,
   mapSharedRow,
   toProjectInsert,
   toProjectUpdate,
@@ -92,6 +93,13 @@ describe('mappers', () => {
         activity_count: 12,
         has_import_report: true,
         has_import_mapping: false,
+        data_revision: 0,
+        has_schedule_data: false,
+        calculation_mode: 'calculated',
+        locked_by: null,
+        locked_by_name: null,
+        locked_at: null,
+        lock_expires_at: null,
         created_at: '2026-10-01T08:00:00+00:00',
         updated_at: '2026-10-02T08:00:00.5+00:00',
       }),
@@ -112,8 +120,104 @@ describe('mappers', () => {
       activityCount: 12,
       hasImportReport: true,
       hasImportMapping: false,
+      lock: null,
+      dataRevision: 0,
+      hasScheduleData: false,
+      calculationMode: 'calculated',
       createdAt: '2026-10-01T08:00:00.000Z',
       updatedAt: '2026-10-02T08:00:00.500Z',
+    });
+  });
+
+  it('maps an active lock and as_imported mode on a schedule item', () => {
+    expect(
+      mapScheduleItem({
+        id: 's2',
+        project_id: 'p1',
+        name: 'Locked XER',
+        code: 'LX-1',
+        notes: null,
+        status_date: '2026-10-15',
+        source: 'import',
+        source_file_name: 'x.xer',
+        source_format: 'xer',
+        is_current: false,
+        baseline: 'none',
+        update_number: null,
+        archived_at: null,
+        activity_count: 6,
+        has_import_report: true,
+        has_import_mapping: true,
+        data_revision: 3,
+        has_schedule_data: true,
+        calculation_mode: 'as_imported',
+        locked_by: 'u2',
+        locked_by_name: 'Mert Demir',
+        locked_at: '2026-10-15T10:00:00+00:00',
+        lock_expires_at: '2026-10-15T10:15:00+00:00',
+        created_at: '2026-10-01T08:00:00+00:00',
+        updated_at: '2026-10-02T08:00:00+00:00',
+      }),
+    ).toMatchObject({
+      dataRevision: 3,
+      hasScheduleData: true,
+      calculationMode: 'as_imported',
+      lock: {
+        userId: 'u2',
+        userName: 'Mert Demir',
+        lockedAt: '2026-10-15T10:00:00.000Z',
+        expiresAt: '2026-10-15T10:15:00.000Z',
+      },
+    });
+    expect(
+      mapScheduleItem({
+        id: 's3',
+        project_id: 'p1',
+        name: 'Fallback Name',
+        code: 'FN-1',
+        notes: null,
+        status_date: null,
+        source: 'blank',
+        source_file_name: null,
+        source_format: null,
+        is_current: false,
+        baseline: 'none',
+        update_number: null,
+        archived_at: null,
+        activity_count: 0,
+        has_import_report: false,
+        has_import_mapping: false,
+        data_revision: 0,
+        has_schedule_data: false,
+        calculation_mode: 'calculated',
+        locked_by: 'u3',
+        locked_by_name: '  ',
+        locked_at: '2026-10-15T10:00:00+00:00',
+        lock_expires_at: '2026-10-15T10:15:00+00:00',
+        created_at: '2026-10-01T08:00:00+00:00',
+        updated_at: '2026-10-02T08:00:00+00:00',
+      }).lock,
+    ).toEqual({
+      userId: 'u3',
+      userName: 'Another user',
+      lockedAt: '2026-10-15T10:00:00.000Z',
+      expiresAt: '2026-10-15T10:15:00.000Z',
+    });
+  });
+
+  it('maps a lock row from the lock RPCs and normalizes timestamps', () => {
+    expect(
+      mapScheduleLock({
+        user_id: 'u2',
+        user_name: 'Mert Demir',
+        locked_at: '2026-10-15T10:00:00.25+00:00',
+        expires_at: '2026-10-15T10:15:00.25+00:00',
+      }),
+    ).toEqual({
+      userId: 'u2',
+      userName: 'Mert Demir',
+      lockedAt: '2026-10-15T10:00:00.250Z',
+      expiresAt: '2026-10-15T10:15:00.250Z',
     });
   });
 

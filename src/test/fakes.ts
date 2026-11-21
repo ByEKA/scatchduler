@@ -11,8 +11,127 @@ import type {
   NewProjectInput,
   UpdateProjectInput,
 } from '@/data/repository';
+import type { ScheduleDocument } from '@/data/schedule-types';
 import type { ID, Project, Role } from '@/data/types';
 import { createMemoryStorage } from '@/lib/storage';
+
+/** A valid minimal `ScheduleDocument` for contract and unit tests. */
+export function makeSampleScheduleDocument(
+  overrides: Partial<ScheduleDocument> = {},
+): ScheduleDocument {
+  return {
+    schemaVersion: 1,
+    sourceFormat: null,
+    settings: {
+      profile: 'default',
+      ruleOverrides: {},
+      progressMode: 'retained_logic',
+      displayMode: 'calculated',
+      lagCalendar: 'predecessor',
+      criticalDefinition: 'total_float',
+      criticalThresholdMinutes: 0,
+      nearCriticalThresholdMinutes: 4800,
+      projectStart: '2026-10-01T08:00',
+      mustFinishBy: null,
+      statusDate: '2026-10-05T08:00',
+      defaultCalendarId: 'cal:standard',
+      autoCalculate: false,
+    },
+    calendars: [
+      {
+        id: 'cal:standard',
+        name: 'Standard',
+        kind: 'project',
+        week: [
+          [],
+          [
+            { start: 480, finish: 720 },
+            { start: 780, finish: 1020 },
+          ],
+          [
+            { start: 480, finish: 720 },
+            { start: 780, finish: 1020 },
+          ],
+          [
+            { start: 480, finish: 720 },
+            { start: 780, finish: 1020 },
+          ],
+          [
+            { start: 480, finish: 720 },
+            { start: 780, finish: 1020 },
+          ],
+          [
+            { start: 480, finish: 720 },
+            { start: 780, finish: 1020 },
+          ],
+          [],
+        ],
+        exceptions: [],
+        hoursPerDay: 8,
+        hoursPerWeek: 40,
+        hoursPerMonth: 160,
+        hoursPerYear: 1920,
+      },
+    ],
+    wbs: [{ id: 'wbs:1', parentId: null, code: '1', name: 'Site work', order: 0 }],
+    activities: [
+      {
+        id: 'act:00000',
+        code: 'A1000',
+        name: 'Mobilize',
+        wbsId: 'wbs:1',
+        calendarId: 'cal:standard',
+        type: 'task',
+        order: 0,
+        originalDuration: 960,
+        remainingDuration: 960,
+        status: 'not_started',
+        actualStart: null,
+        actualFinish: null,
+        percent: { duration: 0, physical: null, type: 'duration' },
+        constraint: null,
+        secondaryConstraint: null,
+        notes: null,
+        flags: { manual: false, elapsed: false, resourceDependent: false },
+        keys: { taskId: null, uid: null, guid: null },
+        sourceDates: null,
+      },
+      {
+        id: 'act:00001',
+        code: 'A1010',
+        name: 'Excavate',
+        wbsId: 'wbs:1',
+        calendarId: 'cal:standard',
+        type: 'task',
+        order: 1,
+        originalDuration: 1440,
+        remainingDuration: 1440,
+        status: 'not_started',
+        actualStart: null,
+        actualFinish: null,
+        percent: { duration: 0, physical: null, type: 'duration' },
+        constraint: null,
+        secondaryConstraint: null,
+        notes: null,
+        flags: { manual: false, elapsed: false, resourceDependent: false },
+        keys: { taskId: null, uid: null, guid: null },
+        sourceDates: null,
+      },
+    ],
+    relationships: [
+      {
+        id: 'rel:00000',
+        predecessorId: 'act:00000',
+        successorId: 'act:00001',
+        type: 'FS',
+        lagMinutes: 0,
+        lagElapsed: false,
+      },
+    ],
+    computed: null,
+    ...overrides,
+  };
+}
 
 /**
  * A valid `NewProjectInput`: code `'900'`, name `'Test project'`, status `'active'`, every

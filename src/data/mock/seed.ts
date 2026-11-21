@@ -1,5 +1,7 @@
 import { addDays, format, subDays } from 'date-fns';
 import type { Session } from '@/data/auth';
+import { scheduleDataPath } from '@/data/schedule-codec';
+import type { ScheduleDocument } from '@/data/schedule-types';
 import type {
   BaselineFlag,
   ID,
@@ -56,20 +58,23 @@ export interface MockInvitation {
 }
 
 /**
- * A stored schedule (P3 core spec §4.5): an import also keeps its source project code, mapping
- * and report (the report with its first 50 issues only, D22); `hasImportReport` and
- * `hasImportMapping` are derived from them when the schedule is read, as `schedule_items` does.
- * The original file isn't stored here; the repository keeps it in memory.
+ * A stored schedule (P3 core spec §4.5, P4 core spec §4.4): `hasImportReport`, `hasImportMapping`
+ * and `hasScheduleData` are derived when the schedule is read, as `schedule_items` does.
+ * Snapshots live under separate keys in `MockStore`; originals live in repository memory.
  */
-export type MockSchedule = Omit<Schedule, 'hasImportReport' | 'hasImportMapping'> & {
+export type MockSchedule = Omit<
+  Schedule,
+  'hasImportReport' | 'hasImportMapping' | 'hasScheduleData'
+> & {
   sourceProjectCode: string | null;
   importReport: ImportReport | null;
   importMapping: ImportMapping | null;
+  dataFilePath: string | null;
 };
 
-/** The whole mock database, stored as one JSON document (spec §5.6, P2 spec §6.4). */
+/** The whole mock database, stored as one JSON document (spec §5.6, P2 spec §6.4, P4 §9). */
 export interface MockDb {
-  version: 3;
+  version: 4;
   scenario: Scenario;
   /** The current user's seeded role in Site Operations; a different requested role reseeds. */
   teamRole: Role;
@@ -92,6 +97,233 @@ export interface SeedOptions {
   teamRole?: Role;
 }
 
+/**
+ * Builds a realistic 6-activity `ScheduleDocument` for seeded materialized schedules (`UP-02` and
+ * `LA-42`) so the editor opens directly with a working WBS, activities, links and calendar.
+ */
+export function makeSeedScheduleDocument(statusDate: ISODate | null): ScheduleDocument {
+  const statusClock = statusDate === null ? '2026-10-05T08:00' : `${statusDate}T08:00`;
+  const workDay = [
+    { start: 480, finish: 720 },
+    { start: 780, finish: 1020 },
+  ];
+  return {
+    schemaVersion: 1,
+    sourceFormat: null,
+    settings: {
+      profile: 'default',
+      ruleOverrides: {},
+      progressMode: 'retained_logic',
+      displayMode: 'calculated',
+      lagCalendar: 'predecessor',
+      criticalDefinition: 'total_float',
+      criticalThresholdMinutes: 0,
+      nearCriticalThresholdMinutes: 4800,
+      projectStart: '2026-10-05T08:00',
+      mustFinishBy: null,
+      statusDate: statusClock,
+      defaultCalendarId: 'cal:standard',
+      autoCalculate: false,
+    },
+    calendars: [
+      {
+        id: 'cal:standard',
+        name: 'Standard',
+        kind: 'project',
+        week: [[], workDay, workDay, workDay, workDay, workDay, []],
+        exceptions: [],
+        hoursPerDay: 8,
+        hoursPerWeek: 40,
+        hoursPerMonth: 160,
+        hoursPerYear: 1920,
+      },
+    ],
+    wbs: [
+      { id: 'wbs:root', parentId: null, code: '1', name: 'Construction works', order: 0 },
+      { id: 'wbs:sub', parentId: 'wbs:root', code: '1.1', name: 'Substructure', order: 0 },
+    ],
+    activities: [
+      {
+        id: 'act:00000',
+        code: 'A1000',
+        name: 'Notice to proceed',
+        wbsId: 'wbs:root',
+        calendarId: 'cal:standard',
+        type: 'start_milestone',
+        order: 0,
+        originalDuration: 0,
+        remainingDuration: 0,
+        status: 'completed',
+        actualStart: '2026-10-05T08:00',
+        actualFinish: '2026-10-05T08:00',
+        percent: { duration: 100, physical: 100, type: 'duration' },
+        constraint: null,
+        secondaryConstraint: null,
+        notes: null,
+        flags: { manual: false, elapsed: false, resourceDependent: false },
+        keys: { taskId: null, uid: null, guid: null },
+        sourceDates: null,
+      },
+      {
+        id: 'act:00001',
+        code: 'A1010',
+        name: 'Site mobilization',
+        wbsId: 'wbs:sub',
+        calendarId: 'cal:standard',
+        type: 'task',
+        order: 0,
+        originalDuration: 1440,
+        remainingDuration: 480,
+        status: 'in_progress',
+        actualStart: '2026-10-05T08:00',
+        actualFinish: null,
+        percent: { duration: 67, physical: null, type: 'duration' },
+        constraint: null,
+        secondaryConstraint: null,
+        notes: null,
+        flags: { manual: false, elapsed: false, resourceDependent: false },
+        keys: { taskId: null, uid: null, guid: null },
+        sourceDates: null,
+      },
+      {
+        id: 'act:00002',
+        code: 'A1020',
+        name: 'Excavation and shoring',
+        wbsId: 'wbs:sub',
+        calendarId: 'cal:standard',
+        type: 'task',
+        order: 1,
+        originalDuration: 2400,
+        remainingDuration: 2400,
+        status: 'not_started',
+        actualStart: null,
+        actualFinish: null,
+        percent: { duration: 0, physical: null, type: 'duration' },
+        constraint: null,
+        secondaryConstraint: null,
+        notes: null,
+        flags: { manual: false, elapsed: false, resourceDependent: false },
+        keys: { taskId: null, uid: null, guid: null },
+        sourceDates: null,
+      },
+      {
+        id: 'act:00003',
+        code: 'A1030',
+        name: 'Utility relocation',
+        wbsId: 'wbs:sub',
+        calendarId: 'cal:standard',
+        type: 'task',
+        order: 2,
+        originalDuration: 960,
+        remainingDuration: 960,
+        status: 'not_started',
+        actualStart: null,
+        actualFinish: null,
+        percent: { duration: 0, physical: null, type: 'duration' },
+        constraint: null,
+        secondaryConstraint: null,
+        notes: null,
+        flags: { manual: false, elapsed: false, resourceDependent: false },
+        keys: { taskId: null, uid: null, guid: null },
+        sourceDates: null,
+      },
+      {
+        id: 'act:00004',
+        code: 'A1040',
+        name: 'Foundation concrete pour',
+        wbsId: 'wbs:sub',
+        calendarId: 'cal:standard',
+        type: 'task',
+        order: 3,
+        originalDuration: 1440,
+        remainingDuration: 1440,
+        status: 'not_started',
+        actualStart: null,
+        actualFinish: null,
+        percent: { duration: 0, physical: null, type: 'duration' },
+        constraint: null,
+        secondaryConstraint: null,
+        notes: null,
+        flags: { manual: false, elapsed: false, resourceDependent: false },
+        keys: { taskId: null, uid: null, guid: null },
+        sourceDates: null,
+      },
+      {
+        id: 'act:00005',
+        code: 'A1050',
+        name: 'Substructure complete',
+        wbsId: 'wbs:root',
+        calendarId: 'cal:standard',
+        type: 'finish_milestone',
+        order: 1,
+        originalDuration: 0,
+        remainingDuration: 0,
+        status: 'not_started',
+        actualStart: null,
+        actualFinish: null,
+        percent: { duration: 0, physical: null, type: 'duration' },
+        constraint: null,
+        secondaryConstraint: null,
+        notes: null,
+        flags: { manual: false, elapsed: false, resourceDependent: false },
+        keys: { taskId: null, uid: null, guid: null },
+        sourceDates: null,
+      },
+    ],
+    relationships: [
+      {
+        id: 'rel:00000',
+        predecessorId: 'act:00000',
+        successorId: 'act:00001',
+        type: 'FS',
+        lagMinutes: 0,
+        lagElapsed: false,
+      },
+      {
+        id: 'rel:00001',
+        predecessorId: 'act:00001',
+        successorId: 'act:00002',
+        type: 'FS',
+        lagMinutes: 0,
+        lagElapsed: false,
+      },
+      {
+        id: 'rel:00002',
+        predecessorId: 'act:00001',
+        successorId: 'act:00003',
+        type: 'SS',
+        lagMinutes: 480,
+        lagElapsed: false,
+      },
+      {
+        id: 'rel:00003',
+        predecessorId: 'act:00002',
+        successorId: 'act:00004',
+        type: 'FS',
+        lagMinutes: 0,
+        lagElapsed: false,
+      },
+      {
+        id: 'rel:00004',
+        predecessorId: 'act:00003',
+        successorId: 'act:00004',
+        type: 'FS',
+        lagMinutes: 0,
+        lagElapsed: false,
+      },
+      {
+        id: 'rel:00005',
+        predecessorId: 'act:00004',
+        successorId: 'act:00005',
+        type: 'FS',
+        lagMinutes: 0,
+        lagElapsed: false,
+      },
+    ],
+    computed: null,
+  };
+}
+
 const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
 
@@ -101,7 +333,7 @@ const WORKSPACE_AGE_MS: Record<WorkspaceKind, number> = {
   team: 30 * DAY_MS,
 };
 
-/** One seed schedule (spec §4.5); every seed schedule is blank, with no activities. */
+/** One seed schedule (spec §4.5). */
 interface SeedSchedule {
   name: string;
   code: string;
@@ -113,6 +345,8 @@ interface SeedSchedule {
   notes: string | null;
   /** Days before the seed time the schedule was archived, or `null` when it isn't. */
   archivedDaysAgo: number | null;
+  /** True when the seed includes a materialized 6-activity snapshot for this schedule. */
+  seededSnapshot: boolean;
 }
 
 /** A seed schedule with the tags it doesn't name left at their defaults. */
@@ -131,6 +365,7 @@ function seedSchedule(
     updateNumber: null,
     notes: null,
     archivedDaysAgo: null,
+    seededSnapshot: false,
     ...tags,
   };
 }
@@ -212,6 +447,7 @@ const DEFAULT_PROJECTS: SeedProject[] = [
         isCurrent: true,
         updateNumber: 2,
         notes: 'Includes the revised crane plan.',
+        seededSnapshot: true,
       }),
     ],
   },
@@ -282,7 +518,7 @@ const DEFAULT_PROJECTS: SeedProject[] = [
     coordinates: [41.0422, 29.0083],
     schedules: [
       seedSchedule('Baseline rev. 3', 'BL-03', 90, { baseline: 'primary' }),
-      seedSchedule('Look-ahead W42', 'LA-42', 3, { isCurrent: true }),
+      seedSchedule('Look-ahead W42', 'LA-42', 3, { isCurrent: true, seededSnapshot: true }),
     ],
   },
 ];
@@ -319,7 +555,7 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
   const deniz = makeUser('Deniz', 'Kaya', 'deniz.kaya@example.com');
   const personal = makeWorkspace('My workspace', 'personal', msAgo(WORKSPACE_AGE_MS.personal));
   const db: MockDb = {
-    version: 3,
+    version: 4,
     scenario,
     teamRole,
     seededAt: now.toISOString(),
@@ -400,14 +636,16 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
       // was archived (R11).
       const archivedAt =
         schedule.archivedDaysAgo === null ? null : msAgo(schedule.archivedDaysAgo * DAY_MS);
+      const scheduleId = crypto.randomUUID();
+      const statusDate =
+        schedule.statusDaysBefore === null ? null : daysBefore(schedule.statusDaysBefore);
       db.schedules.push({
-        id: crypto.randomUUID(),
+        id: scheduleId,
         projectId: project.id,
         name: schedule.name,
         code: schedule.code,
         notes: schedule.notes,
-        statusDate:
-          schedule.statusDaysBefore === null ? null : daysBefore(schedule.statusDaysBefore),
+        statusDate,
         source: 'blank',
         sourceFileName: null,
         sourceFormat: null,
@@ -415,10 +653,16 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
         baseline: schedule.baseline,
         updateNumber: schedule.updateNumber,
         archivedAt,
-        activityCount: 0,
+        activityCount: schedule.seededSnapshot ? 6 : 0,
         sourceProjectCode: null,
         importReport: null,
         importMapping: null,
+        lock: null,
+        dataRevision: schedule.seededSnapshot ? 1 : 0,
+        dataFilePath: schedule.seededSnapshot
+          ? scheduleDataPath(project.workspaceId, project.id, scheduleId)
+          : null,
+        calculationMode: 'calculated',
         createdAt: updatedAt,
         updatedAt: archivedAt ?? updatedAt,
       });

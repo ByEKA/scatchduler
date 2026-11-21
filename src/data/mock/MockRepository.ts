@@ -18,40 +18,46 @@ import type { MockStore } from '@/data/mock/store';
 import type {
   DataRepository,
   ImportScheduleInput,
+  MaterializeScheduleInput,
   NewProjectInput,
   NewScheduleInput,
   NewTeamWorkspaceInput,
+  SaveScheduleDocumentInput,
   UpdateProjectInput,
   UpdateScheduleDetailsInput,
 } from '@/data/repository';
+import { countScheduleActivities, scheduleDataPath } from '@/data/schedule-codec';
+import type { ScheduleDocument } from '@/data/schedule-types';
 import { compareIds, compareMembers, compareWorkspaces, newestFirst } from '@/data/sort';
-import type {
-  ID,
-  ISODateTime,
-  ImportFormat,
-  ImportMapping,
-  ImportReport,
-  InviteResult,
-  Project,
-  ProjectAttributes,
-  ProjectClient,
-  ProjectLocation,
-  ProjectSector,
-  ProjectStage,
-  ProjectStatus,
-  ProjectSummary,
-  ProjectType,
-  Role,
-  Schedule,
-  ScheduleSource,
-  SharedScheduleRow,
-  Subscription,
-  Task,
-  User,
-  Workspace,
-  WorkspaceInvitation,
-  WorkspaceMember,
-  WorkspaceSummary,
+import {
+  LOCK_TTL_MS,
+  type ID,
+  type ISODateTime,
+  type ImportFormat,
+  type ImportMapping,
+  type ImportReport,
+  type InviteResult,
+  type Project,
+  type ProjectAttributes,
+  type ProjectClient,
+  type ProjectLocation,
+  type ProjectSector,
+  type ProjectStage,
+  type ProjectStatus,
+  type ProjectSummary,
+  type ProjectType,
+  type Role,
+  type Schedule,
+  type ScheduleLock,
+  type ScheduleSource,
+  type SharedScheduleRow,
+  type Subscription,
+  type Task,
+  type User,
+  type Workspace,
+  type WorkspaceInvitation,
+  type WorkspaceMember,
+  type WorkspaceSummary,
 } from '@/data/types';
 
 export interface MockRepositoryOptions {
@@ -242,12 +248,37 @@ const STORED_REPORT_ISSUES = 50;
 const MAX_SOURCE_FILE_SIZE = 52_428_800;
 const MAX_ACTIVITY_COUNT = 50_000;
 
+const ARCHIVED_EDIT_COPY = 'Restore this schedule before editing it.';
+const LOCK_EXPIRED_COPY = 'Your edit lock expired. Copy your changes or reload the schedule.';
+const REVISION_CONFLICT_COPY = 'This schedule was changed elsewhere. Reload and try again.';
+
+function activeLock(lock: ScheduleLock | null, nowMs: number): ScheduleLock | null {
+  if (lock === null) return null;
+  return Date.parse(lock.expiresAt) > nowMs ? lock : null;
+}
+
+function lockHolderActive(
+  schedule: MockSchedule,
+  callerId: ID,
+  nowMs: number,
+): ScheduleLock | null {
+  const lock = activeLock(schedule.lock ?? null, nowMs);
+  if (lock === null || lock.userId === callerId) return null;
+  return lock;
+}
+
+function displayNameOf(db: MockDb, userId: ID): string {
+  const user = db.users.find((u) => u.id === userId);
+  if (!user) return 'Another user';
+  const full = `${user.firstName} ${user.lastName}`.trim();
+  return full !== '' ? full : user.email || 'Another user';
+}
+
 /**
- * A stored schedule as the repository returns it: `hasImportReport` and `hasImportMapping` are
- * derived from the stored report and mapping, as `schedule_items` derives them. A document stored
- * before imports kept them has no such fields, which counts as none.
+ * A stored schedule as the repository returns it: `hasImportReport`, `hasImportMapping`,
+ * `hasScheduleData` and expired-lock filtering mirror `schedule_items`.
  */
-function toSchedule(schedule: MockSchedule): Schedule {
+function toSchedule(schedule: MockSchedule, nowMs: number): Schedule {
   return {
     id: schedule.id,
     projectId: schedule.projectId,
@@ -265,6 +296,10 @@ function toSchedule(schedule: MockSchedule): Schedule {
     activityCount: schedule.activityCount,
     hasImportReport: (schedule.importReport ?? null) !== null,
     hasImportMapping: (schedule.importMapping ?? null) !== null,
+    lock: activeLock(schedule.lock ?? null, nowMs),
+    dataRevision: schedule.dataRevision ?? 0,
+    hasScheduleData: (schedule.dataFilePath ?? null) !== null,
+    calculationMode: schedule.calculationMode ?? 'calculated',
     createdAt: schedule.createdAt,
     updatedAt: schedule.updatedAt,
   };
@@ -538,25 +573,28 @@ export class MockRepository implements DataRepository {
     return this.run('write', () => {
       // One store write, as the database's single transaction (R12): the project, its schedules
       // and their shares go; its tasks stay without a project (`on delete set null`). Their
-      // originals go afterwards, as the Supabase adapter removes the stored objects.
+      // originals and snapshots go afterwards, as the Supabase adapter removes the stored objects.
       const deleted = this.commit((db) => {
         const project = db.projects.find((p) => p.id === projectId);
         if (!project) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
         if (!hasRole(db, project.workspaceId, 'owner')) {
           throw new RepositoryError('forbidden', NO_PERMISSION);
         }
-        const scheduleIds = new Set(
-          db.schedules.filter((s) => s.projectId === project.id).map((s) => s.id),
-        );
+        const doomed = db.schedules.filter((s) => s.projectId === project.id);
+        const scheduleIds = new Set(doomed.map((s) => s.id));
+        const snapshotPaths = doomed
+          .map((s) => s.dataFilePath)
+          .filter((p): p is string => p !== null);
         db.shares = db.shares.filter((share) => !scheduleIds.has(share.scheduleId));
         db.schedules = db.schedules.filter((s) => !scheduleIds.has(s.id));
         db.projects = db.projects.filter((p) => p !== project);
         for (const task of db.tasks) {
           if (task.projectId === project.id) task.projectId = null;
         }
-        return scheduleIds;
+        return { scheduleIds, snapshotPaths };
       });
-      for (const id of deleted) this.originals.delete(id);
+      for (const id of deleted.scheduleIds) this.originals.delete(id);
+      for (const path of deleted.snapshotPaths) this.store.removeSnapshot(path);
     });
   }
 
@@ -573,24 +611,40 @@ export class MockRepository implements DataRepository {
   }
 
   listSchedules(projectId: ID): Promise<Schedule[]> {
-    return this.run('read', () =>
+    return this.run('read', () => {
+      const nowMs = this.now().getTime();
       // No membership filter, as in getProject (spec D34).
-      this.store
+      return this.store
         .read()
         .schedules.filter((schedule) => schedule.projectId === projectId)
         .sort(compareSchedules)
-        .map(toSchedule),
-    );
+        .map((schedule) => toSchedule(schedule, nowMs));
+    });
   }
 
   updateScheduleDetails(input: UpdateScheduleDetailsInput): Promise<Schedule> {
     return this.run('write', () => {
-      const timestamp = this.now().toISOString();
+      const nowDate = this.now();
+      const timestamp = nowDate.toISOString();
+      const nowMs = nowDate.getTime();
       return this.commit((db) => {
         const project = this.editableProjectOf(db, input.scheduleId);
+        const existing = db.schedules.find((s) => s.id === input.scheduleId);
+        if (existing) {
+          const nextStatusDate = optionalText(input.statusDate);
+          if (nextStatusDate !== existing.statusDate) {
+            const blocker = lockHolderActive(existing, db.currentUserId, nowMs);
+            if (blocker !== null) {
+              throw new RepositoryError(
+                'conflict',
+                `This schedule is being edited by ${blocker.userName}. Try again once they finish.`,
+              );
+            }
+          }
+        }
         const schedule = applyDetails(db.schedules, input, timestamp);
         syncProjectStatusDate(project, db.schedules);
-        return toSchedule(schedule);
+        return toSchedule(schedule, nowMs);
       });
     });
   }
@@ -607,10 +661,24 @@ export class MockRepository implements DataRepository {
 
   setSchedulesArchived(input: { scheduleIds: ID[]; archived: boolean }): Promise<void> {
     return this.run('write', () => {
-      const timestamp = this.now().toISOString();
+      const nowDate = this.now();
+      const timestamp = nowDate.toISOString();
+      const nowMs = nowDate.getTime();
       this.commit((db) => {
         const set = this.scheduleSetFor(db, input.scheduleIds, 'editor');
-        if (set) applyArchived(set.found, input.archived, timestamp);
+        if (!set) return;
+        if (input.archived) {
+          for (const schedule of set.found) {
+            const blocker = lockHolderActive(schedule, db.currentUserId, nowMs);
+            if (blocker !== null) {
+              throw new RepositoryError(
+                'conflict',
+                `This schedule is being edited by ${blocker.userName}. Try again once they finish.`,
+              );
+            }
+          }
+        }
+        applyArchived(set.found, input.archived, timestamp);
       });
     });
   }
@@ -618,18 +686,22 @@ export class MockRepository implements DataRepository {
   deleteSchedules(scheduleIds: ID[]): Promise<void> {
     return this.run('write', () => {
       // One store write, as the database's single statement: R3 is checked on the state the
-      // whole delete leaves, then the schedules and their shares go; their originals afterwards.
+      // whole delete leaves, then the schedules and their shares go; originals and snapshots after.
       const deleted = this.commit((db) => {
         const set = this.scheduleSetFor(db, scheduleIds, 'owner');
-        if (!set) return [];
+        if (!set) return { ids: [] as ID[], snapshotPaths: [] as string[] };
         const ids = set.found.map((s) => s.id);
+        const snapshotPaths = set.found
+          .map((s) => s.dataFilePath)
+          .filter((p): p is string => p !== null);
         checkDeleteKeepsCurrent(db.schedules, set.projectId, ids);
         const gone = new Set(ids);
         db.shares = db.shares.filter((share) => !gone.has(share.scheduleId));
         db.schedules = db.schedules.filter((s) => !gone.has(s.id));
-        return ids;
+        return { ids, snapshotPaths };
       });
-      for (const id of deleted) this.originals.delete(id);
+      for (const id of deleted.ids) this.originals.delete(id);
+      for (const path of deleted.snapshotPaths) this.store.removeSnapshot(path);
     });
   }
 
@@ -648,6 +720,165 @@ export class MockRepository implements DataRepository {
       const file = this.originals.get(schedule.id);
       if (!file) throw new RepositoryError('validation', ORIGINAL_FILE_GONE);
       return file;
+    });
+  }
+
+  getScheduleDocument(
+    scheduleId: ID,
+  ): Promise<{ document: ScheduleDocument | null; dataRevision: number }> {
+    return this.run('read', () => {
+      const schedule = this.storedSchedule(scheduleId);
+      if (schedule.dataFilePath === null) {
+        return { document: null, dataRevision: 0 };
+      }
+      const document = this.store.readSnapshot(schedule.dataFilePath);
+      return { document, dataRevision: schedule.dataRevision };
+    });
+  }
+
+  materializeScheduleDocument(input: MaterializeScheduleInput): Promise<{ dataRevision: number }> {
+    return this.run('write', () => {
+      const result = this.commit((db) => {
+        const { schedule, project } = this.scheduleForWrite(db, input.scheduleId, 'editor');
+        if (schedule.dataFilePath !== null) {
+          return { dataRevision: schedule.dataRevision, newPath: null as string | null };
+        }
+        const activityCount = countScheduleActivities(input.document);
+        if (activityCount > MAX_ACTIVITY_COUNT) {
+          throw new RepositoryError('validation', INVALID_VALUES);
+        }
+        const newPath = scheduleDataPath(project.workspaceId, project.id, schedule.id);
+        schedule.dataFilePath = newPath;
+        schedule.dataRevision = 1;
+        schedule.activityCount = activityCount;
+        schedule.calculationMode = input.document.settings.displayMode;
+        // R7: updatedAt stays unchanged.
+        return { dataRevision: 1, newPath };
+      });
+      if (result.newPath !== null) {
+        this.store.writeSnapshot(result.newPath, input.document);
+      }
+      return { dataRevision: result.dataRevision };
+    });
+  }
+
+  saveScheduleDocument(
+    input: SaveScheduleDocumentInput,
+  ): Promise<{ schedule: Schedule; dataRevision: number }> {
+    return this.run('write', () => {
+      const nowDate = this.now();
+      const nowMs = nowDate.getTime();
+      const timestamp = nowDate.toISOString();
+      const result = this.commit((db) => {
+        const { schedule, project } = this.scheduleForWrite(db, input.scheduleId, 'editor');
+        if (schedule.archivedAt !== null) {
+          throw new RepositoryError('validation', ARCHIVED_EDIT_COPY);
+        }
+        const currentLock = activeLock(schedule.lock, nowMs);
+        if (currentLock === null || currentLock.userId !== db.currentUserId) {
+          throw new RepositoryError('conflict', LOCK_EXPIRED_COPY);
+        }
+        if (schedule.dataRevision !== input.expectedRevision) {
+          throw new RepositoryError('conflict', REVISION_CONFLICT_COPY);
+        }
+        const activityCount = countScheduleActivities(input.document);
+        if (activityCount > MAX_ACTIVITY_COUNT) {
+          throw new RepositoryError('validation', INVALID_VALUES);
+        }
+        const prevPath = schedule.dataFilePath;
+        const nextPath = scheduleDataPath(project.workspaceId, project.id, schedule.id);
+        const nextRev = schedule.dataRevision + 1;
+        const statusDate =
+          input.document.settings.statusDate === null
+            ? null
+            : input.document.settings.statusDate.slice(0, 10);
+        schedule.dataFilePath = nextPath;
+        schedule.dataRevision = nextRev;
+        schedule.activityCount = activityCount;
+        schedule.calculationMode = input.document.settings.displayMode;
+        schedule.statusDate = statusDate;
+        schedule.updatedAt = timestamp;
+        syncProjectStatusDate(project, db.schedules);
+        return {
+          schedule: toSchedule(schedule, nowMs),
+          dataRevision: nextRev,
+          prevPath,
+          nextPath,
+        };
+      });
+      this.store.writeSnapshot(result.nextPath, input.document);
+      if (result.prevPath !== null && result.prevPath !== result.nextPath) {
+        this.store.removeSnapshot(result.prevPath);
+      }
+      return { schedule: result.schedule, dataRevision: result.dataRevision };
+    });
+  }
+
+  acquireScheduleLock(scheduleId: ID): Promise<ScheduleLock> {
+    return this.run('write', () => {
+      const nowDate = this.now();
+      const nowMs = nowDate.getTime();
+      return this.commit((db) => {
+        const { schedule } = this.scheduleForWrite(db, scheduleId, 'editor');
+        if (schedule.archivedAt !== null) {
+          throw new RepositoryError('validation', ARCHIVED_EDIT_COPY);
+        }
+        const blocker = lockHolderActive(schedule, db.currentUserId, nowMs);
+        if (blocker !== null) {
+          throw new RepositoryError(
+            'conflict',
+            `This schedule is being edited by ${blocker.userName}.`,
+          );
+        }
+        const lock: ScheduleLock = {
+          userId: db.currentUserId,
+          userName: displayNameOf(db, db.currentUserId),
+          lockedAt: nowDate.toISOString(),
+          expiresAt: new Date(nowMs + LOCK_TTL_MS).toISOString(),
+        };
+        schedule.lock = lock;
+        return lock;
+      });
+    });
+  }
+
+  renewScheduleLock(scheduleId: ID): Promise<ScheduleLock> {
+    return this.run('write', () => {
+      const nowDate = this.now();
+      const nowMs = nowDate.getTime();
+      return this.commit((db) => {
+        const { schedule } = this.scheduleForWrite(db, scheduleId, 'editor');
+        const currentLock = activeLock(schedule.lock, nowMs);
+        if (currentLock === null || currentLock.userId !== db.currentUserId) {
+          throw new RepositoryError('conflict', LOCK_EXPIRED_COPY);
+        }
+        const renewed: ScheduleLock = {
+          ...currentLock,
+          expiresAt: new Date(nowMs + LOCK_TTL_MS).toISOString(),
+        };
+        schedule.lock = renewed;
+        return renewed;
+      });
+    });
+  }
+
+  releaseScheduleLock(scheduleId: ID): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        const { schedule } = this.scheduleForWrite(db, scheduleId, 'editor');
+        if (schedule.lock?.userId === db.currentUserId) {
+          schedule.lock = null;
+        }
+      });
+    });
+  }
+
+  forceReleaseScheduleLock(scheduleId: ID): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        const { schedule } = this.scheduleForWrite(db, scheduleId, 'owner');
+        schedule.lock = null;
+      });
     });
   }
 
@@ -933,6 +1164,21 @@ export class MockRepository implements DataRepository {
     return schedule;
   }
 
+  /** A schedule + parent project for Phase 4 lock/materialize/save writes (not_found → forbidden). */
+  private scheduleForWrite(
+    db: MockDb,
+    scheduleId: ID,
+    minRole: Role,
+  ): { schedule: MockSchedule; project: Project } {
+    const schedule = db.schedules.find((s) => s.id === scheduleId);
+    const project = db.projects.find((p) => p.id === schedule?.projectId);
+    if (!schedule || !project) throw new RepositoryError('not_found', SCHEDULE_NOT_FOUND);
+    if (!hasRole(db, project.workspaceId, minRole)) {
+      throw new RepositoryError('forbidden', NO_PERMISSION);
+    }
+    return { schedule, project };
+  }
+
   /**
    * Both schedule methods: an editor or owner of the project's workspace adds the schedule with a
    * code the project doesn't use yet (R8, checked after the project and the role, as the
@@ -947,7 +1193,9 @@ export class MockRepository implements DataRepository {
   ): Schedule {
     const { projectId } = input;
     const source: ScheduleSource = imported === null ? 'blank' : 'import';
-    const timestamp = this.now().toISOString();
+    const nowDate = this.now();
+    const timestamp = nowDate.toISOString();
+    const nowMs = nowDate.getTime();
     return this.commit((db) => {
       const project = db.projects.find((p) => p.id === projectId);
       if (!project) throw new RepositoryError('not_found', 'Project not found');
@@ -974,13 +1222,17 @@ export class MockRepository implements DataRepository {
         sourceProjectCode: details?.sourceProjectCode ?? null,
         importReport: details?.importReport ?? null,
         importMapping: details?.importMapping ?? null,
+        lock: null,
+        dataRevision: 0,
+        dataFilePath: null,
+        calculationMode: 'calculated',
         createdAt: timestamp,
         updatedAt: timestamp,
       };
       db.schedules.push(schedule);
       syncProjectStatusDate(project, db.schedules);
       project.updatedAt = timestamp;
-      return toSchedule(schedule);
+      return toSchedule(schedule, nowMs);
     });
   }
 }

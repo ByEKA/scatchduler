@@ -127,14 +127,14 @@ isOneToOne: false
                   ]
                 },"schedules": {
                   Row: {
-                    "activity_count": number,"archived_at": string | null,"baseline": string,"code": string | null,"created_at": string,"id": string,"import_mapping": Json | null,"import_report": Json | null,"is_current": boolean,"name": string,"notes": string | null,"parser_version": string | null,"project_id": string,"source": string,"source_file_name": string | null,"source_file_path": string | null,"source_file_sha256": string | null,"source_file_size": number | null,"source_format": string | null,"source_project_code": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string
+                    "activity_count": number,"archived_at": string | null,"baseline": string,"calculation_mode": string,"code": string | null,"created_at": string,"data_file_path": string | null,"data_revision": number,"id": string,"import_mapping": Json | null,"import_report": Json | null,"is_current": boolean,"lock_expires_at": string | null,"locked_at": string | null,"locked_by": string | null,"name": string,"notes": string | null,"parser_version": string | null,"project_id": string,"source": string,"source_file_name": string | null,"source_file_path": string | null,"source_file_sha256": string | null,"source_file_size": number | null,"source_format": string | null,"source_project_code": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"code"?: string | null,"created_at"?: string,"id"?: string,"import_mapping"?: Json | null,"import_report"?: Json | null,"is_current"?: boolean,"name": string,"notes"?: string | null,"parser_version"?: string | null,"project_id": string,"source": string,"source_file_name"?: string | null,"source_file_path"?: string | null,"source_file_sha256"?: string | null,"source_file_size"?: number | null,"source_format"?: string | null,"source_project_code"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
+                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"calculation_mode"?: string,"code"?: string | null,"created_at"?: string,"data_file_path"?: string | null,"data_revision"?: number,"id"?: string,"import_mapping"?: Json | null,"import_report"?: Json | null,"is_current"?: boolean,"lock_expires_at"?: string | null,"locked_at"?: string | null,"locked_by"?: string | null,"name": string,"notes"?: string | null,"parser_version"?: string | null,"project_id": string,"source": string,"source_file_name"?: string | null,"source_file_path"?: string | null,"source_file_sha256"?: string | null,"source_file_size"?: number | null,"source_format"?: string | null,"source_project_code"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
                   }
                   Update: {
-                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"code"?: string | null,"created_at"?: string,"id"?: string,"import_mapping"?: Json | null,"import_report"?: Json | null,"is_current"?: boolean,"name"?: string,"notes"?: string | null,"parser_version"?: string | null,"project_id"?: string,"source"?: string,"source_file_name"?: string | null,"source_file_path"?: string | null,"source_file_sha256"?: string | null,"source_file_size"?: number | null,"source_format"?: string | null,"source_project_code"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
+                    "activity_count"?: number,"archived_at"?: string | null,"baseline"?: string,"calculation_mode"?: string,"code"?: string | null,"created_at"?: string,"data_file_path"?: string | null,"data_revision"?: number,"id"?: string,"import_mapping"?: Json | null,"import_report"?: Json | null,"is_current"?: boolean,"lock_expires_at"?: string | null,"locked_at"?: string | null,"locked_by"?: string | null,"name"?: string,"notes"?: string | null,"parser_version"?: string | null,"project_id"?: string,"source"?: string,"source_file_name"?: string | null,"source_file_path"?: string | null,"source_file_sha256"?: string | null,"source_file_size"?: number | null,"source_format"?: string | null,"source_project_code"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -354,14 +354,14 @@ isOneToOne: false
                   ]
                 },"schedule_items": {
                   Row: {
-                    "activity_count": number | null,"archived_at": string | null,"baseline": string | null,"code": string | null,"created_at": string | null,"has_import_mapping": boolean | null,"has_import_report": boolean | null,"id": string | null,"is_current": boolean | null,"name": string | null,"notes": string | null,"project_id": string | null,"source": string | null,"source_file_name": string | null,"source_format": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string | null
+                    "activity_count": number | null,"archived_at": string | null,"baseline": string | null,"calculation_mode": string | null,"code": string | null,"created_at": string | null,"data_revision": number | null,"has_import_mapping": boolean | null,"has_import_report": boolean | null,"has_schedule_data": boolean | null,"id": string | null,"is_current": boolean | null,"lock_expires_at": string | null,"locked_at": string | null,"locked_by": string | null,"locked_by_name": string | null,"name": string | null,"notes": string | null,"project_id": string | null,"source": string | null,"source_file_name": string | null,"source_format": string | null,"status_date": string | null,"update_number": number | null,"updated_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"code"?: string | null,"created_at"?: string | null,"has_import_mapping"?: never,"has_import_report"?: never,"id"?: string | null,"is_current"?: boolean | null,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"source_format"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
+                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"calculation_mode"?: string | null,"code"?: string | null,"created_at"?: string | null,"data_revision"?: number | null,"has_import_mapping"?: never,"has_import_report"?: never,"has_schedule_data"?: never,"id"?: string | null,"is_current"?: boolean | null,"lock_expires_at"?: never,"locked_at"?: never,"locked_by"?: never,"locked_by_name"?: never,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"source_format"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
                          }
                         Update: {
-                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"code"?: string | null,"created_at"?: string | null,"has_import_mapping"?: never,"has_import_report"?: never,"id"?: string | null,"is_current"?: boolean | null,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"source_format"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
+                           "activity_count"?: number | null,"archived_at"?: string | null,"baseline"?: string | null,"calculation_mode"?: string | null,"code"?: string | null,"created_at"?: string | null,"data_revision"?: number | null,"has_import_mapping"?: never,"has_import_report"?: never,"has_schedule_data"?: never,"id"?: string | null,"is_current"?: boolean | null,"lock_expires_at"?: never,"locked_at"?: never,"locked_by"?: never,"locked_by_name"?: never,"name"?: string | null,"notes"?: string | null,"project_id"?: string | null,"source"?: string | null,"source_file_name"?: string | null,"source_format"?: string | null,"status_date"?: string | null,"update_number"?: number | null,"updated_at"?: string | null
                          }
                         Relationships: [
                     {
@@ -438,6 +438,11 @@ isOneToOne: false
               "confirmed": boolean,"user_id": string
             }[]
                            },
+"acquire_schedule_lock":
+{ Args: { "p_schedule_id": string }; Returns: {
+              "expires_at": string,"locked_at": string,"user_id": string,"user_name": string
+            }[]
+                           },
 "create_team_workspace":
 { Args: { "p_name": string }; Returns: {
               "created_at": string | null,
@@ -460,16 +465,37 @@ isOneToOne: false
             }[]
                            },
 "delete_schedules":
-{ Args: { "p_schedule_ids": (string)[] }; Returns: string[]
+{ Args: { "p_schedule_ids": (string)[] }; Returns: {
+              "bucket": string,"path": string
+            }[]
+                           },
+"force_release_schedule_lock":
+{ Args: { "p_schedule_id": string }; Returns: undefined
                            },
 "is_project_code_available":
 { Args: { "p_code": string,"p_workspace_id": string }; Returns: boolean
                            },
+"materialize_schedule_data":
+{ Args: { "p_activity_count": number,"p_calculation_mode": string,"p_data_file_path": string,"p_schedule_id": string }; Returns: number
+                           },
+"release_schedule_lock":
+{ Args: { "p_schedule_id": string }; Returns: undefined
+                           },
 "remove_member":
 { Args: { "p_user_id": string,"p_workspace_id": string }; Returns: undefined
                            },
+"renew_schedule_lock":
+{ Args: { "p_schedule_id": string }; Returns: {
+              "expires_at": string,"locked_at": string,"user_id": string,"user_name": string
+            }[]
+                           },
 "save_invitation":
 { Args: { "p_email": string,"p_invited_by": string,"p_role": string,"p_user_id": string,"p_workspace_id": string }; Returns: string
+                           },
+"save_schedule_data":
+{ Args: { "p_activity_count": number,"p_calculation_mode": string,"p_data_file_path": string,"p_expected_revision": number,"p_schedule_id": string,"p_status_date": string }; Returns: {
+              "data_revision": number,"previous_data_file_path": string
+            }[]
                            },
 "set_current_schedule":
 { Args: { "p_schedule_id": string }; Returns: undefined
