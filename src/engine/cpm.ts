@@ -1,4 +1,6 @@
 import type {
+  ComputedActivityResult,
+  ComputedRelationshipResult,
   ConstraintType,
   DriverReason,
   ScheduleActivity,
@@ -13,6 +15,7 @@ import {
   snapBackwardToWorkFinish,
   snapForwardToWorkStart,
   subtractWorkingMinutes,
+  workingMinutesBetween,
   type CompiledCalendar,
 } from '@/engine/calendar';
 import type { ScheduleGraph } from '@/engine/graph';
@@ -855,3 +858,164 @@ export function runPostPasses(
     backward.lf[u] = finalEf;
   }
 }
+
+function formatFloatDays(minutes: number, hoursPerDay: number): string {
+  const dayMinutes = Math.max(1, hoursPerDay * 60);
+  const rounded = Math.round((minutes / dayMinutes) * 10) / 10;
+  const safe = rounded === 0 ? 0 : rounded;
+  return `${safe} d`;
+}
+
+/**
+ * Computes activity total/free float, relationship free float & driving status, longest path,
+ * criticality, near-criticality and `NEGATIVE_FLOAT` warnings (spec §5.4 step 4).
+ */
+export function computeFloatsAndCriticality(
+  document: ScheduleDocument,
+  graph: ScheduleGraph,
+  calendars: ReadonlyMap<string, CompiledCalendar>,
+  rules: ResolvedRules,
+  forward: ForwardState,
+  backward: BackwardState,
+): {
+  activities: Record<string, ComputedActivityResult>;
+  relationships: Record<string, ComputedRelationshipResult>;
+  warnings: SolverWarning[];
+} {
+  const n = graph.nodes.length;
+  const edgeCount = graph.activeRelationships.length;
+  const defaultCal = resolveDefaultCalendar(document.settings, calendars);
+  const nodeCalendars = resolveNodeCalendars(graph.nodes, calendars, defaultCal);
+
+  const edgeFreeFloat = new Int32Array(edgeCount);
+  const edgeIsDriving = new Uint8Array(edgeCount);
+  const relationships: Record<string, ComputedRelationshipResult> = {};
+
+  for (let edgeIdx = 0; edgeIdx < edgeCount; edgeIdx++) {
+    const rel = graph.activeRelationships[edgeIdx]!;
+    const u = graph.edgePredIndex[edgeIdx]!;
+    const s = graph.edgeSuccIndex[edgeIdx]!;
+    const pred = graph.nodes[u]!;
+    const succ = graph.nodes[s]!;
+    const lagCal = resolveLagCalendar(
+      rel,
+      document.settings,
+      nodeCalendars[u]!,
+      nodeCalendars[s]!,
+      defaultCal,
+    );
+
+    const predAnchor =
+      rel.type === 'FS' || rel.type === 'FF' ? forward.ef[u]! : forward.es[u]!;
+    const linkBound = addWorkingMinutes(lagCal, predAnchor, rel.lagMinutes);
+    const succAnchor =
+      rel.type === 'FS' || rel.type === 'SS' ? forward.es[s]! : forward.ef[s]!;
+    const relFreeFloat = workingMinutesBetween(lagCal, linkBound, succAnchor);
+    const active =
+      forward.activeLinkMask[edgeIdx] === 1 &&
+      pred.type !== 'level_of_effort' &&
+      succ.type !== 'level_of_effort';
+    const isDriving = active && relFreeFloat <= 0;
+
+    edgeFreeFloat[edgeIdx] = relFreeFloat;
+    edgeIsDriving[edgeIdx] = isDriving ? 1 : 0;
+    relationships[rel.id] = { freeFloat: relFreeFloat, isDriving };
+  }
+
+  // Longest path: iterative backward walk along driving links from terminal non-LOE nodes.
+  const isLongestPath = new Uint8Array(n);
+  const stack = new Int32Array(n);
+  let stackTop = 0;
+  for (let u = 0; u < n; u++) {
+    if (graph.nodes[u]!.type === 'level_of_effort') continue;
+    if (forward.ef[u]! === backward.projectFinish) {
+      isLongestPath[u] = 1;
+      stack[stackTop++] = u;
+    }
+  }
+  while (stackTop > 0) {
+    const v = stack[--stackTop]!;
+    const inEdges = graph.incomingEdgeIndices[v]!;
+    for (let j = 0; j < inEdges.length; j++) {
+      const edgeIdx = inEdges[j]!;
+      if (edgeIsDriving[edgeIdx] !== 1) continue;
+      const p = graph.edgePredIndex[edgeIdx]!;
+      if (isLongestPath[p] === 0 && graph.nodes[p]!.type !== 'level_of_effort') {
+        isLongestPath[p] = 1;
+        stack[stackTop++] = p;
+      }
+    }
+  }
+
+  const activities: Record<string, ComputedActivityResult> = {};
+  const warnings: SolverWarning[] = [];
+  const { criticalDefinition, criticalThresholdMinutes, nearCriticalThresholdMinutes } =
+    document.settings;
+
+  for (let u = 0; u < n; u++) {
+    const act = graph.nodes[u]!;
+    const cal = nodeCalendars[u]!;
+    const actEs = forward.es[u]!;
+    const actEf = forward.ef[u]!;
+    const actLs = backward.ls[u]!;
+    const actLf = backward.lf[u]!;
+
+    const finishFloat = workingMinutesBetween(cal, actEf, actLf);
+    const totalFloat =
+      rules.totalFloatFormula === 'finish_float'
+        ? finishFloat
+        : Math.min(workingMinutesBetween(cal, actEs, actLs), finishFloat);
+
+    let freeFloat: number;
+    if (act.type === 'level_of_effort') {
+      freeFloat = 0;
+    } else {
+      const outEdges = graph.outgoingEdgeIndices[u]!;
+      let minFf = Number.POSITIVE_INFINITY;
+      for (let j = 0; j < outEdges.length; j++) {
+        const edgeIdx = outEdges[j]!;
+        if (forward.activeLinkMask[edgeIdx] !== 1) continue;
+        const s = graph.edgeSuccIndex[edgeIdx]!;
+        if (graph.nodes[s]!.type === 'level_of_effort') continue;
+        const ff = edgeFreeFloat[edgeIdx]!;
+        if (ff < minFf) minFf = ff;
+      }
+      freeFloat = Number.isFinite(minFf) ? minFf : 0;
+      if (rules.freeFloatFloorZero && freeFloat < 0) {
+        freeFloat = 0;
+      }
+    }
+
+    if (totalFloat < 0) {
+      warnings.push({
+        code: 'NEGATIVE_FLOAT',
+        activityId: act.id,
+        relationshipId: null,
+        message: `${act.code} has negative total float (${formatFloatDays(totalFloat, cal.hoursPerDay)}).`,
+      });
+    }
+
+    const longest = isLongestPath[u] === 1;
+    const isCritical =
+      criticalDefinition === 'longest_path'
+        ? longest
+        : totalFloat <= criticalThresholdMinutes;
+    const isNearCritical = !isCritical && totalFloat <= nearCriticalThresholdMinutes;
+
+    activities[act.id] = {
+      earlyStart: toWallClock(actEs),
+      earlyFinish: toWallClock(actEf),
+      lateStart: toWallClock(actLs),
+      lateFinish: toWallClock(actLf),
+      totalFloat,
+      freeFloat,
+      isCritical,
+      isNearCritical,
+      isLongestPath: longest,
+      driver: forward.drivers[u]!,
+    };
+  }
+
+  return { activities, relationships, warnings };
+}
+
