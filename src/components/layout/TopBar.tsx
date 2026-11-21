@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { PlanBadge } from '@/components/layout/PlanBadge';
 import { ProjectSwitcher } from '@/components/layout/ProjectSwitcher';
+import { ScheduleSwitcher } from '@/components/layout/ScheduleSwitcher';
 import { UserMenu } from '@/components/layout/UserMenu';
 import { WorkspaceSwitcher } from '@/components/layout/WorkspaceSwitcher';
 import { Button } from '@/components/ui/button';
@@ -16,8 +17,9 @@ function toggleLabel(mode: 'inline' | 'drawer', open: boolean): string {
 }
 
 /**
- * The top bar (spec §6.4). Left: sidebar toggle, logo, workspace and project switchers. Right:
- * plan badge and account menu. The switchers shrink and truncate when space runs short.
+ * The top bar (spec §6.4, P4 §7.1). Left: sidebar toggle, logo, workspace, project and schedule
+ * switchers. Right: plan badge and account menu. The switchers shrink and truncate when space runs
+ * short.
  */
 export function TopBar(): ReactElement {
   const { mode, open, toggle } = useSidebarState();
@@ -45,6 +47,7 @@ export function TopBar(): ReactElement {
         </Link>
         <WorkspaceSwitcher />
         <ProjectSwitcher />
+        <ScheduleSwitcher />
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <PlanBadge />

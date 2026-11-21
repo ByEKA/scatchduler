@@ -167,9 +167,13 @@ describe('schedule documents and locks on the local stack', () => {
   it('materializes idempotently without moving updatedAt and cleans up redundant uploads (R7)', async () => {
     const f = await makeSupabaseRepositoryFixture();
     const metro = f.projectIds['002']!;
-    const imported = await f.repository.importSchedule(await makeImportScheduleInput(metro));
-    const originalUpdatedAt = imported.updatedAt;
-    const folder = `${f.workspaces.personal}/${metro}/${imported.id}`;
+    const unmaterialized = await f.repository.createSchedule({
+      projectId: metro,
+      name: 'Unmaterialized Schedule',
+      code: 'MAT-1',
+    });
+    const originalUpdatedAt = unmaterialized.updatedAt;
+    const folder = `${f.workspaces.personal}/${metro}/${unmaterialized.id}`;
 
     const docA = makeSampleScheduleDocument({
       sourceFormat: 'xer',
@@ -189,9 +193,14 @@ describe('schedule documents and locks on the local stack', () => {
     });
 
     expect(
-      await f.repository.materializeScheduleDocument({ scheduleId: imported.id, document: docA }),
+      await f.repository.materializeScheduleDocument({
+        scheduleId: unmaterialized.id,
+        document: docA,
+      }),
     ).toEqual({ dataRevision: 1 });
-    const afterFirst = (await f.repository.listSchedules(metro)).find((s) => s.id === imported.id)!;
+    const afterFirst = (await f.repository.listSchedules(metro)).find(
+      (s) => s.id === unmaterialized.id,
+    )!;
     expect(afterFirst.updatedAt).toBe(originalUpdatedAt);
     expect(afterFirst.hasScheduleData).toBe(true);
     expect(afterFirst.dataRevision).toBe(1);
@@ -200,9 +209,12 @@ describe('schedule documents and locks on the local stack', () => {
 
     // Repeat call keeps docA and removes its own redundant upload.
     expect(
-      await f.repository.materializeScheduleDocument({ scheduleId: imported.id, document: docB }),
+      await f.repository.materializeScheduleDocument({
+        scheduleId: unmaterialized.id,
+        document: docB,
+      }),
     ).toEqual({ dataRevision: 1 });
-    expect(await f.repository.getScheduleDocument(imported.id)).toEqual({
+    expect(await f.repository.getScheduleDocument(unmaterialized.id)).toEqual({
       document: docA,
       dataRevision: 1,
     });
@@ -352,10 +364,6 @@ describe('schedule documents and locks on the local stack', () => {
     const imported = await f.repository.importSchedule(
       await makeImportScheduleInput(harbor, { name: 'Two Bucket Delete', code: 'TBD-1' }),
     );
-    await f.repository.materializeScheduleDocument({
-      scheduleId: imported.id,
-      document: makeSampleScheduleDocument({ sourceFormat: 'xer' }),
-    });
 
     const { data: pathsRow, error: pathsError } = await admin
       .from('schedules')

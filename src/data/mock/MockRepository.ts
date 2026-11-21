@@ -26,7 +26,12 @@ import type {
   UpdateProjectInput,
   UpdateScheduleDetailsInput,
 } from '@/data/repository';
-import { countScheduleActivities, scheduleDataPath } from '@/data/schedule-codec';
+import {
+  countScheduleActivities,
+  decodeScheduleDocument,
+  ScheduleCodecError,
+  scheduleDataPath,
+} from '@/data/schedule-codec';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import { compareIds, compareMembers, compareWorkspaces, newestFirst } from '@/data/sort';
 import {
@@ -599,13 +604,25 @@ export class MockRepository implements DataRepository {
   }
 
   createSchedule(input: NewScheduleInput): Promise<Schedule> {
-    return this.run('write', () => this.addSchedule(input, null));
+    return this.run('write', () => this.addSchedule(input, null).schedule);
   }
 
   importSchedule(input: ImportScheduleInput): Promise<Schedule> {
-    return this.run('write', () => {
-      const schedule = this.addSchedule(input, input);
+    return this.run('write', async () => {
+      let document: ScheduleDocument;
+      try {
+        document = await decodeScheduleDocument(input.dataStored);
+      } catch (error) {
+        if (error instanceof ScheduleCodecError) {
+          throw new RepositoryError('validation', error.message);
+        }
+        throw error;
+      }
+      const { schedule, dataFilePath } = this.addSchedule(input, input);
       this.originals.set(schedule.id, input.file);
+      if (dataFilePath !== null) {
+        this.store.writeSnapshot(dataFilePath, document);
+      }
       return schedule;
     });
   }
@@ -1190,7 +1207,7 @@ export class MockRepository implements DataRepository {
   private addSchedule(
     input: { projectId: ID; name: string; code: string },
     imported: ImportScheduleInput | null,
-  ): Schedule {
+  ): { schedule: Schedule; dataFilePath: string | null } {
     const { projectId } = input;
     const source: ScheduleSource = imported === null ? 'blank' : 'import';
     const nowDate = this.now();
@@ -1204,8 +1221,11 @@ export class MockRepository implements DataRepository {
       }
       const code = checkNewScheduleCode(db.schedules, projectId, input.code);
       const details = imported === null ? null : importDetails(imported);
+      const scheduleId = crypto.randomUUID();
+      const dataFilePath =
+        imported === null ? null : scheduleDataPath(project.workspaceId, projectId, scheduleId);
       const schedule: MockSchedule = {
-        id: crypto.randomUUID(),
+        id: scheduleId,
         projectId,
         name: input.name.trim(),
         code,
@@ -1223,16 +1243,16 @@ export class MockRepository implements DataRepository {
         importReport: details?.importReport ?? null,
         importMapping: details?.importMapping ?? null,
         lock: null,
-        dataRevision: 0,
-        dataFilePath: null,
-        calculationMode: 'calculated',
+        dataRevision: imported === null ? 0 : 1,
+        dataFilePath,
+        calculationMode: imported === null ? 'calculated' : imported.calculationMode,
         createdAt: timestamp,
         updatedAt: timestamp,
       };
       db.schedules.push(schedule);
       syncProjectStatusDate(project, db.schedules);
       project.updatedAt = timestamp;
-      return toSchedule(schedule, nowMs);
+      return { schedule: toSchedule(schedule, nowMs), dataFilePath };
     });
   }
 }

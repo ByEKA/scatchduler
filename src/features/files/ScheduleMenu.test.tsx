@@ -39,34 +39,26 @@ const items = () => screen.getAllByRole('menuitem').map((item) => item.textConte
 describe('ScheduleMenu', () => {
   it('offers what the role and the schedule state allow', async () => {
     const current = await renderMenu('004', 'RP-01');
-    expect(items()).toEqual(["OpenThe schedule editor isn't available yet.", 'Edit details']);
+    expect(items()).toEqual(['Open', 'Edit details']);
     current.unmount();
     const baseline = await renderMenu('004', 'BL-01');
-    expect(items()).toEqual([
-      "OpenThe schedule editor isn't available yet.",
-      'Make current',
-      'Edit details',
-      'Archive',
-      'Delete',
-    ]);
+    expect(items()).toEqual(['Open', 'Make current', 'Edit details', 'Archive', 'Delete']);
     baseline.unmount();
     const draft = await renderMenu('004', 'RP-00');
-    expect(items()).toEqual([
-      "OpenThe schedule editor isn't available yet.",
-      'Edit details',
-      'Restore',
-      'Delete',
-    ]);
+    expect(items()).toEqual(['Open', 'Edit details', 'Restore', 'Delete']);
     draft.unmount();
     await renderMenu('T-01', 'BL-03', { teamRole: 'viewer' });
-    expect(items()).toEqual(["OpenThe schedule editor isn't available yet."]);
+    expect(items()).toEqual(['Open']);
   });
 
-  it('keeps "Open" disabled and describes why', async () => {
-    await renderMenu('004', 'BL-01');
-    const open = screen.getByRole('menuitem', { name: /^Open/ });
-    expect(open).toHaveAttribute('aria-disabled', 'true');
-    expect(open).toHaveAccessibleDescription("The schedule editor isn't available yet.");
+  it('opens the schedule route when "Open" is selected', async () => {
+    const { user, schedule } = await renderMenu('004', 'BL-01');
+    const open = screen.getByRole('menuitem', { name: 'Open' });
+    expect(open).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(open);
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      `/p/${schedule.projectId}/schedule?scheduleId=${schedule.id}`,
+    );
   });
 
   it('makes a schedule current and archives another, with their toasts', async () => {
@@ -116,11 +108,7 @@ describe('ScheduleMenu', () => {
 
   it('allows owners to delete the current schedule when it is the only one', async () => {
     await renderMenu('001', 'MS-01');
-    expect(items()).toEqual([
-      "OpenThe schedule editor isn't available yet.",
-      'Edit details',
-      'Delete',
-    ]);
+    expect(items()).toEqual(['Open', 'Edit details', 'Delete']);
   });
 
   it('keeps a failed delete in the dialog and returns focus to the trigger on cancel', async () => {

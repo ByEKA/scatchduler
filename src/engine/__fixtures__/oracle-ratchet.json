@@ -1,0 +1,26 @@
+{
+  "two-projects.NTH-A": {
+    "es": 4,
+    "ef": 2,
+    "ls": 4,
+    "lf": 3,
+    "tf": 3,
+    "ff": 0
+  },
+  "legacy-p6": {
+    "es": 3,
+    "ef": 2,
+    "ls": 3,
+    "lf": 3,
+    "tf": 2,
+    "ff": 2
+  },
+  "project": {
+    "es": 1,
+    "ef": 1,
+    "ls": 4,
+    "lf": 4,
+    "tf": 0,
+    "ff": 0
+  }
+}
