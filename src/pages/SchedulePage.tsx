@@ -1,5 +1,5 @@
 import { ChartGantt, Download, FileUp, Info, Plus } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
@@ -11,7 +11,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import type { Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import type { GanttZoom } from '@/features/schedule/gantt/timescale';
 import { buildVisibleRows } from '@/features/schedule/rows';
+import { ScheduleGantt, type ScheduleGanttHandle } from '@/features/schedule/ScheduleGantt';
 import { ScheduleGrid } from '@/features/schedule/ScheduleGrid';
 import { SplitPane } from '@/features/schedule/SplitPane';
 import { useScheduleEditor } from '@/features/schedule/useScheduleEditor';
@@ -38,6 +40,10 @@ function ScheduleEditorWorkspace({
     initialDocument,
     initialRevision,
   });
+  const gridScrollRef = useRef<HTMLDivElement>(null);
+  const ganttRef = useRef<ScheduleGanttHandle>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [zoom, setZoom] = useState<GanttZoom>('week');
 
   const visibleRows = useMemo(
     () =>
@@ -49,6 +55,13 @@ function ScheduleEditorWorkspace({
       ),
     [editor.collapsedWbsIds, editor.document, editor.rollups, editor.summary],
   );
+
+  const handleGanttScrollTop = useCallback((nextTop: number) => {
+    setScrollTop(nextTop);
+    if (gridScrollRef.current && gridScrollRef.current.scrollTop !== nextTop) {
+      gridScrollRef.current.scrollTop = nextTop;
+    }
+  }, []);
 
   return (
     <div className="flex h-[calc(100dvh-48px-36px)] min-h-[480px] flex-col gap-2">
@@ -73,12 +86,26 @@ function ScheduleEditorWorkspace({
             onDispatch={editor.dispatch}
             onSelectKey={editor.selectKey}
             onToggleWbs={editor.toggleWbs}
+            scrollContainerRef={gridScrollRef}
+            onScroll={setScrollTop}
           />
         }
         right={
-          <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-            Gantt timeline
-          </div>
+          <ScheduleGantt
+            ref={ganttRef}
+            rows={visibleRows}
+            document={editor.document}
+            summary={editor.summary}
+            selectedKey={editor.selectedKey}
+            showCritical={editor.showCritical}
+            showLinks={editor.showLinks}
+            drivingPath={editor.drivingPath}
+            zoom={zoom}
+            onZoomChange={setZoom}
+            onSelectKey={editor.selectKey}
+            scrollTop={scrollTop}
+            onScrollTopChange={handleGanttScrollTop}
+          />
         }
       />
       <div role="status" aria-live="polite" className="sr-only">

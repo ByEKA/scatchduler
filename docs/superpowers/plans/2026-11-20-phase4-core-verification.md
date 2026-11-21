@@ -12,7 +12,7 @@ Filled in during execution of `docs/superpowers/plans/2026-11-20-phase4-core.md`
 | V4 | Oracle fidelity against committed fixtures and local `real-exports/` P6-calculated XERs achieves ratcheted parity on `es/ef/ls/lf/tf/ff` and driving path | Task 17 | Passed | Committed fixture ratchet pinned in `src/engine/__fixtures__/oracle-ratchet.json` (`src/engine/oracle.test.ts`); `scripts/check-cpm-oracle.ts` ready for optional owner-machine `real-exports/` run |
 | V5 | Supabase `schedule-data` storage RLS subquery against `public.schedules` works cleanly for both workspace members and share recipients without recursion | Task 3 / Task 6 (CI) | Passed | Verified in `supabase/tests/11_schedule_data.test.sql` and `integration/schedule-data.itest.ts` (PR #4 CI run 44905395452) |
 | V6 | A 50,000-activity `ScheduleDocument` compresses to ≤ 10 MB gzipped and completes open + save round-trip cleanly within 10 s on local/CI Supabase | Task 6 (CI) | Passed | `integration/schedule-data.itest.ts` 50k/150k gzipped ≤ 10 MB and full test completed in 5.79 s on CI (PR #4 run 44905395452) |
-| V7 | Canvas 2D Gantt renders 10,000-row schedule frames in < 16 ms in Chromium with viewport culling | Task 29 / Task 36 | Pending | |
+| V7 | Canvas 2D Gantt renders 10,000-row schedule frames in < 16 ms in Chromium with viewport culling | Task 29 / Task 36 | Passed | `src/features/schedule/gantt/budget.test.ts` renders 10k rows / 15k links in ~1.5 ms median (< 16 ms); Chromium E2E confirmed in Task 36 |
 | V8 | Lock release on tab close + 15-min TTL prevents stuck locks in normal use | Task 31 / Task 37 | Pending | |
 
 ## Batch test counts
