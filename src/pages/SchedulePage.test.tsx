@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createTestDataLayer } from '@/test/fakes';
 import { renderApp } from '@/test/render';
@@ -62,5 +62,37 @@ describe('SchedulePage', () => {
     expect(
       await screen.findByRole('separator', { name: 'Resize grid and Gantt panes' }),
     ).toBeInTheDocument();
+  });
+
+  it('blocks navigation when dirty and releases lock on Discard', async () => {
+    const dataLayer = createTestDataLayer();
+    const harbor = dataLayer.store.read().projects.find((p) => p.code === '003')!;
+    const { user, router } = renderApp(`/w/${harbor.workspaceId}/p/${harbor.id}/schedule`, {
+      dataLayer,
+    });
+
+    const editBtn = await screen.findByRole('button', { name: 'Edit' });
+    await user.click(editBtn);
+    await user.click(await screen.findByRole('button', { name: '+ Activity' }));
+
+    // Trigger route navigation while dirty
+    await user.click(screen.getByRole('link', { name: /home/i }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Discard unsaved changes?' });
+
+    // Keep editing stays on schedule
+    await user.click(within(dialog).getByRole('button', { name: 'Keep editing' }));
+    expect(router.state.location.pathname).toContain('/schedule');
+
+    // Leaving again and clicking Discard proceeds and releases lock
+    await user.click(screen.getByRole('link', { name: /home/i }));
+    const secondDialog = await screen.findByRole('alertdialog', {
+      name: 'Discard unsaved changes?',
+    });
+    await user.click(within(secondDialog).getByRole('button', { name: 'Discard' }));
+    await screen.findByRole('heading', { level: 1, name: /Hello,/ });
+    const up2 = dataLayer.store
+      .read()
+      .schedules.find((s) => s.projectId === harbor.id && s.code === 'UP-02')!;
+    expect(up2.lock).toBeNull();
   });
 });

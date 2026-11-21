@@ -1,7 +1,7 @@
-import { ChartGantt, Download, FileUp, Info, Plus } from 'lucide-react';
+import { AlertTriangle, ChartGantt, Download, FileUp, Info, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { useBlocker, useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PAGE_HEADING_CLASSES } from '@/components/common/PlaceholderPage';
@@ -11,11 +11,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import type { Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { DirtyLeaveDialog } from '@/features/schedule/DirtyLeaveDialog';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
 import { buildVisibleRows, SCHEDULE_ROW_HEIGHT } from '@/features/schedule/rows';
 import { ScheduleGantt, type ScheduleGanttHandle } from '@/features/schedule/ScheduleGantt';
 import { ScheduleGrid } from '@/features/schedule/ScheduleGrid';
 import { ScheduleSearch } from '@/features/schedule/ScheduleSearch';
+import { ScheduleToolbar } from '@/features/schedule/ScheduleToolbar';
 import { findMatchingActivityIds } from '@/features/schedule/search';
 import { SplitPane } from '@/features/schedule/SplitPane';
 import { useScheduleEditor } from '@/features/schedule/useScheduleEditor';
@@ -26,14 +28,17 @@ import { useProjectSchedules } from '@/hooks/useProjectSchedules';
 import { useScheduleDocument } from '@/hooks/useScheduleDocument';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { errorMessage, isNotFoundError } from '@/lib/format';
+import { readKey, UI_SCHEDULE_DETAILS_KEY, writeKey } from '@/lib/storage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 function ScheduleEditorWorkspace({
   schedule,
+  workspace,
   initialDocument,
   initialRevision,
 }: {
   schedule: Schedule;
+  workspace: WorkspaceSummary;
   initialDocument: ScheduleDocument;
   initialRevision: number;
 }): ReactElement {
@@ -50,6 +55,17 @@ function ScheduleEditorWorkspace({
   const [searchQuery, setSearchQuery] = useState('');
   const [matchIndex, setMatchIndex] = useState(0);
   const [filterActive, setFilterActive] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState<boolean>(
+    () => readKey(UI_SCHEDULE_DETAILS_KEY) === '1',
+  );
+
+  const toggleDetails = useCallback(() => {
+    setDetailsOpen((prev) => {
+      const next = !prev;
+      writeKey(UI_SCHEDULE_DETAILS_KEY, next ? '1' : '0');
+      return next;
+    });
+  }, []);
 
   const matches = useMemo(
     () => findMatchingActivityIds(editor.document.activities, searchQuery),
@@ -114,41 +130,110 @@ function ScheduleEditorWorkspace({
     [jumpAndScrollToActivity, matchIndex, matches],
   );
 
-  // Global Ctrl+F / Cmd+F focuses the schedule activity search box (spec §7.2, S11).
+  // Dirty-leave guards: React Router navigation blocker + browser beforeunload (spec §7.2, D7, V8).
+  const blocker = useBlocker(editor.dirty);
+
+  useEffect(() => {
+    if (!editor.dirty) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [editor.dirty]);
+
+  // Global keyboard shortcuts: Ctrl+F, F5, Ctrl+S, Ctrl+Z, Ctrl+Shift+Z / Ctrl+Y (spec §7.2, S11).
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+      const mod = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (mod && key === 'f') {
         event.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
+        return;
+      }
+
+      if (event.key === 'F5') {
+        event.preventDefault();
+        void editor.calculate();
+        return;
+      }
+
+      if (mod && key === 's') {
+        event.preventDefault();
+        if (editor.mode === 'edit' && editor.dirty) {
+          void editor.save();
+        }
+        return;
+      }
+
+      const target = event.target as HTMLElement | null;
+      const inInput =
+        target !== null &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT');
+
+      if (!inInput && editor.mode === 'edit' && mod && key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) editor.redo();
+        else editor.undo();
+        return;
+      }
+
+      if (!inInput && editor.mode === 'edit' && mod && key === 'y') {
+        event.preventDefault();
+        editor.redo();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [editor]);
 
   return (
     <div className="flex h-[calc(100dvh-48px-36px)] min-h-[480px] flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
-          {schedule.code !== null && schedule.code.trim() !== '' && (
-            <span className="shrink-0 rounded-sm bg-muted px-1.5 py-px font-mono text-2xs font-medium text-muted-foreground">
-              {schedule.code}
-            </span>
-          )}
-        </div>
-        <ScheduleSearch
-          inputRef={searchInputRef}
-          query={searchQuery}
-          onQueryChange={handleSearchQueryChange}
-          matches={matches}
-          activeIndex={matchIndex}
-          onStep={handleSearchStep}
-          filterActive={filterActive}
-          onToggleFilter={() => setFilterActive((prev) => !prev)}
-        />
+      <div className="flex items-center gap-2">
+        <h1 className={PAGE_HEADING_CLASSES}>{schedule.name}</h1>
+        {schedule.code !== null && schedule.code.trim() !== '' && (
+          <span className="shrink-0 rounded-sm bg-muted px-1.5 py-px font-mono text-2xs font-medium text-muted-foreground">
+            {schedule.code}
+          </span>
+        )}
       </div>
+
+      <ScheduleToolbar
+        schedule={schedule}
+        workspace={workspace}
+        editor={editor}
+        zoom={zoom}
+        onZoomChange={setZoom}
+        onZoomToFit={() => ganttRef.current?.zoomToFit()}
+        detailsOpen={detailsOpen}
+        onToggleDetails={toggleDetails}
+        searchSlot={
+          <ScheduleSearch
+            inputRef={searchInputRef}
+            query={searchQuery}
+            onQueryChange={handleSearchQueryChange}
+            matches={matches}
+            activeIndex={matchIndex}
+            onStep={handleSearchStep}
+            filterActive={filterActive}
+            onToggleFilter={() => setFilterActive((prev) => !prev)}
+          />
+        }
+      />
+
+      {editor.mode === 'edit' && editor.lock.lost && (
+        <div
+          role="alert"
+          className="flex items-center gap-2 rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-xs font-medium text-warning-foreground"
+        >
+          <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+          <span>Your edit lock expired. Copy your changes or reload the schedule.</span>
+        </div>
+      )}
+
       <SplitPane
         left={
           <ScheduleGrid
@@ -182,6 +267,18 @@ function ScheduleEditorWorkspace({
           />
         }
       />
+
+      <DirtyLeaveDialog
+        open={blocker.state === 'blocked'}
+        onKeep={() => {
+          if (blocker.state === 'blocked') blocker.reset();
+        }}
+        onDiscard={() => {
+          void editor.lock.release().catch(() => undefined);
+          if (blocker.state === 'blocked') blocker.proceed();
+        }}
+      />
+
       <div role="status" aria-live="polite" className="sr-only">
         {editor.lastAnnouncement}
       </div>
@@ -271,6 +368,7 @@ function ScheduleDocumentHost({
     <ScheduleEditorWorkspace
       key={schedule.id}
       schedule={schedule}
+      workspace={workspace}
       initialDocument={docState.document}
       initialRevision={docState.dataRevision}
     />
