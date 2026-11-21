@@ -3,7 +3,13 @@
 // start from the same data as the mock. Runs with the secret key (service role), which bypasses
 // RLS; it never runs in the app.
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { seed } from '@/data/mock/seed';
+import { makeSeedScheduleDocument, seed } from '@/data/mock/seed';
+import {
+  encodeScheduleDocument,
+  SCHEDULE_DATA_BUCKET,
+  SCHEDULE_DATA_MIME,
+  scheduleDataPath,
+} from '@/data/schedule-codec';
 import type { Database } from '@/data/supabase/database.types';
 import type { ID, ISODateTime, Role } from '@/data/types';
 
@@ -187,6 +193,23 @@ export async function loadSeed(
   // The insert trigger makes a project's first schedule current (R1) and ignores `is_current`, so
   // each project's current schedule goes in first, in a statement of its own. The admin client
   // skips the user guards; R5 and R6 hold for it too, and the seed already follows them.
+  // Upload seeded materialized snapshots into schedule-data (using the real workspace id).
+  const projectWorkspace = new Map(db.projects.map((p) => [p.id, workspaceId(p.workspaceId)]));
+  const uploadedPaths = new Map<ID, string>();
+  for (const s of db.schedules) {
+    if (s.dataFilePath === null) continue;
+    const wsId = projectWorkspace.get(s.projectId)!;
+    const path = scheduleDataPath(wsId, s.projectId, s.id);
+    const blob = await encodeScheduleDocument(makeSeedScheduleDocument(s.statusDate));
+    check(
+      await admin.storage
+        .from(SCHEDULE_DATA_BUCKET)
+        .upload(path, blob, { contentType: SCHEDULE_DATA_MIME, upsert: false }),
+      `uploading seeded snapshot for ${s.code}`,
+    );
+    uploadedPaths.set(s.id, path);
+  }
+
   const scheduleRow = (s: (typeof db.schedules)[number]) => ({
     id: s.id,
     project_id: s.projectId,
@@ -199,6 +222,10 @@ export async function loadSeed(
     baseline: s.baseline,
     update_number: s.updateNumber,
     archived_at: s.archivedAt,
+    activity_count: s.activityCount,
+    data_file_path: uploadedPaths.get(s.id) ?? null,
+    data_revision: s.dataRevision,
+    calculation_mode: s.calculationMode,
     created_at: s.createdAt,
     updated_at: s.updatedAt,
   });

@@ -19,6 +19,10 @@ const schedule = (id: string, statusDate: string | null, createdAt: string): Sch
   sourceFormat: null,
   hasImportReport: false,
   hasImportMapping: false,
+  lock: null,
+  dataRevision: 0,
+  hasScheduleData: false,
+  calculationMode: 'calculated',
   createdAt,
   updatedAt: createdAt,
 });

@@ -5,12 +5,15 @@ import { RepositoryError } from '@/data/errors';
 import type {
   DataRepository,
   ImportScheduleInput,
+  MaterializeScheduleInput,
   NewProjectInput,
   NewScheduleInput,
   NewTeamWorkspaceInput,
+  SaveScheduleDocumentInput,
   UpdateProjectInput,
   UpdateScheduleDetailsInput,
 } from '@/data/repository';
+import type { ScheduleDocument } from '@/data/schedule-types';
 import { compareMembers, compareWorkspaces } from '@/data/sort';
 import type { AppSupabaseClient } from '@/data/supabase/client';
 import type { Json } from '@/data/supabase/database.types';
@@ -40,6 +43,7 @@ import type {
   ProjectSummary,
   Role,
   Schedule,
+  ScheduleLock,
   SharedScheduleRow,
   Subscription,
   Task,
@@ -478,6 +482,47 @@ export class SupabaseRepository implements DataRepository {
       const name = data.source_file_name ?? path.slice(path.lastIndexOf('/') + 1);
       return new File([bytes], name);
     });
+  }
+
+  async getScheduleDocument(
+    _scheduleId: ID,
+  ): Promise<{ document: ScheduleDocument | null; dataRevision: number }> {
+    void _scheduleId;
+    throw new RepositoryError('unknown', 'Not implemented yet.');
+  }
+
+  async materializeScheduleDocument(
+    _input: MaterializeScheduleInput,
+  ): Promise<{ dataRevision: number }> {
+    void _input;
+    throw new RepositoryError('unknown', 'Not implemented yet.');
+  }
+
+  async saveScheduleDocument(
+    _input: SaveScheduleDocumentInput,
+  ): Promise<{ schedule: Schedule; dataRevision: number }> {
+    void _input;
+    throw new RepositoryError('unknown', 'Not implemented yet.');
+  }
+
+  async acquireScheduleLock(_scheduleId: ID): Promise<ScheduleLock> {
+    void _scheduleId;
+    throw new RepositoryError('unknown', 'Not implemented yet.');
+  }
+
+  async renewScheduleLock(_scheduleId: ID): Promise<ScheduleLock> {
+    void _scheduleId;
+    throw new RepositoryError('unknown', 'Not implemented yet.');
+  }
+
+  async releaseScheduleLock(_scheduleId: ID): Promise<void> {
+    void _scheduleId;
+    throw new RepositoryError('unknown', 'Not implemented yet.');
+  }
+
+  async forceReleaseScheduleLock(_scheduleId: ID): Promise<void> {
+    void _scheduleId;
+    throw new RepositoryError('unknown', 'Not implemented yet.');
   }
 
   async listSharedWithMe(): Promise<SharedScheduleRow[]> {

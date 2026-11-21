@@ -216,4 +216,70 @@ describe('MockRepository', () => {
       kind: 'team',
     });
   });
+
+  it('enforces multi-user lock contention, 15-min expiry, R11 guards and owner-only force release', async () => {
+    let clock = new Date('2026-10-14T10:00:00.000Z');
+    const timed = new MockRepository({ store, latencyMs: 0, now: () => clock });
+    const harborId = store.read().projects.find((p) => p.code === '003')!.id;
+    const up1 = (await timed.listSchedules(harborId)).find((s) => s.code === 'UP-01')!;
+    const mert = store.read().users.find((u) => u.email === 'mert.demir@example.com')!;
+
+    // Simulate Mert holding an active lock on UP-01.
+    store.write((db) => {
+      const target = db.schedules.find((s) => s.id === up1.id)!;
+      target.lock = {
+        userId: mert.id,
+        userName: 'Mert Demir',
+        lockedAt: clock.toISOString(),
+        expiresAt: new Date(clock.getTime() + 15 * 60_000).toISOString(),
+      };
+    });
+
+    await expect(timed.acquireScheduleLock(up1.id)).rejects.toMatchObject({
+      code: 'conflict',
+      message: 'This schedule is being edited by Mert Demir.',
+    });
+    // R11: archiving or changing status_date is refused while Mert holds an active lock.
+    await expect(
+      timed.setSchedulesArchived({ scheduleIds: [up1.id], archived: true }),
+    ).rejects.toMatchObject({
+      code: 'conflict',
+      message: 'This schedule is being edited by Mert Demir. Try again once they finish.',
+    });
+    await expect(
+      timed.updateScheduleDetails({
+        scheduleId: up1.id,
+        name: up1.name,
+        code: up1.code!,
+        statusDate: '2026-10-12',
+        notes: up1.notes,
+        baseline: up1.baseline,
+        updateNumber: up1.updateNumber,
+      }),
+    ).rejects.toMatchObject({
+      code: 'conflict',
+      message: 'This schedule is being edited by Mert Demir. Try again once they finish.',
+    });
+
+    // Advance clock 16 minutes: expired lock is transparently replaced (R1).
+    clock = new Date(clock.getTime() + 16 * 60_000);
+    const mine = await timed.acquireScheduleLock(up1.id);
+    expect(mine.userId).toBe(store.read().currentUserId);
+
+    // Editor cannot force-release; owner can (R3).
+    const editorStore = createMockStore({
+      storage: createMemoryStorage(),
+      scenario: 'default',
+      teamRole: 'editor',
+      now: () => clock,
+    });
+    const editorRepo = new MockRepository({ store: editorStore, latencyMs: 0, now: () => clock });
+    const tunnelId = editorStore.read().projects.find((p) => p.code === 'T-01')!.id;
+    const lookAhead = (await editorRepo.listSchedules(tunnelId))[0]!;
+    await expect(editorRepo.forceReleaseScheduleLock(lookAhead.id)).rejects.toMatchObject({
+      code: 'forbidden',
+    });
+    await expect(timed.forceReleaseScheduleLock(up1.id)).resolves.toBeUndefined();
+    expect((await timed.listSchedules(harborId)).find((s) => s.id === up1.id)!.lock).toBeNull();
+  });
 });

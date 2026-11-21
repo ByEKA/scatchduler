@@ -1,3 +1,4 @@
+import type { ScheduleDocument } from './schedule-types';
 import type {
   BaselineFlag,
   ID,
@@ -12,6 +13,7 @@ import type {
   ProjectSummary,
   Role,
   Schedule,
+  ScheduleLock,
   SharedScheduleRow,
   Subscription,
   Task,
@@ -84,6 +86,17 @@ export interface UpdateScheduleDetailsInput {
 
 export interface NewTeamWorkspaceInput {
   name: string;
+}
+
+export interface MaterializeScheduleInput {
+  scheduleId: ID;
+  document: ScheduleDocument;
+}
+
+export interface SaveScheduleDocumentInput {
+  scheduleId: ID;
+  expectedRevision: number;
+  document: ScheduleDocument;
 }
 
 export interface DataRepository {
@@ -183,6 +196,33 @@ export interface DataRepository {
    * is 'validation' "This schedule has no original file."; an unknown one 'not_found'.
    */
   getScheduleSourceFile(scheduleId: ID): Promise<File>;
+  /**
+   * Downloads and decodes the schedule's gzipped `ScheduleDocument` snapshot; `{ document: null,
+   * dataRevision: 0 }` when unmaterialized; `'not_found'` for unknown or hidden schedules.
+   */
+  getScheduleDocument(
+    scheduleId: ID,
+  ): Promise<{ document: ScheduleDocument | null; dataRevision: number }>;
+  /**
+   * Stores the initial snapshot for an unmaterialized schedule (R7: editors/owners only,
+   * idempotent once materialized, leaves `updatedAt` unchanged).
+   */
+  materializeScheduleDocument(input: MaterializeScheduleInput): Promise<{ dataRevision: number }>;
+  /**
+   * Uploads a new snapshot and commits atomically (R5–R9): requires an active lock held by the
+   * caller and `expectedRevision` matching `data_revision`; removes superseded snapshot best effort.
+   */
+  saveScheduleDocument(
+    input: SaveScheduleDocumentInput,
+  ): Promise<{ schedule: Schedule; dataRevision: number }>;
+  /** Acquires or refreshes a 15-minute exclusive edit lock (R1, R2, R3, R4). */
+  acquireScheduleLock(scheduleId: ID): Promise<ScheduleLock>;
+  /** Extends the caller's active edit lock by 15 minutes (R2, R3). */
+  renewScheduleLock(scheduleId: ID): Promise<ScheduleLock>;
+  /** Releases the caller's own lock (R3). */
+  releaseScheduleLock(scheduleId: ID): Promise<void>;
+  /** Workspace owners only: forcibly clears another user's lock (R3). */
+  forceReleaseScheduleLock(scheduleId: ID): Promise<void>;
 
   /** sharedAt descending. */
   listSharedWithMe(): Promise<SharedScheduleRow[]>;

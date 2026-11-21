@@ -22,7 +22,7 @@ describe('mock store', () => {
     const store = createMockStore({ storage, scenario: 'default', now });
     expect(store.read().projects).toHaveLength(7);
     expect(JSON.parse(storage.getItem(MOCK_DB_KEY)!)).toMatchObject({
-      version: 3,
+      version: 4,
       scenario: 'default',
     });
   });
@@ -95,14 +95,26 @@ describe('mock store', () => {
     expect(createMockStore({ storage, scenario: 'default', now }).read().tasks).toHaveLength(3);
   });
 
-  it('writes version 3 and reseeds when the team role changes', () => {
+  it('writes version 4 and reseeds when the team role changes', () => {
     const storage = createMemoryStorage();
     expect(createMockStore({ storage, scenario: 'default' }).read()).toMatchObject({
-      version: 3,
+      version: 4,
       teamRole: 'owner',
     });
     expect(
       createMockStore({ storage, scenario: 'default', teamRole: 'viewer' }).read().teamRole,
     ).toBe('viewer');
+  });
+
+  it('stores schedule snapshots under separate keys without rewriting mock-db.v1', () => {
+    const storage = createMemoryStorage();
+    const store = createMockStore({ storage, scenario: 'default', now });
+    const beforeDb = storage.getItem(MOCK_DB_KEY);
+    const up2 = store.read().schedules.find((s) => s.code === 'UP-02')!;
+    expect(up2.dataFilePath).not.toBeNull();
+    expect(store.readSnapshot(up2.dataFilePath!)?.activities).toHaveLength(6);
+    store.removeSnapshot(up2.dataFilePath!);
+    expect(store.readSnapshot(up2.dataFilePath!)).toBeNull();
+    expect(storage.getItem(MOCK_DB_KEY)).toBe(beforeDb);
   });
 });

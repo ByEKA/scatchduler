@@ -6,7 +6,12 @@ import { describe, expect, it } from 'vitest';
 import type { DataRepository } from '@/data/repository';
 import type { ID, ISODateTime, ImportMapping, ProjectStatus, Role, Schedule } from '@/data/types';
 import { analyze } from '@/import/index';
-import { makeImportScheduleInput, makeNewProjectInput, makeUpdateProjectInput } from '@/test/fakes';
+import {
+  makeImportScheduleInput,
+  makeNewProjectInput,
+  makeSampleScheduleDocument,
+  makeUpdateProjectInput,
+} from '@/test/fakes';
 
 /** The seed scenario a fixture starts from (Phase 1 spec §5.6). */
 export type ContractScenario = 'default' | 'empty';
@@ -1251,6 +1256,185 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           code: 'validation',
           message: 'This schedule has no original file.',
         });
+      });
+    });
+
+    describe('schedule documents and locks (P4)', () => {
+      it('returns null document for an unmaterialized schedule and loads seeded snapshots', async () => {
+        const f = await makeFixture();
+        const [main] = await f.repository.listSchedules(f.projectIds['001']!);
+        expect(main).toMatchObject({
+          hasScheduleData: false,
+          dataRevision: 0,
+          lock: null,
+          calculationMode: 'calculated',
+        });
+        expect(await f.repository.getScheduleDocument(main!.id)).toEqual({
+          document: null,
+          dataRevision: 0,
+        });
+
+        const harborSchedules = await f.repository.listSchedules(f.projectIds['003']!);
+        const up2 = harborSchedules.find((s) => s.code === 'UP-02')!;
+        expect(up2).toMatchObject({
+          hasScheduleData: true,
+          dataRevision: 1,
+          activityCount: 6,
+          calculationMode: 'calculated',
+        });
+        const loaded = await f.repository.getScheduleDocument(up2.id);
+        expect(loaded.dataRevision).toBe(1);
+        expect(loaded.document?.activities).toHaveLength(6);
+
+        for (const id of unknownIds()) {
+          await expect(f.repository.getScheduleDocument(id)).rejects.toMatchObject({
+            code: 'not_found',
+          });
+        }
+      });
+
+      it('acquires, renews and releases a lock and refuses archived schedules (R1, R2, R4)', async () => {
+        const f = await makeFixture();
+        const [main] = await f.repository.listSchedules(f.projectIds['001']!);
+        const lock = await f.repository.acquireScheduleLock(main!.id);
+        expect(lock.userId).toBe(f.users.current.id);
+        expect(Date.parse(lock.expiresAt) - Date.parse(lock.lockedAt)).toBe(15 * 60_000);
+        expect((await f.repository.listSchedules(f.projectIds['001']!))[0]!.lock).toEqual(lock);
+
+        const renewed = await f.repository.renewScheduleLock(main!.id);
+        expect(Date.parse(renewed.expiresAt)).toBeGreaterThanOrEqual(Date.parse(lock.expiresAt));
+
+        await f.repository.releaseScheduleLock(main!.id);
+        expect((await f.repository.listSchedules(f.projectIds['001']!))[0]!.lock).toBeNull();
+        await expect(f.repository.renewScheduleLock(main!.id)).rejects.toMatchObject({
+          code: 'conflict',
+          message: 'Your edit lock expired. Copy your changes or reload the schedule.',
+        });
+
+        const library = await f.repository.listSchedules(f.projectIds['004']!);
+        const archived = library.find((s) => s.archivedAt !== null)!;
+        await expect(f.repository.acquireScheduleLock(archived.id)).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Restore this schedule before editing it.',
+        });
+      });
+
+      it('materializes idempotently without moving updatedAt, and saves with lock and revision guards (R5–R7, R10)', async () => {
+        const f = await makeFixture();
+        const metro = f.projectIds['002']!;
+        const imported = await f.repository.importSchedule(await makeImportScheduleInput(metro));
+        const originalUpdatedAt = imported.updatedAt;
+        const originalReport = await f.repository.getImportReport(imported.id);
+        const originalMapping = await f.repository.getImportMapping(imported.id);
+
+        const initialDoc = makeSampleScheduleDocument({
+          sourceFormat: 'xer',
+          settings: {
+            ...makeSampleScheduleDocument().settings,
+            displayMode: 'as_imported',
+            statusDate: '2026-10-15T08:00',
+          },
+        });
+        expect(
+          await f.repository.materializeScheduleDocument({
+            scheduleId: imported.id,
+            document: initialDoc,
+          }),
+        ).toEqual({ dataRevision: 1 });
+        expect((await f.repository.listSchedules(metro))[0]!.updatedAt).toBe(originalUpdatedAt);
+        // Second materialize is idempotent.
+        expect(
+          await f.repository.materializeScheduleDocument({
+            scheduleId: imported.id,
+            document: makeSampleScheduleDocument(),
+          }),
+        ).toEqual({ dataRevision: 1 });
+
+        // Save requires an active lock (R5).
+        const updatedDoc = makeSampleScheduleDocument({
+          sourceFormat: 'xer',
+          settings: {
+            ...makeSampleScheduleDocument().settings,
+            displayMode: 'calculated',
+            statusDate: '2026-10-20T08:00',
+          },
+        });
+        await expect(
+          f.repository.saveScheduleDocument({
+            scheduleId: imported.id,
+            expectedRevision: 1,
+            document: updatedDoc,
+          }),
+        ).rejects.toMatchObject({
+          code: 'conflict',
+          message: 'Your edit lock expired. Copy your changes or reload the schedule.',
+        });
+
+        await f.repository.acquireScheduleLock(imported.id);
+        // Save rejects stale expectedRevision (R5).
+        await expect(
+          f.repository.saveScheduleDocument({
+            scheduleId: imported.id,
+            expectedRevision: 0,
+            document: updatedDoc,
+          }),
+        ).rejects.toMatchObject({
+          code: 'conflict',
+          message: 'This schedule was changed elsewhere. Reload and try again.',
+        });
+
+        const saved = await f.repository.saveScheduleDocument({
+          scheduleId: imported.id,
+          expectedRevision: 1,
+          document: updatedDoc,
+        });
+        expect(saved.dataRevision).toBe(2);
+        expect(saved.schedule).toMatchObject({
+          dataRevision: 2,
+          hasScheduleData: true,
+          activityCount: 2,
+          calculationMode: 'calculated',
+          statusDate: '2026-10-20',
+        });
+        expect(await f.repository.getProject(metro)).toMatchObject({ statusDate: '2026-10-20' });
+        expect(await f.repository.getScheduleDocument(imported.id)).toEqual({
+          document: updatedDoc,
+          dataRevision: 2,
+        });
+        // R10: import artifacts stay untouched.
+        expect(await f.repository.getImportReport(imported.id)).toEqual(originalReport);
+        expect(await f.repository.getImportMapping(imported.id)).toEqual(originalMapping);
+      });
+
+      it('forbids viewers from all lock, materialize and save writes (R3)', async () => {
+        const viewer = await makeFixture({ teamRole: 'viewer' });
+        const [lookAhead] = await viewer.repository.listSchedules(viewer.projectIds['T-01']!);
+        const doc = makeSampleScheduleDocument();
+        await expect(viewer.repository.acquireScheduleLock(lookAhead!.id)).rejects.toMatchObject({
+          code: 'forbidden',
+        });
+        await expect(viewer.repository.renewScheduleLock(lookAhead!.id)).rejects.toMatchObject({
+          code: 'forbidden',
+        });
+        await expect(viewer.repository.releaseScheduleLock(lookAhead!.id)).rejects.toMatchObject({
+          code: 'forbidden',
+        });
+        await expect(
+          viewer.repository.forceReleaseScheduleLock(lookAhead!.id),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        await expect(
+          viewer.repository.materializeScheduleDocument({
+            scheduleId: lookAhead!.id,
+            document: doc,
+          }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+        await expect(
+          viewer.repository.saveScheduleDocument({
+            scheduleId: lookAhead!.id,
+            expectedRevision: 1,
+            document: doc,
+          }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
       });
     });
   });

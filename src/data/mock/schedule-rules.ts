@@ -10,7 +10,10 @@ import type { BaselineFlag, ID, ISODate, ISODateTime, Project, Schedule } from '
  * The schedule fields the rules read and write: a `Schedule` as the repository returns it, or the
  * mock's stored `MockSchedule`, which derives the two `hasImport…` flags when read.
  */
-export type RuleSchedule = Omit<Schedule, 'hasImportReport' | 'hasImportMapping'>;
+export type RuleSchedule = Omit<
+  Schedule,
+  'hasImportReport' | 'hasImportMapping' | 'hasScheduleData' | 'lock'
+>;
 
 /** R8: the `schedules.code` check constraint. */
 export const SCHEDULE_CODE_PATTERN = /^[A-Za-z0-9_.-]{1,24}$/;
