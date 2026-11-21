@@ -211,4 +211,124 @@ describe('Gantt headless renderer (S10, S12)', () => {
     expect(rendererSrc).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(themeSrc).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
+
+  it('draws solid driving links, dashed non-driving links, and dims items outside driving-path spotlight', () => {
+    const rows: GanttRow[] = [
+      {
+        key: 'act:a1',
+        kind: 'activity',
+        activityType: 'task',
+        start: origin,
+        finish: origin + 3 * MINUTES_PER_DAY,
+        progressFinish: null,
+        isCritical: true,
+        isNearCritical: false,
+        label: 'A1',
+      },
+      {
+        key: 'act:a2',
+        kind: 'activity',
+        activityType: 'task',
+        start: origin + 3 * MINUTES_PER_DAY,
+        finish: origin + 6 * MINUTES_PER_DAY,
+        progressFinish: null,
+        isCritical: true,
+        isNearCritical: false,
+        label: 'A2',
+      },
+      {
+        key: 'act:a3',
+        kind: 'activity',
+        activityType: 'task',
+        start: origin + 1 * MINUTES_PER_DAY,
+        finish: origin + 4 * MINUTES_PER_DAY,
+        progressFinish: null,
+        isCritical: false,
+        isNearCritical: false,
+        label: 'A3',
+      },
+    ];
+
+    const links = [
+      {
+        id: 'r1',
+        fromRow: 0,
+        toRow: 1,
+        type: 'FS' as const,
+        fromMinute: origin + 3 * MINUTES_PER_DAY,
+        toMinute: origin + 3 * MINUTES_PER_DAY,
+        isDriving: true,
+        isCritical: true,
+      },
+      {
+        id: 'r2',
+        fromRow: 0,
+        toRow: 2,
+        type: 'SS' as const,
+        fromMinute: origin,
+        toMinute: origin + 1 * MINUTES_PER_DAY,
+        isDriving: false,
+        isCritical: false,
+      },
+    ];
+
+    const draw = createRecordingDraw2D(640, 200);
+    renderGantt(draw, {
+      rows,
+      links,
+      timescale: createTimescale('day', origin),
+      scrollTop: 0,
+      scrollLeft: 0,
+      statusMinute: null,
+      todayMinute: null,
+      nonWorkingDays: isWeekend,
+      show: {
+        critical: true,
+        links: true,
+        drivingPath: new Set(['act:a1', 'act:a2', 'rel:r1']),
+      },
+      selectedKey: 'act:a2',
+      theme: TEST_THEME,
+    });
+
+    // Driving link drawn solid with linkDriving color
+    expect(
+      draw.calls.some(
+        (c) =>
+          c.op === 'polyline' &&
+          c.args[1] === TEST_THEME.linkDriving &&
+          (c.args[2] as { dash?: number[] } | undefined)?.dash === undefined,
+      ),
+    ).toBe(true);
+
+    // Non-driving link drawn dashed with link color
+    expect(
+      draw.calls.some(
+        (c) =>
+          c.op === 'polyline' &&
+          c.args[1] === TEST_THEME.link &&
+          Array.isArray((c.args[2] as { dash?: number[] } | undefined)?.dash),
+      ),
+    ).toBe(true);
+
+    // Off-spotlight row and link dimmed via setAlpha
+    expect(draw.calls.some((c) => c.op === 'setAlpha' && Number(c.args[0]) < 0.5)).toBe(true);
+
+    // Hiding links skips all polyline draws
+    const noLinksDraw = createRecordingDraw2D(640, 200);
+    renderGantt(noLinksDraw, {
+      rows,
+      links,
+      timescale: createTimescale('day', origin),
+      scrollTop: 0,
+      scrollLeft: 0,
+      statusMinute: null,
+      todayMinute: null,
+      nonWorkingDays: isWeekend,
+      show: { critical: true, links: false, drivingPath: null },
+      selectedKey: null,
+      theme: TEST_THEME,
+    });
+    expect(noLinksDraw.calls.some((c) => c.op === 'polyline')).toBe(false);
+  });
 });

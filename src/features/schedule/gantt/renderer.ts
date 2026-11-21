@@ -1,5 +1,6 @@
 import type { ActivityType, RelationshipType } from '@/data/schedule-types';
 import type { Draw2D } from '@/features/schedule/gantt/draw2d';
+import { routeOrthogonalLink } from '@/features/schedule/gantt/links';
 import type { GanttTheme } from '@/features/schedule/gantt/theme';
 import type { Timescale } from '@/features/schedule/gantt/timescale';
 import { MINUTES_PER_DAY } from '@/lib/civil-date';
@@ -239,6 +240,61 @@ export function renderGantt(draw: Draw2D, scene: GanttScene): void {
 
     if (isDimmed && draw.setAlpha) {
       draw.restore();
+    }
+  }
+
+  // 6. Relationship links layer (orthogonal routing, viewport-culled)
+  if (show.links && scene.links.length > 0) {
+    const minLinkRow = firstRow - 5;
+    const maxLinkRow = lastRow + 5;
+    for (let i = 0; i < scene.links.length; i++) {
+      const link = scene.links[i]!;
+      if (
+        (link.fromRow < minLinkRow && link.toRow < minLinkRow) ||
+        (link.fromRow > maxLinkRow && link.toRow > maxLinkRow)
+      ) {
+        continue;
+      }
+
+      const fromX = timescale.x(link.fromMinute) - scrollLeft;
+      const toX = timescale.x(link.toMinute) - scrollLeft;
+      if ((fromX < cullLeft && toX < cullLeft) || (fromX > cullRight && toX > cullRight)) {
+        continue;
+      }
+
+      const fromY = link.fromRow * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2 - scrollTop;
+      const toY = link.toRow * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2 - scrollTop;
+      const routed = routeOrthogonalLink({
+        type: link.type,
+        fromX,
+        fromY,
+        toX,
+        toY,
+        rowHeight: GANTT_ROW_HEIGHT,
+      });
+
+      const inSpotlight =
+        spotlight === null || spotlight.has(`rel:${link.id}`) || spotlight.has(link.id);
+      const isDimmed = !inSpotlight;
+      const highlightDriving =
+        link.isDriving || (spotlight !== null && inSpotlight);
+      const color = highlightDriving ? theme.linkDriving : theme.link;
+
+      if (isDimmed && draw.setAlpha) {
+        draw.save();
+        draw.setAlpha(0.18);
+      }
+
+      draw.polyline(
+        routed.points,
+        color,
+        highlightDriving ? { width: 1.25 } : { width: 1, dash: [4, 3] },
+      );
+      draw.fillPolygon(routed.arrowHead, color);
+
+      if (isDimmed && draw.setAlpha) {
+        draw.restore();
+      }
     }
   }
 }
