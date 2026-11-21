@@ -11,9 +11,10 @@ export interface MaterializeOptions {
   scheduleStatusDate: ISODate | null;
 }
 
+export const NO_CALCULATED_SCHEDULE = 'No calculated schedule available.';
+
 /**
  * Typed request/response protocol for `src/engine/worker.ts` (spec §5.6).
- * Worker transport and request execution are wired in Task 18.
  */
 export type EngineRequest =
   | { id: number; op: 'solve'; document: ScheduleDocument; calculatedAt: ISODateTime }
@@ -26,7 +27,16 @@ export type EngineRequest =
   | { id: number; op: 'traceDrivingPath'; activityId: string };
 
 export type EngineResponse =
-  | { id: number; op: 'solve'; result: SolveResult }
-  | { id: number; op: 'rollup'; rollups: Record<string, ComputedWbsRollup> }
-  | { id: number; op: 'traceDrivingPath'; path: DrivingPath }
-  | { id: number; op: 'error'; message: string };
+  | { id: number; ok: true; op: 'solve'; result: SolveResult }
+  | { id: number; ok: true; op: 'rollup'; rollups: Record<string, ComputedWbsRollup> }
+  | { id: number; ok: true; op: 'traceDrivingPath'; path: DrivingPath }
+  | { id: number; ok: false; message: string };
+
+export interface EngineSession {
+  solve(document: ScheduleDocument, calculatedAt: ISODateTime): Promise<SolveResult>;
+  rollup(
+    document: ScheduleDocument,
+    summary: ComputedScheduleSummary | null,
+  ): Promise<Record<string, ComputedWbsRollup>>;
+  traceDrivingPath(activityId: string): Promise<DrivingPath>;
+}
