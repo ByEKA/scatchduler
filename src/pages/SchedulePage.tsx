@@ -1,4 +1,5 @@
 import { ChartGantt, Download, FileUp, Info, Plus } from 'lucide-react';
+import { useMemo } from 'react';
 import type { ReactElement } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
@@ -10,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import type { Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { buildVisibleRows } from '@/features/schedule/rows';
+import { ScheduleGrid } from '@/features/schedule/ScheduleGrid';
 import { SplitPane } from '@/features/schedule/SplitPane';
 import { useScheduleEditor } from '@/features/schedule/useScheduleEditor';
 import { canEdit } from '@/features/workspaces/roles';
@@ -36,6 +39,17 @@ function ScheduleEditorWorkspace({
     initialRevision,
   });
 
+  const visibleRows = useMemo(
+    () =>
+      buildVisibleRows(
+        editor.document,
+        editor.summary,
+        editor.rollups,
+        editor.collapsedWbsIds,
+      ),
+    [editor.collapsedWbsIds, editor.document, editor.rollups, editor.summary],
+  );
+
   return (
     <div className="flex h-[calc(100dvh-48px-36px)] min-h-[480px] flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
@@ -50,9 +64,13 @@ function ScheduleEditorWorkspace({
       </div>
       <SplitPane
         left={
-          <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
-            {editor.document.activities.length} activities
-          </div>
+          <ScheduleGrid
+            rows={visibleRows}
+            selectedKey={editor.selectedKey}
+            showCritical={editor.showCritical}
+            onSelectKey={editor.selectKey}
+            onToggleWbs={editor.toggleWbs}
+          />
         }
         right={
           <div className="flex flex-1 items-center justify-center p-4 text-sm text-muted-foreground">
