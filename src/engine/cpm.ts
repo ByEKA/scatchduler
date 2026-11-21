@@ -984,7 +984,10 @@ export function computeFloatsAndCriticality(
         : Math.min(workingMinutesBetween(cal, actEs, actLs), finishFloat);
 
     let freeFloat: number;
-    if (act.type === 'level_of_effort') {
+    if (
+      act.type === 'level_of_effort' ||
+      (act.status === 'completed' && rules.completedLateDates === 'keep_actuals')
+    ) {
       freeFloat = 0;
     } else {
       const outEdges = graph.outgoingEdgeIndices[u]!;
