@@ -8,6 +8,7 @@ import type {
   ScheduleWbsNode,
   WallClock,
 } from '@/data/schedule-types';
+import { formatPredecessorCell } from '@/features/schedule/predecessor-text';
 
 export const SCHEDULE_ROW_HEIGHT = 32;
 export const SCHEDULE_HEADER_HEIGHT = 44;
@@ -33,53 +34,6 @@ export interface VisibleRow {
   isNearCritical: boolean;
   hasChildren: boolean;
   isCollapsed: boolean;
-}
-
-function formatLagShort(lagMinutes: number, lagElapsed: boolean, hoursPerDay: number): string {
-  if (lagMinutes === 0) return '';
-  const sign = lagMinutes > 0 ? '+' : '-';
-  const absMin = Math.abs(lagMinutes);
-  if (lagElapsed) {
-    const ed = absMin / 1440;
-    const rounded = Math.round(ed * 10) / 10;
-    if (Number.isInteger(rounded) || absMin % 60 !== 0) {
-      const val = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-      return `${sign}${val}ed`;
-    }
-    return `${sign}${Math.round(absMin / 60)}eh`;
-  }
-  const dayMin = (hoursPerDay > 0 ? hoursPerDay : 8) * 60;
-  if (absMin % dayMin === 0) {
-    return `${sign}${absMin / dayMin}d`;
-  }
-  const days = absMin / dayMin;
-  const roundedDays = Math.round(days * 10) / 10;
-  if (Math.abs(roundedDays * dayMin - absMin) < 1e-6) {
-    return `${sign}${Number.isInteger(roundedDays) ? String(roundedDays) : roundedDays.toFixed(1)}d`;
-  }
-  const hours = absMin / 60;
-  const roundedHours = Math.round(hours * 10) / 10;
-  return `${sign}${Number.isInteger(roundedHours) ? String(roundedHours) : roundedHours.toFixed(1)}h`;
-}
-
-function formatPredecessorsShort(
-  incoming: readonly ScheduleRelationship[] | undefined,
-  activitiesById: ReadonlyMap<string, ScheduleActivity>,
-  hoursPerDay: number,
-): string {
-  if (!incoming || incoming.length === 0) return '';
-  const parts: string[] = [];
-  for (const rel of incoming) {
-    const pred = activitiesById.get(rel.predecessorId);
-    if (!pred) continue;
-    const lag = formatLagShort(rel.lagMinutes, rel.lagElapsed, hoursPerDay);
-    if (rel.type === 'FS' && lag === '') {
-      parts.push(pred.code);
-    } else {
-      parts.push(`${pred.code} ${rel.type}${lag}`);
-    }
-  }
-  return parts.join(', ');
 }
 
 function activityPercent(act: ScheduleActivity): number | null {
@@ -221,8 +175,9 @@ export function buildVisibleRows(
       finish,
       totalFloat,
       percentComplete: activityPercent(act),
-      predecessorsLabel: formatPredecessorsShort(
-        incomingBySucc.get(act.id),
+      predecessorsLabel: formatPredecessorCell(
+        incomingBySucc.get(act.id) ?? [],
+        act.id,
         activitiesById,
         hoursPerDay,
       ),

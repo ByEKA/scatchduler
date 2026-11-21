@@ -68,6 +68,9 @@ function ScheduleEditorWorkspace({
             rows={visibleRows}
             selectedKey={editor.selectedKey}
             showCritical={editor.showCritical}
+            mode={editor.mode}
+            document={editor.document}
+            onDispatch={editor.dispatch}
             onSelectKey={editor.selectKey}
             onToggleWbs={editor.toggleWbs}
           />

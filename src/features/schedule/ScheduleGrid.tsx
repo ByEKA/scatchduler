@@ -13,13 +13,18 @@ import {
   FolderOpen,
   Repeat,
 } from 'lucide-react';
-import { useMemo, useRef } from 'react';
-import type { KeyboardEvent, ReactElement, ReactNode, RefObject, UIEvent } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent, ReactElement, RefObject, UIEvent } from 'react';
+import { toast } from 'sonner';
+import type { ScheduleDocument } from '@/data/schedule-types';
+import type { CommandResult, ScheduleCommand } from '@/features/schedule/commands';
 import {
   formatPercent,
   formatScheduleDate,
   formatWorkingDays,
 } from '@/features/schedule/format-schedule';
+import { InlineCellEditor } from '@/features/schedule/InlineCellEditor';
+import { parseDurationInput, parsePredecessorCell } from '@/features/schedule/predecessor-text';
 import {
   SCHEDULE_HEADER_HEIGHT,
   SCHEDULE_ROW_HEIGHT,
@@ -33,12 +38,13 @@ export interface ScheduleGridProps {
   rows: readonly VisibleRow[];
   selectedKey: string | null;
   showCritical?: boolean;
+  mode?: 'view' | 'edit';
+  document?: ScheduleDocument;
+  onDispatch?: (command: ScheduleCommand) => CommandResult;
   onSelectKey(key: string | null): void;
   onToggleWbs(wbsId: string): void;
   scrollContainerRef?: RefObject<HTMLDivElement | null>;
   onScroll?: (scrollTop: number) => void;
-  renderCellOverride?: (row: VisibleRow, column: EditableGridColumn) => ReactNode | undefined;
-  onActivateEditCell?: (row: VisibleRow, column: EditableGridColumn) => void;
 }
 
 const COLUMN_WIDTHS = {
@@ -61,6 +67,34 @@ const EDITABLE_BY_COLUMN: Partial<Record<string, EditableGridColumn>> = {
   predecessors: 'predecessors',
 };
 
+function canInlineEdit(row: VisibleRow, column: EditableGridColumn): boolean {
+  if (row.kind === 'wbs') {
+    return column === 'code' || column === 'name';
+  }
+  if (
+    column === 'duration' &&
+    (row.activityType === 'start_milestone' || row.activityType === 'finish_milestone')
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function initialEditorValue(row: VisibleRow, column: EditableGridColumn): string {
+  switch (column) {
+    case 'code':
+      return row.code;
+    case 'name':
+      return row.name;
+    case 'duration':
+      return formatWorkingDays(row.durationMinutes, row.hoursPerDay);
+    case 'percent':
+      return row.percentComplete === null ? '0' : String(Math.round(row.percentComplete));
+    case 'predecessors':
+      return row.predecessorsLabel;
+  }
+}
+
 function RowTypeIcon({ row }: { row: VisibleRow }): ReactElement | null {
   if (row.kind === 'wbs') {
     return row.isCollapsed ? (
@@ -80,21 +114,206 @@ function RowTypeIcon({ row }: { row: VisibleRow }): ReactElement | null {
 
 /**
  * Virtualized WBS + Activity treegrid built on `@tanstack/react-table` and `@tanstack/react-virtual`
- * (spec §7.2, S11). Maintains fixed 32 px row height for pixel-locked scroll sync with `ScheduleGantt`.
+ * (spec §7.2, S11). Maintains fixed 32 px row height for pixel-locked scroll sync with
+ * `ScheduleGantt`, and supports inline cell editing in Edit mode.
  */
 export function ScheduleGrid({
   rows,
   selectedKey,
   showCritical = true,
+  mode = 'view',
+  document,
+  onDispatch,
   onSelectKey,
   onToggleWbs,
   scrollContainerRef,
   onScroll,
-  renderCellOverride,
-  onActivateEditCell,
 }: ScheduleGridProps): ReactElement {
   const internalScrollRef = useRef<HTMLDivElement>(null);
   const scrollRef = scrollContainerRef ?? internalScrollRef;
+  const [editing, setEditing] = useState<{ rowKey: string; column: EditableGridColumn } | null>(
+    null,
+  );
+
+  // Derived so exiting edit mode closes any open editor without calling setState in an effect.
+  const activeEdit = mode === 'edit' && document && onDispatch ? editing : null;
+
+  const startEdit = useCallback(
+    (row: VisibleRow, column: EditableGridColumn) => {
+      if (mode !== 'edit' || !document || !onDispatch) return;
+      if (!canInlineEdit(row, column)) return;
+      onSelectKey(row.key);
+      setEditing({ rowKey: row.key, column });
+    },
+    [document, mode, onDispatch, onSelectKey],
+  );
+
+  const commitEdit = useCallback(
+    (row: VisibleRow, column: EditableGridColumn, rawValue: string) => {
+      setEditing(null);
+      if (!document || !onDispatch) return;
+
+      if (row.kind === 'wbs') {
+        if (column !== 'code' && column !== 'name') return;
+        const result = onDispatch({
+          type: 'updateWbsNode',
+          wbsId: row.id,
+          changes: { [column]: rawValue },
+        });
+        if (!result.ok) toast.error(result.error);
+        return;
+      }
+
+      const activity = document.activities.find((a) => a.id === row.id);
+      if (!activity) return;
+
+      if (column === 'code' || column === 'name') {
+        const result = onDispatch({
+          type: 'updateActivity',
+          activityId: row.id,
+          changes: { [column]: rawValue },
+        });
+        if (!result.ok) toast.error(result.error);
+        return;
+      }
+
+      if (column === 'duration') {
+        const parsed = parseDurationInput(rawValue, row.hoursPerDay);
+        if (!parsed.ok) {
+          toast.error(parsed.error);
+          return;
+        }
+        const changes =
+          activity.status === 'not_started'
+            ? { originalDuration: parsed.minutes, remainingDuration: parsed.minutes }
+            : { originalDuration: parsed.minutes };
+        const result = onDispatch({ type: 'updateActivity', activityId: row.id, changes });
+        if (!result.ok) toast.error(result.error);
+        return;
+      }
+
+      if (column === 'percent') {
+        const cleaned = rawValue.trim().replace(/%$/, '').trim();
+        const num = Number.parseFloat(cleaned);
+        if (!Number.isFinite(num) || num < 0 || num > 100) {
+          toast.error('Percent complete must be between 0 and 100.');
+          return;
+        }
+        const pct = Math.round(num * 10) / 10;
+        const nextStatus = pct <= 0 ? 'not_started' : pct >= 100 ? 'completed' : 'in_progress';
+        const nextRemaining = Math.round(activity.originalDuration * (1 - pct / 100));
+        const result = onDispatch({
+          type: 'updateActivity',
+          activityId: row.id,
+          changes: {
+            status: nextStatus,
+            remainingDuration: nextRemaining,
+            percent: {
+              ...activity.percent,
+              duration: pct,
+              physical: pct,
+            },
+          },
+        });
+        if (!result.ok) toast.error(result.error);
+        return;
+      }
+
+      if (column === 'predecessors') {
+        const parsed = parsePredecessorCell(rawValue, { hoursPerDay: row.hoursPerDay });
+        if (!parsed.ok) {
+          toast.error(parsed.error);
+          return;
+        }
+        const byLowerCode = new Map(
+          document.activities.map((a) => [a.code.trim().toLowerCase(), a]),
+        );
+        const desired = new Map<
+          string,
+          { predecessorId: string; type: 'FS' | 'SS' | 'FF' | 'SF'; lagMinutes: number; lagElapsed: boolean }
+        >();
+        for (const item of parsed.items) {
+          const pred = byLowerCode.get(item.code.trim().toLowerCase());
+          if (!pred) {
+            toast.error(`Activity ${item.code} not found.`);
+            return;
+          }
+          if (pred.id === row.id) {
+            toast.error("An activity can't link to itself.");
+            return;
+          }
+          const key = `${pred.id}:${item.type}`;
+          if (desired.has(key)) {
+            toast.error('This relationship already exists.');
+            return;
+          }
+          desired.set(key, {
+            predecessorId: pred.id,
+            type: item.type,
+            lagMinutes: item.lagMinutes,
+            lagElapsed: item.lagElapsed,
+          });
+        }
+
+        const existingIncoming = document.relationships.filter((r) => r.successorId === row.id);
+        const existingByKey = new Map(
+          existingIncoming.map((r) => [`${r.predecessorId}:${r.type}`, r]),
+        );
+
+        for (const [key, rel] of existingByKey) {
+          if (!desired.has(key)) {
+            const res = onDispatch({ type: 'deleteRelationship', relationshipId: rel.id });
+            if (!res.ok) toast.error(res.error);
+          }
+        }
+        for (const [key, spec] of desired) {
+          const prev = existingByKey.get(key);
+          if (prev) {
+            if (prev.lagMinutes !== spec.lagMinutes || prev.lagElapsed !== spec.lagElapsed) {
+              const res = onDispatch({
+                type: 'updateRelationship',
+                relationshipId: prev.id,
+                changes: { lagMinutes: spec.lagMinutes, lagElapsed: spec.lagElapsed },
+              });
+              if (!res.ok) toast.error(res.error);
+            }
+          } else {
+            const res = onDispatch({
+              type: 'addRelationship',
+              predecessorId: spec.predecessorId,
+              successorId: row.id,
+              relType: spec.type,
+              lagMinutes: spec.lagMinutes,
+              lagElapsed: spec.lagElapsed,
+            });
+            if (!res.ok) toast.error(res.error);
+          }
+        }
+      }
+    },
+    [document, onDispatch],
+  );
+
+  const renderInlineEditor = useCallback(
+    (
+      row: VisibleRow,
+      column: EditableGridColumn,
+      options?: { align?: 'left' | 'right'; mono?: boolean },
+    ) => {
+      if (activeEdit?.rowKey !== row.key || activeEdit.column !== column) return undefined;
+      return (
+        <InlineCellEditor
+          initialValue={initialEditorValue(row, column)}
+          ariaLabel={`Edit ${column} for ${row.code}`}
+          align={options?.align}
+          mono={options?.mono}
+          onCommit={(val) => commitEdit(row, column, val)}
+          onCancel={() => setEditing(null)}
+        />
+      );
+    },
+    [activeEdit, commitEdit],
+  );
 
   const columns = useMemo<ColumnDef<VisibleRow>[]>(
     () => [
@@ -111,8 +330,8 @@ export function ScheduleGrid({
         header: 'Code',
         meta: { className: COLUMN_WIDTHS.code },
         cell: ({ row }) => {
-          const override = renderCellOverride?.(row.original, 'code');
-          if (override !== undefined) return override;
+          const editorEl = renderInlineEditor(row.original, 'code', { mono: true });
+          if (editorEl !== undefined) return editorEl;
           return (
             <span className="truncate font-mono text-xs" title={row.original.code}>
               {row.original.code}
@@ -126,7 +345,7 @@ export function ScheduleGrid({
         meta: { className: COLUMN_WIDTHS.name },
         cell: ({ row }) => {
           const item = row.original;
-          const override = renderCellOverride?.(item, 'name');
+          const editorEl = renderInlineEditor(item, 'name');
           return (
             <div
               className="flex min-w-0 flex-1 items-center gap-1"
@@ -152,8 +371,8 @@ export function ScheduleGrid({
                 <span className="w-5 shrink-0" aria-hidden="true" />
               )}
               <RowTypeIcon row={item} />
-              {override !== undefined ? (
-                override
+              {editorEl !== undefined ? (
+                editorEl
               ) : (
                 <span
                   title={item.name}
@@ -174,8 +393,8 @@ export function ScheduleGrid({
         header: 'Duration',
         meta: { className: COLUMN_WIDTHS.duration },
         cell: ({ row }) => {
-          const override = renderCellOverride?.(row.original, 'duration');
-          if (override !== undefined) return override;
+          const editorEl = renderInlineEditor(row.original, 'duration', { align: 'right' });
+          if (editorEl !== undefined) return editorEl;
           return (
             <span className="tabular-nums">
               {formatWorkingDays(row.original.durationMinutes, row.original.hoursPerDay)}
@@ -225,8 +444,8 @@ export function ScheduleGrid({
         header: '% complete',
         meta: { className: COLUMN_WIDTHS.percent },
         cell: ({ row }) => {
-          const override = renderCellOverride?.(row.original, 'percent');
-          if (override !== undefined) return override;
+          const editorEl = renderInlineEditor(row.original, 'percent', { align: 'right' });
+          if (editorEl !== undefined) return editorEl;
           return <span className="tabular-nums">{formatPercent(row.original.percentComplete)}</span>;
         },
       },
@@ -235,8 +454,8 @@ export function ScheduleGrid({
         header: 'Predecessors',
         meta: { className: COLUMN_WIDTHS.predecessors },
         cell: ({ row }) => {
-          const override = renderCellOverride?.(row.original, 'predecessors');
-          if (override !== undefined) return override;
+          const editorEl = renderInlineEditor(row.original, 'predecessors', { mono: true });
+          if (editorEl !== undefined) return editorEl;
           return (
             <span
               className="truncate font-mono text-xs text-muted-foreground"
@@ -248,7 +467,7 @@ export function ScheduleGrid({
         },
       },
     ],
-    [onToggleWbs, renderCellOverride, showCritical],
+    [onToggleWbs, renderInlineEditor, showCritical],
   );
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table manages its own memoized model.
@@ -338,9 +557,9 @@ export function ScheduleGrid({
       return;
     }
 
-    if (event.key === 'Enter' && onActivateEditCell) {
+    if (event.key === 'Enter' && mode === 'edit') {
       event.preventDefault();
-      onActivateEditCell(currentRow, 'name');
+      startEdit(currentRow, 'name');
     }
   };
 
@@ -358,7 +577,6 @@ export function ScheduleGrid({
       className="relative flex-1 overflow-auto text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
     >
       <div className="min-w-[820px]">
-        {/* Sticky header row aligned with the 44 px Gantt timescale header */}
         <div
           role="row"
           aria-rowindex={1}
@@ -385,7 +603,6 @@ export function ScheduleGrid({
           )}
         </div>
 
-        {/* Virtualized rows body */}
         {tableRows.length === 0 ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
             No activities to display.
@@ -435,10 +652,10 @@ export function ScheduleGrid({
                         role="gridcell"
                         tabIndex={-1}
                         onDoubleClick={
-                          editableCol && onActivateEditCell
+                          editableCol
                             ? (event) => {
                                 event.stopPropagation();
-                                onActivateEditCell(item, editableCol);
+                                startEdit(item, editableCol);
                               }
                             : undefined
                         }
