@@ -1,4 +1,4 @@
-import type { ScheduleDocument } from './schedule-types';
+import type { CalculationDisplayMode, ScheduleDocument } from './schedule-types';
 import type {
   BaselineFlag,
   ID,
@@ -65,6 +65,9 @@ export interface ImportScheduleInput {
   file: File; // the original, as the user chose it
   /** From the worker's `pack`: the file gzipped for xer, mspdi and csv; the file itself for xlsx. */
   stored: Blob;
+  /** Gzipped initial `ScheduleDocument` snapshot built during the import commit step (P4 spec §4.2). */
+  dataStored: Blob;
+  calculationMode: CalculationDisplayMode;
   statusDate: ISODate | null; // null takes the project's (P2)
   activityCount: number; // the accepted activities
   sourceProjectCode: string | null;

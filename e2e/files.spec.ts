@@ -56,3 +56,10 @@ test('a schedule is deleted after confirming', async ({ page }) => {
   await expect(page.getByText('Schedule deleted')).toBeVisible();
   await expect(row(page, 'Baseline')).toHaveCount(0);
 });
+
+test('Open current schedule navigates to the schedule route', async ({ page }) => {
+  await openHarbor(page);
+  await page.getByRole('link', { name: 'Open current schedule' }).click();
+  await expect(page).toHaveURL(/\/schedule\?scheduleId=/);
+});
+

@@ -12,6 +12,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProjectFilesPage } from '@/pages/ProjectFilesPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { SchedulePage } from '@/pages/SchedulePage';
 import { SignInPage } from '@/pages/SignInPage';
 
 // Route table (spec §4.4, P2 spec §5.4). The auth pages sit outside RequireAuth and AppShell;
@@ -40,10 +41,7 @@ export const appRoutes: RouteObject[] = [
         path: 'w/:workspaceId/p/:projectId/dashboard',
         element: <ProjectPlaceholderPage section="Dashboard" />,
       },
-      {
-        path: 'w/:workspaceId/p/:projectId/schedule',
-        element: <ProjectPlaceholderPage section="Schedule" />,
-      },
+      { path: 'w/:workspaceId/p/:projectId/schedule', element: <SchedulePage /> },
       { path: 'settings/profile', element: <PlaceholderPage title="Profile" /> },
       { path: 'settings/billing', element: <PlaceholderPage title="Billing" /> },
       { path: 'help/sharing', element: <PlaceholderPage title="Sharing" /> },

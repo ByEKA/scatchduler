@@ -36,6 +36,33 @@ describe('imports on the local stack', () => {
     expect(await bytes(await f.repository.getScheduleSourceFile(b.id))).toEqual(
       await bytes(xlsx.file),
     );
+
+    // Task 10: import immediately writes the initial ScheduleDocument snapshot to schedule-data.
+    expect(a).toMatchObject({
+      hasScheduleData: true,
+      dataRevision: 1,
+      calculationMode: 'as_imported',
+    });
+    const { data: row } = await admin
+      .from('schedules')
+      .select('data_file_path')
+      .eq('id', a.id)
+      .single();
+    const dataPath = row!.data_file_path!;
+    expect(dataPath).toMatch(
+      new RegExp(
+        `^${f.workspaces.personal}/${f.projectIds['002']}/${a.id}/[0-9a-f-]{36}\\.json\\.gz$`,
+      ),
+    );
+    expect((await admin.storage.from('schedule-data').download(dataPath)).error).toBeNull();
+    const loaded = await f.repository.getScheduleDocument(a.id);
+    expect(loaded.dataRevision).toBe(1);
+    expect(loaded.document?.activities).toHaveLength(6);
+    expect(loaded.document?.activities[0]?.code).toBe('A1000');
+
+    await f.repository.setCurrentSchedule(b.id);
+    await f.repository.deleteSchedules([a.id]);
+    expect((await admin.storage.from('schedule-data').download(dataPath)).error).not.toBeNull();
   });
 
   it('stores a report near 200 KB of Turkish text within the 256 KB column check', async () => {

@@ -2,6 +2,9 @@
 // make the browser throw on access; these helpers turn that into "no stored value" so the app
 // keeps running on its in-memory state.
 
+export const UI_SCHEDULE_SPLIT_KEY = 'ui.scheduleSplitPx';
+export const UI_SCHEDULE_DETAILS_KEY = 'ui.scheduleDetailsOpen';
+
 export interface StorageLike {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;

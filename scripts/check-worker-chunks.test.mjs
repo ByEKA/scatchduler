@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { inspectWorkerChunks } from './check-worker-chunks.mjs';
 
 describe('check-worker-chunks (V2)', () => {
-  it('passes when an engine worker chunk has no parser libraries', () => {
+  it('passes when an engine worker chunk has no parser libraries and ignores the main UI index chunk', () => {
     const chunks = [
+      { name: 'index-main.js', code: 'SCHEDULE_CYCLE .xlsx' },
       { name: 'engine-worker-abc.js', code: 'self.onmessage=()=>{};' },
       { name: 'import-worker-def.js', code: '/* papaparse */' },
     ];

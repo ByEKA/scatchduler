@@ -11,7 +11,13 @@ const FORBIDDEN_MARKERS = [
 
 function isEngineChunk(chunk) {
   if (/engine.*worker/i.test(chunk.name)) return true;
-  if (/SCHEDULE_CYCLE/.test(chunk.code) && !/ERMHDR/.test(chunk.code)) return true;
+  if (
+    /(?:worker|in-thread)/i.test(chunk.name) &&
+    /SCHEDULE_CYCLE/.test(chunk.code) &&
+    !/ERMHDR/.test(chunk.code)
+  ) {
+    return true;
+  }
   return false;
 }
 

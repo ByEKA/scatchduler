@@ -130,3 +130,174 @@ test('a viewer sees the files page actions disabled', async ({ page }) => {
     'true',
   );
 });
+
+async function openSiteOpsTunnelProject(page: Page) {
+  await page
+    .getByRole('region', { name: 'Workspaces' })
+    .getByRole('button', { name: /^Site Operations/ })
+    .click();
+  await page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('link', { name: 'Projects' })
+    .click();
+  await page.getByRole('link', { name: 'Tunnel Ventilation Upgrade' }).first().click();
+  await expect(
+    page.getByRole('heading', { level: 1, name: /Tunnel Ventilation Upgrade/ }),
+  ).toBeVisible();
+}
+
+test('imports XER, opens As imported, edits, calculates, saves to schedule-data and reloads', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await signIn(page, 'deniz.kaya@example.com');
+  await page
+    .getByRole('region', { name: 'Recent projects' })
+    .getByRole('link', { name: 'Harbor Logistics Hub' })
+    .click();
+
+  await page.getByRole('button', { name: 'Import schedule' }).first().click();
+  await page
+    .locator('input[type="file"]')
+    .setInputFiles('src/import/__fixtures__/two-projects.xer');
+  await page.getByRole('button', { name: 'Next' }).click();
+  const code = `P4-${Date.now() % 100000}`;
+  await page.getByLabel('Code', { exact: true }).fill(code);
+  await page.getByRole('button', { name: 'Import', exact: true }).click();
+  await expect(page.getByText('Schedule imported')).toBeVisible();
+
+  const scheduleRow = page
+    .getByRole('table', { name: 'Schedules' })
+    .getByRole('row')
+    .filter({ hasText: code });
+  await expect(scheduleRow).toBeVisible();
+  await scheduleRow.getByRole('link', { name: 'North Plant' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'North Plant' })).toBeVisible();
+
+  const statusBar = page.getByRole('region', { name: 'Schedule status' });
+  await expect(statusBar).toContainText('As imported');
+
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await expect(page.getByRole('button', { name: '+ Activity' })).toBeVisible();
+
+  // Edit duration inline on A1030 (Pump install)
+  const a1030Row = page
+    .getByRole('treegrid', { name: 'Schedule activities' })
+    .getByRole('row')
+    .filter({ hasText: 'Pump install' });
+  await a1030Row.click();
+  await a1030Row.getByRole('gridcell').nth(3).dblclick();
+  const durationInput = page.getByRole('textbox', { name: 'Edit duration for A1030' });
+  await durationInput.fill('8d');
+  await durationInput.press('Enter');
+  await expect(a1030Row).toContainText('8 d');
+
+  // Add a predecessor relationship (A1010 -> A1030 SS)
+  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  await page.getByRole('tab', { name: 'Relationships' }).click();
+  const predSection = page.getByRole('region', { name: 'Predecessors' });
+  const predTable = predSection.getByRole('table');
+  await predSection
+    .getByLabel('Predecessor activity')
+    .selectOption({ label: 'A1010 · Kazı işleri' });
+  await predSection.getByLabel('Predecessor link type').selectOption('SS');
+  await predSection.getByRole('button', { name: 'Add predecessor' }).click();
+  await expect(predTable).toContainText('Kazı işleri');
+
+  // Calculate (F5) and save (Ctrl+S)
+  await page.keyboard.press('F5');
+  await expect(statusBar).toContainText('Calculated (P6)');
+  await expect(statusBar).toContainText('Calculated in');
+
+  await page.keyboard.press('Control+s');
+  await expect(page.getByRole('status')).toContainText('Schedule saved');
+  await expect(page.getByRole('button', { name: 'Done editing' })).toBeVisible();
+  await page.getByRole('button', { name: 'Done editing' }).click();
+  await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible();
+
+  // Reload and assert persisted duration, relationship and calculated mode from schedule-data
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: 'North Plant' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Schedule status' })).toContainText(
+    'Calculated (P6)',
+  );
+  const reloadedRow = page
+    .getByRole('treegrid', { name: 'Schedule activities' })
+    .getByRole('row')
+    .filter({ hasText: 'Pump install' });
+  await expect(reloadedRow).toContainText('8 d');
+
+  await reloadedRow.click();
+  const detailsBtn = page.getByRole('button', { name: 'Details', exact: true });
+  if ((await detailsBtn.getAttribute('aria-pressed')) !== 'true') {
+    await detailsBtn.click();
+  }
+  await page.getByRole('tab', { name: 'Relationships' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Predecessors' }).getByRole('table'),
+  ).toContainText('Kazı işleri');
+});
+
+test('shows edit lock across users, supports owner Force Unlock and keeps viewer read-only', async ({
+  page,
+  browser,
+}) => {
+  test.setTimeout(60_000);
+  const ownerContext = await browser.newContext({ baseURL: 'http://localhost:4174' });
+  const viewerContext = await browser.newContext({ baseURL: 'http://localhost:4174' });
+  try {
+    // Context 1 (Mert Demir): open Look-ahead W42 and acquire Edit lock
+    await signIn(page, 'mert.demir@example.com');
+    await openSiteOpsTunnelProject(page);
+    await page.getByRole('link', { name: 'Open current schedule' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Look-ahead W42' })).toBeVisible();
+    await page.getByRole('button', { name: 'Edit' }).click();
+    await expect(page.getByRole('button', { name: '+ Activity' })).toBeVisible();
+
+    // Context 2 (Deniz Kaya, owner): sees lock indicator on Files page, amber pill on editor, Force Unlocks and acquires Edit
+    const ownerPage = await ownerContext.newPage();
+    await signIn(ownerPage, 'deniz.kaya@example.com');
+    await openSiteOpsTunnelProject(ownerPage);
+    await expect(
+      ownerPage.getByRole('img', { name: 'Being edited by Mert Demir' }),
+    ).toBeVisible();
+
+    await ownerPage.getByRole('link', { name: 'Look-ahead W42' }).click();
+    await expect(
+      ownerPage.getByRole('heading', { level: 1, name: 'Look-ahead W42' }),
+    ).toBeVisible();
+    await expect(ownerPage.getByText('Locked by Mert Demir')).toBeVisible();
+
+    await ownerPage.getByRole('button', { name: 'Unlock' }).click();
+    const unlockDialog = ownerPage.getByRole('alertdialog', { name: 'Unlock this schedule?' });
+    await expect(unlockDialog).toBeVisible();
+    await unlockDialog.getByRole('button', { name: 'Unlock' }).click();
+
+    await expect(ownerPage.getByRole('button', { name: 'Edit' })).toBeVisible();
+    await ownerPage.getByRole('button', { name: 'Edit' }).click();
+    await expect(ownerPage.getByRole('button', { name: '+ Activity' })).toBeVisible();
+
+    // Release lock cleanly before viewer opens
+    await ownerPage.getByRole('button', { name: 'Done editing' }).click();
+    await expect(ownerPage.getByRole('button', { name: 'Edit' })).toBeVisible();
+
+    // Context 3 (Elif Arslan, viewer): opens Look-ahead W42 read-only with disabled Edit
+    const viewerPage = await viewerContext.newPage();
+    await signIn(viewerPage, 'elif.arslan@example.com');
+    await openSiteOpsTunnelProject(viewerPage);
+    await viewerPage.getByRole('link', { name: 'Look-ahead W42' }).click();
+    await expect(
+      viewerPage.getByRole('heading', { level: 1, name: 'Look-ahead W42' }),
+    ).toBeVisible();
+    await expect(
+      viewerPage.getByRole('treegrid', { name: 'Schedule activities' }),
+    ).toContainText('Site mobilization');
+    await expect(viewerPage.getByRole('button', { name: 'Edit' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+  } finally {
+    await ownerContext.close();
+    await viewerContext.close();
+  }
+});
