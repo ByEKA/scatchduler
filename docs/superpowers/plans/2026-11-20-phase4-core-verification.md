@@ -6,7 +6,7 @@ Filled in during execution of `docs/superpowers/plans/2026-11-20-phase4-core.md`
 
 | # | Assumption (spec §8) | Verified at | Result | Notes |
 |---|---|---|---|---|
-| V1 | `@tanstack/react-virtual` (MIT) and `fast-check` (MIT, dev) have zero prod advisories and appear in `dist/third-party-licenses.txt` | Task 1 | Pending | |
+| V1 | `@tanstack/react-virtual` (MIT) and `fast-check` (MIT, dev) have zero prod advisories and appear in `dist/third-party-licenses.txt` | Task 1 | Passed | `@tanstack/react-virtual@3.14.26` (MIT, in `dist/third-party-licenses.txt`), `fast-check@4.10.3` (MIT, dev); `npm audit --omit=dev` = 0 advisories |
 | V2 | `src/engine/worker.ts` builds as a second Vite worker chunk independent of `src/import/worker.ts` without bundling parser libraries | Task 1 / Task 18 | Pending | |
 | V3 | Engine solves 10k activities / 15k links in < 300 ms (< 1 s CI) and 50k / 150k in < 2 s (< 5 s CI) without stack overflow | Task 16 | Pending | |
 | V4 | Oracle fidelity against committed fixtures and local `real-exports/` P6-calculated XERs achieves ratcheted parity on `es/ef/ls/lf/tf/ff` and driving path | Task 17 | Pending | |

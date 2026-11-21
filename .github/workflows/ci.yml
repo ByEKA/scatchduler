@@ -15,6 +15,7 @@ jobs:
       - run: npm run check
       - run: npm run build
       - run: test -s dist/third-party-licenses.txt
+      - run: npm run check:workers
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 

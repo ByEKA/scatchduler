@@ -66,6 +66,49 @@ const PURE_IMPORT_PATHS = [{ name: '@/data', message: PURE_IMPORT_MESSAGE }];
 const HOOKS_IMPORT_MESSAGE =
   'Hooks use the import parser through @/import/client; other src/import modules for types only.';
 
+const PURE_ENGINE_MESSAGE =
+  'src/engine is pure TypeScript: no React, hooks, UI, adapters, DOM or parser libraries.';
+const PURE_ENGINE_COMMON_GROUPS = [
+  'react',
+  'react/*',
+  'react-dom',
+  'react-dom/*',
+  '@/hooks',
+  '@/hooks/*',
+  '@/components',
+  '@/components/*',
+  '@/features',
+  '@/features/*',
+  '@/pages',
+  '@/pages/*',
+  '@/data/*',
+  '!@/data/types',
+  '!@/data/schedule-types',
+];
+const PURE_ENGINE_PATTERN = {
+  group: [...PURE_ENGINE_COMMON_GROUPS, '@/import', '@/import/*'],
+  message: PURE_ENGINE_MESSAGE,
+};
+const PURE_ENGINE_MATERIALIZE_PATTERN = {
+  group: [...PURE_ENGINE_COMMON_GROUPS, '@/import/*', '!@/import/model'],
+  message: PURE_ENGINE_MESSAGE,
+};
+const ENGINE_DATA_TYPES_ONLY = [
+  { name: '@/data', message: PURE_ENGINE_MESSAGE },
+  { name: '@/data/types', allowTypeImports: true, message: PURE_ENGINE_MESSAGE },
+  { name: '@/data/schedule-types', allowTypeImports: true, message: PURE_ENGINE_MESSAGE },
+];
+const HOOKS_ENGINE_MESSAGE =
+  'Hooks use the schedule engine through @/engine/client; other src/engine modules for types only.';
+const ENGINE_HOOKS_ONLY_PATTERN = {
+  group: ['@/engine', '@/engine/*'],
+  allowTypeImports: true,
+  message: 'Only hooks use the schedule engine, through @/engine/client.',
+};
+const PURE_GANTT_MESSAGE =
+  'Pure Gantt modules import no React or hooks so they can run headless and in PDF export.';
+const ENGINE_RESTRICTED_GLOBALS = ['error', 'document', 'window', 'HTMLCanvasElement', 'OffscreenCanvas'];
+
 export default defineConfig([
   globalIgnores([
     '.claude',
@@ -104,12 +147,12 @@ export default defineConfig([
     files: ['scripts/**', '*.config.*'],
     languageOptions: { globals: globals.node },
   },
-  // Import boundaries (P2 data layer; P3 core spec §3 and S7). A flat-config block replaces
-  // `no-restricted-imports` instead of merging it, so each block that touches a file lists every
-  // rule that applies there. scripts/import-boundaries.test.mjs pins these blocks.
+  // Import boundaries (P2 data layer; P3 core & P4 core spec §3 and S7). A flat-config block
+  // replaces `no-restricted-imports` instead of merging it, so each block that touches a file
+  // lists every rule that applies there. scripts/import-boundaries.test.mjs pins these blocks.
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/data/**', 'src/test/**', 'src/hooks/**', 'src/import/**'],
+    ignores: ['src/data/**', 'src/test/**', 'src/hooks/**', 'src/import/**', 'src/engine/**'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -120,6 +163,7 @@ export default defineConfig([
               group: ['@/import', '@/import/*'],
               message: 'Only hooks use the import parser, through @/import/client.',
             },
+            ENGINE_HOOKS_ONLY_PATTERN,
             PARSER_LIBRARY_SUBPATHS,
           ],
           paths: PARSER_LIBRARY_PATHS,
@@ -140,10 +184,16 @@ export default defineConfig([
               allowTypeImports: true,
               message: HOOKS_IMPORT_MESSAGE,
             },
+            {
+              group: ['@/engine/*', '!@/engine/client'],
+              allowTypeImports: true,
+              message: HOOKS_ENGINE_MESSAGE,
+            },
             PARSER_LIBRARY_SUBPATHS,
           ],
           paths: [
             { name: '@/import', allowTypeImports: true, message: HOOKS_IMPORT_MESSAGE },
+            { name: '@/engine', allowTypeImports: true, message: HOOKS_ENGINE_MESSAGE },
             ...PARSER_LIBRARY_PATHS,
           ],
         },
@@ -189,11 +239,99 @@ export default defineConfig([
       ],
     },
   },
-  // Spec D47: component and feature tests may import the import client and fixtures while keeping
-  // the data-layer adapter boundary.
+  {
+    files: ['src/engine/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-globals': ENGINE_RESTRICTED_GLOBALS,
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [PURE_ENGINE_PATTERN, RELATIVE_ADAPTER_PATTERN, PARSER_LIBRARY_SUBPATHS],
+          paths: [...ENGINE_DATA_TYPES_ONLY, ...PARSER_LIBRARY_PATHS],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/engine/materialize.ts'],
+    rules: {
+      'no-restricted-globals': ENGINE_RESTRICTED_GLOBALS,
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            PURE_ENGINE_MATERIALIZE_PATTERN,
+            RELATIVE_ADAPTER_PATTERN,
+            PARSER_LIBRARY_SUBPATHS,
+          ],
+          paths: [
+            ...ENGINE_DATA_TYPES_ONLY,
+            { name: '@/import', message: PURE_ENGINE_MESSAGE },
+            { name: '@/import/model', allowTypeImports: true, message: PURE_ENGINE_MESSAGE },
+            ...PARSER_LIBRARY_PATHS,
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/engine/client.ts'],
+    rules: {
+      'no-restricted-globals': ENGINE_RESTRICTED_GLOBALS,
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            PURE_ENGINE_PATTERN,
+            RELATIVE_ADAPTER_PATTERN,
+            PARSER_LIBRARY_SUBPATHS,
+            {
+              group: ['./*', '!./protocol'],
+              allowTypeImports: true,
+              message:
+                'client.ts statically imports only ./protocol; it loads ./materialize and ./in-thread with import().',
+            },
+          ],
+          paths: [...ENGINE_DATA_TYPES_ONLY, ...PARSER_LIBRARY_PATHS],
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/features/schedule/gantt/draw2d.ts',
+      'src/features/schedule/gantt/renderer.ts',
+      'src/features/schedule/gantt/timescale.ts',
+      'src/features/schedule/gantt/links.ts',
+      'src/features/schedule/gantt/hit-test.ts',
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            ADAPTER_PATTERN,
+            {
+              group: ['@/import', '@/import/*'],
+              message: 'Only hooks use the import parser, through @/import/client.',
+            },
+            ENGINE_HOOKS_ONLY_PATTERN,
+            PARSER_LIBRARY_SUBPATHS,
+            {
+              group: ['react', 'react/*', 'react-dom', 'react-dom/*', '@/hooks', '@/hooks/*'],
+              message: PURE_GANTT_MESSAGE,
+            },
+          ],
+          paths: PARSER_LIBRARY_PATHS,
+        },
+      ],
+    },
+  },
+  // Spec D47: component and feature tests may import the import/engine clients and fixtures while
+  // keeping the data-layer adapter boundary.
   {
     files: ['src/**/*.test.{ts,tsx}'],
-    ignores: ['src/data/**', 'src/import/**', 'src/test/**'],
+    ignores: ['src/data/**', 'src/import/**', 'src/engine/**', 'src/test/**'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [ADAPTER_PATTERN] }],
     },
