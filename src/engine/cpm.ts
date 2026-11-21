@@ -346,7 +346,12 @@ export function runForwardPass(
               message: `Lead on ${pred.code} → ${act.code} was clamped at the project start.`,
             });
           }
-          if (boundStart > remStart) {
+          if (
+            boundStart > remStart ||
+            (boundStart === remStart &&
+              driver.kind === 'predecessor' &&
+              rel.id < driver.relationshipId)
+          ) {
             remStart = boundStart;
             driver = { kind: 'predecessor', relationshipId: rel.id, predecessorId: pred.id };
           }
@@ -363,7 +368,13 @@ export function runForwardPass(
               message: `Lead on ${pred.code} → ${act.code} was clamped at the project start.`,
             });
           }
-          if (boundFinish > minFinish) {
+          if (
+            boundFinish > minFinish ||
+            (boundFinish === minFinish &&
+              finishDriver !== null &&
+              finishDriver.kind === 'predecessor' &&
+              rel.id < finishDriver.relationshipId)
+          ) {
             minFinish = boundFinish;
             finishDriver = { kind: 'predecessor', relationshipId: rel.id, predecessorId: pred.id };
           }
@@ -432,7 +443,13 @@ export function runForwardPass(
         });
       }
 
-      if (boundEs > bestEs || (!wasClamped && boundEs === bestEs && driver.kind === 'project_start')) {
+      const beatsProjectStartTie = !wasClamped && boundEs === bestEs && driver.kind === 'project_start';
+      const beatsPredecessorTie =
+        !wasClamped &&
+        boundEs === bestEs &&
+        driver.kind === 'predecessor' &&
+        rel.id < driver.relationshipId;
+      if (boundEs > bestEs || beatsProjectStartTie || beatsPredecessorTie) {
         bestEs = boundEs;
         driver = { kind: 'predecessor', relationshipId: rel.id, predecessorId: pred.id };
       }
