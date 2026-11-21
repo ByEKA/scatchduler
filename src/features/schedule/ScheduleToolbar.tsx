@@ -44,6 +44,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { Schedule, WorkspaceSummary } from '@/data/types';
 import { DirtyLeaveDialog } from '@/features/schedule/DirtyLeaveDialog';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
+import { ScheduleSettingsPopover } from '@/features/schedule/ScheduleSettingsPopover';
 import type { ScheduleEditorController } from '@/features/schedule/useScheduleEditor';
 import { canEdit, isOwner, VIEWER_HINT } from '@/features/workspaces/roles';
 import { errorMessage } from '@/lib/format';
@@ -341,7 +342,13 @@ export function ScheduleToolbar({
           </span>
         )}
 
-        {settingsSlot}
+        {settingsSlot ?? (
+          <ScheduleSettingsPopover
+            document={editor.document}
+            mode={editor.mode}
+            onDispatch={editor.dispatch}
+          />
+        )}
         {warningsSlot}
       </div>
 
