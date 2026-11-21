@@ -15,6 +15,10 @@ import { CycleErrorBanner } from '@/features/schedule/CycleErrorBanner';
 import { DirtyLeaveDialog } from '@/features/schedule/DirtyLeaveDialog';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
 import { buildVisibleRows, SCHEDULE_ROW_HEIGHT } from '@/features/schedule/rows';
+import {
+  ScheduleDetailsPanel,
+  type DetailsTab,
+} from '@/features/schedule/ScheduleDetailsPanel';
 import { ScheduleGantt, type ScheduleGanttHandle } from '@/features/schedule/ScheduleGantt';
 import { ScheduleGrid } from '@/features/schedule/ScheduleGrid';
 import { ScheduleSearch } from '@/features/schedule/ScheduleSearch';
@@ -59,6 +63,7 @@ function ScheduleEditorWorkspace({
   const [detailsOpen, setDetailsOpen] = useState<boolean>(
     () => readKey(UI_SCHEDULE_DETAILS_KEY) === '1',
   );
+  const [detailsTab, setDetailsTab] = useState<DetailsTab>('details');
 
   const toggleDetails = useCallback(() => {
     setDetailsOpen((prev) => {
@@ -231,6 +236,7 @@ function ScheduleEditorWorkspace({
           error={editor.cycleError}
           onJumpToCycleActivity={(activityId) => {
             jumpAndScrollToActivity(activityId);
+            setDetailsTab('relationships');
             setDetailsOpen(true);
             writeKey(UI_SCHEDULE_DETAILS_KEY, '1');
           }}
@@ -280,6 +286,24 @@ function ScheduleEditorWorkspace({
           />
         }
       />
+
+      {detailsOpen && (
+        <ScheduleDetailsPanel
+          document={editor.document}
+          summary={editor.summary}
+          rollups={editor.rollups}
+          selectedKey={editor.selectedKey}
+          mode={editor.mode}
+          activeTab={detailsTab}
+          onTabChange={setDetailsTab}
+          onClose={() => {
+            setDetailsOpen(false);
+            writeKey(UI_SCHEDULE_DETAILS_KEY, '0');
+          }}
+          onJumpToActivity={jumpAndScrollToActivity}
+          onDispatch={editor.dispatch}
+        />
+      )}
 
       <DirtyLeaveDialog
         open={blocker.state === 'blocked'}
