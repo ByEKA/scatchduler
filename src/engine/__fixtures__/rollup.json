@@ -1,0 +1,43 @@
+{
+  "wbs": [
+    { "id": "root", "parentId": null, "code": "1", "name": "Project", "order": 0 },
+    { "id": "sub1", "parentId": "root", "code": "1.1", "name": "Civil", "order": 0 },
+    { "id": "sub2", "parentId": "root", "code": "1.2", "name": "Empty", "order": 1 }
+  ],
+  "activities": [
+    {
+      "id": "a",
+      "code": "A10",
+      "wbsId": "sub1",
+      "originalDuration": 960,
+      "remainingDuration": 0,
+      "status": "completed",
+      "actualStart": "2026-01-05T08:00",
+      "actualFinish": "2026-01-06T17:00",
+      "sourceDates": {
+        "planned": { "start": "2026-01-05T08:00", "finish": "2026-01-06T17:00" },
+        "early": { "start": "2026-01-05T08:00", "finish": "2026-01-06T17:00" },
+        "late": { "start": "2026-01-05T08:00", "finish": "2026-01-06T17:00" },
+        "remaining": { "start": null, "finish": null },
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    },
+    {
+      "id": "b",
+      "code": "A20",
+      "wbsId": "sub1",
+      "originalDuration": 1440,
+      "remainingDuration": 1440,
+      "status": "not_started",
+      "sourceDates": {
+        "planned": { "start": "2026-01-07T08:00", "finish": "2026-01-09T17:00" },
+        "early": { "start": "2026-01-07T08:00", "finish": "2026-01-09T17:00" },
+        "late": { "start": "2026-01-07T08:00", "finish": "2026-01-09T17:00" },
+        "remaining": { "start": null, "finish": null },
+        "totalFloat": 0,
+        "freeFloat": 0
+      }
+    }
+  ]
+}
