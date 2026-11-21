@@ -69,11 +69,10 @@ describe('routes', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Riverside Office Tower · Dashboard' }),
     ).toBeInTheDocument();
-    await act(() =>
-      router.navigate(`/w/${personal.id}/p/${riverside.id}/schedule?scheduleId=anything`),
-    );
+    await act(() => router.navigate(`/w/${personal.id}/p/${riverside.id}/schedule`));
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'Riverside Office Tower · Schedule' }),
+      await screen.findByRole('heading', { level: 1, name: 'Main schedule' }),
     ).toBeInTheDocument();
+    expect(screen.queryByText('This area is part of a later phase.')).not.toBeInTheDocument();
   });
 });

@@ -31,4 +31,23 @@ describe('TopBar', () => {
       '/home',
     );
   });
+
+  it('shows the schedule switcher only on the schedule route', async () => {
+    const { createTestDataLayer } = await import('@/test/fakes');
+    const dataLayer = createTestDataLayer();
+    const harbor = dataLayer.store.read().projects.find((p) => p.code === '003')!;
+
+    const home = renderWithProviders(<TopBar />, { route: '/home', path: '/home', dataLayer });
+    expect(screen.queryByRole('button', { name: 'Switch schedule' })).not.toBeInTheDocument();
+    home.unmount();
+
+    renderWithProviders(<TopBar />, {
+      route: `/w/${harbor.workspaceId}/p/${harbor.id}/schedule`,
+      path: '/w/:workspaceId/p/:projectId/schedule',
+      dataLayer,
+    });
+    expect(await screen.findByRole('button', { name: 'Switch schedule' })).toHaveTextContent(
+      'Update 2',
+    );
+  });
 });
