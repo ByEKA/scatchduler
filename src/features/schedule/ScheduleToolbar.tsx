@@ -46,6 +46,7 @@ import { DirtyLeaveDialog } from '@/features/schedule/DirtyLeaveDialog';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
 import { ScheduleSettingsPopover } from '@/features/schedule/ScheduleSettingsPopover';
 import type { ScheduleEditorController } from '@/features/schedule/useScheduleEditor';
+import { WarningsPopover } from '@/features/schedule/WarningsPopover';
 import { canEdit, isOwner, VIEWER_HINT } from '@/features/workspaces/roles';
 import { errorMessage } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -59,6 +60,7 @@ export interface ScheduleToolbarProps {
   onZoomToFit(): void;
   detailsOpen: boolean;
   onToggleDetails(): void;
+  onJumpToActivity?: (activityId: string) => void;
   settingsSlot?: ReactNode;
   warningsSlot?: ReactNode;
   searchSlot?: ReactNode;
@@ -87,6 +89,7 @@ export function ScheduleToolbar({
   onZoomToFit,
   detailsOpen,
   onToggleDetails,
+  onJumpToActivity,
   settingsSlot,
   warningsSlot,
   searchSlot,
@@ -349,7 +352,12 @@ export function ScheduleToolbar({
             onDispatch={editor.dispatch}
           />
         )}
-        {warningsSlot}
+        {warningsSlot ?? (
+          <WarningsPopover
+            warnings={editor.summary?.warnings ?? []}
+            onJumpToActivity={onJumpToActivity ?? editor.jumpToActivity}
+          />
+        )}
       </div>
 
       {/* Right: Timeline toggles, zoom, details & search */}

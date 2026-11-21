@@ -11,6 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import type { Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { CycleErrorBanner } from '@/features/schedule/CycleErrorBanner';
 import { DirtyLeaveDialog } from '@/features/schedule/DirtyLeaveDialog';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
 import { buildVisibleRows, SCHEDULE_ROW_HEIGHT } from '@/features/schedule/rows';
@@ -210,6 +211,7 @@ function ScheduleEditorWorkspace({
         onZoomToFit={() => ganttRef.current?.zoomToFit()}
         detailsOpen={detailsOpen}
         onToggleDetails={toggleDetails}
+        onJumpToActivity={jumpAndScrollToActivity}
         searchSlot={
           <ScheduleSearch
             inputRef={searchInputRef}
@@ -223,6 +225,17 @@ function ScheduleEditorWorkspace({
           />
         }
       />
+
+      {editor.cycleError !== null && (
+        <CycleErrorBanner
+          error={editor.cycleError}
+          onJumpToCycleActivity={(activityId) => {
+            jumpAndScrollToActivity(activityId);
+            setDetailsOpen(true);
+            writeKey(UI_SCHEDULE_DETAILS_KEY, '1');
+          }}
+        />
+      )}
 
       {editor.mode === 'edit' && editor.lock.lost && (
         <div
