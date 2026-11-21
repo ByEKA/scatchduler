@@ -19,7 +19,7 @@ describe('ScheduleStatusBar', () => {
       />,
     );
 
-    const bar = screen.getByRole('contentinfo', { name: 'Schedule status' });
+    const bar = screen.getByRole('region', { name: 'Schedule status' });
     expect(bar).toHaveTextContent('UP-02 · Status date 15.10.2026 · As imported');
     expect(bar).toHaveTextContent('120 activities · Week');
 

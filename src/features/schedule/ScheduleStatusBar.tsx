@@ -61,6 +61,7 @@ export function ScheduleStatusBar({
 
   return (
     <footer
+      role="region"
       aria-label="Schedule status"
       className="flex h-7 shrink-0 flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-card px-3 text-2xs text-muted-foreground"
     >
