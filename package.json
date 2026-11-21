@@ -15,7 +15,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run check:contrast",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run check:contrast && npm run test:engine:tz",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:secrets": "node scripts/check-secrets.mjs",
     "check:workers": "node scripts/check-worker-chunks.mjs",
