@@ -22,7 +22,7 @@ Baseline at `4216215`: `npm run check` 123 files / 831 tests, `Contrast OK: 43 c
 | Batch | PR | `check` (files / tests / contrast) | `test:db` | `test:integration` | `test:e2e` | `test:e2e:supabase` |
 |---|---|---|---|---|---|---|
 | A (Tasks 1–6) | #4 | 125 / 867 / 51 | 11 / 323 | 10 / 102 | 25 | 6 |
-| B (Tasks 7–10) | | | | | | |
+| B (Tasks 7–10) | #5 | 129 / 882 / 51 | 11 / 323 | 10 / 102 | 25 | 6 |
 | C (Tasks 11–17) | | | | | | |
 | D (Tasks 18–22) | | | | | | |
 | E (Tasks 23–30) | | | | | | |
