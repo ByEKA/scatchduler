@@ -28,6 +28,7 @@ Replace `<ref>` with the Supabase project ref and `<app origin>` with the app's 
   ```
 
   - Check the storage settings. `p3_core_limits` raises the `schedule-imports` bucket to 50 MB per file. The project's global upload limit (Storage settings) must be at least 50 MB before it ships.
+  - `p4_core_schedule_data` (`20261121121500_p4_core_schedule_data.sql`) adds the private `schedule-data` bucket (20 MB per file, `application/gzip`) with RLS policies granting read access to workspace members and share recipients while preventing editors from deleting active snapshots, plus `schedules` lock/revision/mode columns and 6 RPCs (15-minute idle lock TTL renewed every 2 minutes by the editor, with owner-only Force Unlock). After `npx supabase db push`, verify the private `schedule-data` bucket exists in Storage.
   - Check CORS for the `invitations` function on the hosted project (P2 spec D24). The local stack can't check this: its Kong gateway adds `Access-Control-Allow-Origin: *` to every functions response and answers full preflights itself, so the local integration test only checks the preflight status (204 / 403, sent without `Access-Control-Request-Method`). On the hosted project:
 
     ```bash
@@ -68,7 +69,7 @@ Never edit a migration that has reached production — add a new one. Run `npm r
 
 Data stays in the EU region; we store names, emails and work data only. Storing personal data of people in Turkey on EU servers is a cross-border transfer under KVKK, so before inviting people outside the lab, check the requirements with ITU's data-protection contact and publish a privacy notice. This note is not legal advice.
 
-Stored original schedule files can hold third parties' personal data (resource names and rates, the exporting user, email addresses); every member of the workspace can read them, and they are kept until their schedule is deleted. The `schedule-imports` delete policy change ships with the next rollout.
+Stored original schedule files in `schedule-imports` can hold third parties' personal data (resource names and rates, the exporting user, email addresses); every member of the workspace can read them, and they are kept until their schedule is deleted. Materialized `ScheduleDocument` snapshots in the private `schedule-data` bucket store gzipped JSON copies of schedule WBS nodes, activities, relationships, notes and settings (which can include planner notes or names entered in activity fields); workspace members and explicit share recipients can read them, replaced snapshots are removed on save, and the active snapshot is deleted together with its schedule or project.
 
 ## Record
 

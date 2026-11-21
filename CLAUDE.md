@@ -2,16 +2,18 @@
 
 Project memory for Claude Code. Read it at the start of every session.
 
-**Status:** Phase 3 core complete. Next: the Phase 4 core spec.
+**Status:** Phase 4 core complete. Next: the Phase 5 spec.
 
 Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
 
 ## What this is
 
-A construction-scheduling web app (our own product, first used as a lab tool). Phase 1 builds the signed-in app shell and the Home screen on mock data; Phase 2 moves the data layer to Supabase.
+A construction-scheduling web app (our own product, first used as a lab tool). Phase 1 builds the signed-in app shell and the Home screen on mock data; Phase 2 moves the data layer to Supabase; Phase 3 adds projects, files and schedule imports; Phase 4 core adds the CPM engine, virtualized activity grid, Canvas 2D Gantt and locked schedule editor.
 
-Sources of truth — read them before writing code. The Phase 3 core spec comes first, then the Phase 2 spec and plan; the Phase 1 spec and plan hold for everything later phases leave unchanged.
+Sources of truth — read them before writing code. The Phase 4 core spec comes first, then the Phase 3 core spec, then the Phase 2 spec and plan; the Phase 1 spec and plan hold for everything later phases leave unchanged.
 
+- Phase 4 core spec: `docs/superpowers/specs/2026-11-20-phase4-core-design.md`
+- Phase 4 core plan: `docs/superpowers/plans/2026-11-20-phase4-core.md` (assumption checks and results: `docs/superpowers/plans/2026-11-20-phase4-core-verification.md`)
 - Phase 3 core spec: `docs/superpowers/specs/2026-11-05-phase3-core-design.md` (the full Phase 3 spec `2026-11-03-phase3-projects-files-library-design.md` is the reference for the deferred parts only)
 - Phase 3 core plan: `docs/superpowers/plans/2026-11-05-phase3-core.md` (assumption checks and results: `docs/superpowers/plans/2026-11-05-phase3-core-verification.md`)
 - Phase 2 spec: `docs/superpowers/specs/2026-10-14-phase2-supabase-design.md`
@@ -29,7 +31,7 @@ If code and spec disagree, the spec wins. The plan's exact names, labels and cop
 
 ## Stack
 
-React 19 · Vite · TypeScript (strict) · Tailwind CSS v4 (CSS-first; tokens in `src/index.css`) · shadcn/ui (Radix) · lucide-react · React Router ≥ 7 (declarative) · TanStack Query v5 · react-hook-form + zod · date-fns · sonner · fast-xml-parser · papaparse · SheetJS CE (vendor/) · fflate · TanStack Table · Vitest + Testing Library · Playwright · npm
+React 19 · Vite · TypeScript (strict) · Tailwind CSS v4 (CSS-first; tokens in `src/index.css`) · shadcn/ui (Radix) · lucide-react · React Router ≥ 7 (declarative) · TanStack Query v5 · react-hook-form + zod · date-fns · sonner · fast-xml-parser · papaparse · SheetJS CE (vendor/) · fflate · TanStack Table · TanStack Virtual · Vitest + Testing Library + fast-check · Playwright · npm
 
 ## Commands
 
@@ -39,20 +41,22 @@ React 19 · Vite · TypeScript (strict) · Tailwind CSS v4 (CSS-first; tokens in
 | `npm run build` / `npm run preview` | production build / serve it |
 | `npm run typecheck` · `npm run lint` · `npm run format` | static checks / formatting |
 | `npm run test` · `npm run test:watch` | unit and component tests (Vitest) |
+| `npm run test:engine:tz` | run the CPM engine suite across 4 time zones (`UTC`, `America/Los_Angeles`, `Europe/Istanbul`, `Pacific/Auckland`) |
 | `npm run test:e2e` | Playwright end-to-end tests + screenshots |
 | `npm run check:contrast` | WCAG contrast check over the design tokens |
-| `npm run check` | typecheck + lint + tests + contrast |
+| `npm run check:workers` | verify `src/engine/worker.ts` and `src/import/worker.ts` build as separate chunks without parser libraries in the engine worker |
+| `npm run check` | typecheck + lint + tests + contrast + engine multi-timezone suite |
 | `npm run db:start` · `npm run db:stop` | start / stop the local Supabase stack (Docker must be running) |
-| `npm run db:reset` | rebuild the local database from the migrations (Task 15 adds the seed, `scripts/seed-local.ts`) |
+| `npm run db:reset` | rebuild the local database from the migrations (`scripts/seed-local.ts`) |
 | `npm run db:env` | write `.env.supabase.local` (local API URL and publishable key) from `supabase status` |
-| `npm run db:types` | regenerate `src/data/supabase/database.types.ts` (added in Task 9) |
-| `npm run dev:supabase` | dev server on the local stack, Vite mode `supabase` (added in Task 16) |
-| `npm run test:db` | pgTAP database tests (added in Task 9) |
+| `npm run db:types` | regenerate `src/data/supabase/database.types.ts` |
+| `npm run dev:supabase` | dev server on the local stack, Vite mode `supabase` |
+| `npm run test:db` | pgTAP database tests |
 | `npm run test:integration` | integration tests against the local stack (`integration/**/*.itest.ts`) |
-| `npm run test:e2e:supabase` | Playwright end-to-end tests on the local stack (added in Task 17) |
-| `npm run check:secrets` | fails if `dist/` contains a secret key (added in Task 18) |
+| `npm run test:e2e:supabase` | Playwright end-to-end tests on the local stack |
+| `npm run check:secrets` | fails if `dist/` contains a secret key |
 
-A task is done only when `npm run check` passes; `npm run test:e2e` must pass too for changes to UI flows, and Phase 2 tasks also run `test:db` / `test:integration` where the plan's Global Constraints ask for them. Never leave `npm run dev` running in the foreground of an agent session; visual checks are for the owner.
+A task is done only when `npm run check` passes; `npm run test:e2e` must pass too for changes to UI flows, and database/data-layer changes also run `test:db` / `test:integration` where the plan's Global Constraints ask for them. Never leave `npm run dev` running in the foreground of an agent session; visual checks are for the owner.
 
 ## Architecture rules
 
@@ -63,7 +67,8 @@ A task is done only when `npm run check` passes; `npm run test:e2e` must pass to
 5. Creation dialogs open through `useDialogs().openDialog(kind, options)`; `DialogHost` renders them.
 6. `localStorage` is accessed only through `src/lib/storage.ts`.
 7. No hard-coded colors: use token utilities (`bg-card`, `text-muted-foreground`, `text-link`, `ring-edge`, …). The brand color changes by editing the six `--brand-*` values only.
-8. src/import/** is pure TypeScript: no React, hooks, UI or adapters. Only hooks import src/import/client.ts; xlsx, papaparse, fast-xml-parser and fflate are imported statically only inside src/import/** (ESLint).
+8. `src/import/**` is pure TypeScript: no React, hooks, UI or adapters. Only hooks import `src/import/client.ts`; `xlsx`, `papaparse`, `fast-xml-parser` and `fflate` are imported statically only inside `src/import/**` (ESLint).
+9. `src/engine/**` is pure TypeScript: no React, hooks, UI, adapters, DOM/Canvas globals or parser libraries (only `src/engine/materialize.ts` may `import type` from `@/import/model`). Only hooks import `src/engine/client.ts`. Pure Gantt modules (`src/features/schedule/gantt/{draw2d,timescale,renderer,links,hit-test}.ts`) import no React, hooks, adapters or runtime engine code so `Draw2D` runs headless and in future vector PDF export (ESLint).
 
 ## TypeScript
 
