@@ -19,8 +19,8 @@ begin
   perform tests.add_project(v_crew, 'P1');
   v_doomed := tests.add_project(v_crew, 'D1');
   update public.projects set cover_image_path = 'covers/d1.jpg' where id = v_doomed;
-  insert into public.schedules (project_id, name, source, source_format, source_file_name, source_file_path)
-    values (v_doomed, 'Doomed plan', 'import', 'xer', 'd1.xer', 'imports/d1.xer') returning id into v_plan;
+  insert into public.schedules (project_id, name, source, source_format, source_file_name, source_file_path, data_file_path)
+    values (v_doomed, 'Doomed plan', 'import', 'xer', 'd1.xer', 'imports/d1.xer', 'data/d1.json.gz') returning id into v_plan;
   insert into public.schedules (project_id, name, source) values (v_doomed, 'Doomed blank', 'blank');
   insert into public.schedule_shares (schedule_id, shared_by, shared_with) values (v_plan, v_olive, v_out);
   insert into public.tasks (assignee_id, project_id, title) values (v_ed, v_doomed, 'Check the doomed plan');
@@ -68,7 +68,7 @@ select throws_ok($$ select * from public.delete_project(tests.project_id('D1')) 
 select throws_ok($$ select * from public.delete_project(gen_random_uuid()) $$, 'P0002', 'Project not found', 'nor is an unknown one');
 select tests.authenticate_as(tests.user_id('olive@test.dev'));
 select results_eq($$ select bucket, path from public.delete_project(tests.project_id('D1')) order by bucket $$,
-  $$ values ('project-covers'::text, 'covers/d1.jpg'::text), ('schedule-imports', 'imports/d1.xer') $$,
+  $$ values ('project-covers'::text, 'covers/d1.jpg'::text), ('schedule-data', 'data/d1.json.gz'), ('schedule-imports', 'imports/d1.xer') $$,
   'R12: owners delete a project and get its stored objects back');
 select tests.clear_authentication();
 select is_empty($$ select 1 from public.projects where code = 'D1' $$, 'R12: the project is gone');

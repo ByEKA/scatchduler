@@ -34,6 +34,7 @@ const UNIQUE_VIOLATIONS: ReadonlyArray<readonly [constraint: string, message: st
   ['schedules_project_update_uq', 'This update number is already used in this project.'],
   ['schedules_one_primary_uq', SAVED_MEANWHILE],
   ['schedules_one_current_uq', SAVED_MEANWHILE],
+  ['schedules_data_file_path_uq', SAVED_MEANWHILE],
 ];
 const WRONG_PASSWORD = 'Wrong email or password';
 const LINK_EXPIRED = 'This link has expired or was already used.';
@@ -163,6 +164,10 @@ function fromPostgres(error: ErrorRecord, code: string, notFound: string | undef
       return stringField(error, 'hint') === 'app' && message !== ''
         ? make('validation', message, error)
         : make('validation', undefined, error);
+    case '40001':
+      return stringField(error, 'hint') === 'app' && message !== ''
+        ? make('conflict', message, error)
+        : make('conflict', SAVED_MEANWHILE, error);
     case '42501':
       return make('forbidden', undefined, error);
     case 'PGRST116':

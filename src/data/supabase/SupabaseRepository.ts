@@ -405,8 +405,8 @@ export class SupabaseRepository implements DataRepository {
 
   /**
    * `delete_schedules` checks R9 and the owner role, deletes the schedules (their shares cascade;
-   * R3 by the statement trigger) and returns their stored originals, which are removed afterwards
-   * in one call; a failed removal is ignored (SQL can't delete storage objects, V7).
+   * R3 by the statement trigger) and returns their stored originals and snapshots, which are
+   * removed afterwards per bucket; a failed removal is ignored (SQL can't delete storage objects, V7).
    */
   async deleteSchedules(scheduleIds: ID[]): Promise<void> {
     return this.run(async () => {
@@ -414,7 +414,15 @@ export class SupabaseRepository implements DataRepository {
         p_schedule_ids: scheduleIds.map(asUuid),
       });
       if (error) throw error;
-      if (data.length > 0) await this.removeQuietly(IMPORTS, ...data);
+      const byBucket = new Map<string, string[]>();
+      for (const { bucket, path } of data) {
+        const list = byBucket.get(bucket) ?? [];
+        list.push(path);
+        byBucket.set(bucket, list);
+      }
+      for (const [bucket, paths] of byBucket) {
+        await this.removeQuietly(bucket, ...paths);
+      }
     });
   }
 

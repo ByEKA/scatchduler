@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(36);
+select plan(40);
 
 select is_empty($$ select table_name from information_schema.role_table_grants where grantee = 'anon' and table_schema = 'public' $$,
   'anon has no privileges on public tables');
@@ -31,7 +31,9 @@ select column_privs_are('public', 'schedules', 'is_current', 'authenticated', ar
 select column_privs_are('public', 'schedules', 'project_id', 'authenticated', array['INSERT', 'SELECT'], 'a schedule never moves to another project');
 select column_privs_are('public', 'schedules', 'updated_at', 'authenticated', array['SELECT'], 'schedules.updated_at is never written by users');
 select column_privs_are('public', 'schedules', c, 'authenticated', array['INSERT', 'SELECT'], format('schedules.%s is set on insert only', c))
-  from unnest(array['source_format', 'import_report', 'activity_count']) as c;
+  from unnest(array['source_format', 'import_report', 'activity_count', 'data_file_path', 'calculation_mode']) as c;
+select column_privs_are('public', 'schedules', c, 'authenticated', array['SELECT'], format('schedules.%s is never written directly by users', c))
+  from unnest(array['data_revision', 'locked_by']) as c;
 select table_privs_are('public', 'schedule_items', 'authenticated', array['SELECT'], 'schedule_items is readable by signed-in users');
 select table_privs_are('public', 'schedule_items', 'anon', array[]::text[], 'anon cannot read schedule_items');
 select is_empty($$
@@ -43,13 +45,19 @@ select set_eq($$
   select n.nspname || '.' || p.proname || '(' || oidvectortypes(p.proargtypes) || ')'
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname in ('public', 'app') and has_function_privilege('authenticated', p.oid, 'execute') $$,
-  $$ values ('app.my_project_ids(text)'), ('app.my_workspace_ids(text)'), ('public.create_team_workspace(text)'),
+  $$ values ('app.display_name(uuid)'), ('app.my_project_ids(text)'), ('app.my_workspace_ids(text)'),
+            ('public.acquire_schedule_lock(uuid)'), ('public.create_team_workspace(text)'),
             ('public.delete_project(uuid)'), ('public.delete_schedules(uuid[])'),
-            ('public.is_project_code_available(uuid, text)'), ('public.remove_member(uuid, uuid)'),
+            ('public.force_release_schedule_lock(uuid)'),
+            ('public.is_project_code_available(uuid, text)'),
+            ('public.materialize_schedule_data(uuid, text, integer, text)'),
+            ('public.release_schedule_lock(uuid)'), ('public.remove_member(uuid, uuid)'),
+            ('public.renew_schedule_lock(uuid)'),
+            ('public.save_schedule_data(uuid, integer, text, integer, text, date)'),
             ('public.set_current_schedule(uuid)'), ('public.set_schedules_archived(uuid[], boolean)'),
             ('public.update_member_role(uuid, uuid, text)'),
             ('public.update_schedule_details(uuid, text, text, date, text, text, integer)') $$,
-  'signed-in users can execute exactly the nine RPCs and the two RLS helpers');
+  'signed-in users can execute exactly the fifteen RPCs and three app helpers');
 
 select * from finish();
 rollback;
