@@ -1,0 +1,341 @@
+{
+  "cases": [
+    {
+      "name": "fs-zero-lag",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 960 },
+        { "id": "b", "code": "A20", "originalDuration": 1440 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-05T08:00", "ef": "2026-01-06T17:00", "driver": "project_start" },
+        "b": { "es": "2026-01-07T08:00", "ef": "2026-01-09T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "fs-positive-lag",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 960 },
+        { "id": "b", "code": "A20", "originalDuration": 960 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 960 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-05T08:00", "ef": "2026-01-06T17:00", "driver": "project_start" },
+        "b": { "es": "2026-01-09T08:00", "ef": "2026-01-12T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "fs-negative-lead",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 1440 },
+        { "id": "b", "code": "A20", "originalDuration": 960 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": -480 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-05T08:00", "ef": "2026-01-07T17:00", "driver": "project_start" },
+        "b": { "es": "2026-01-07T08:00", "ef": "2026-01-08T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "fs-truncated-lead",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 480 },
+        { "id": "b", "code": "A20", "originalDuration": 480 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": -1440 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-05T08:00", "ef": "2026-01-05T17:00", "driver": "project_start" },
+        "b": { "es": "2026-01-05T08:00", "ef": "2026-01-05T17:00", "driver": "project_start" }
+      },
+      "warnings": ["TRUNCATED_LEAD"]
+    },
+    {
+      "name": "ss-and-ff-and-sf",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 1440 },
+        { "id": "b", "code": "A20", "originalDuration": 960 },
+        { "id": "c", "code": "A30", "originalDuration": 960 },
+        {
+          "id": "d",
+          "code": "A40",
+          "originalDuration": 480,
+          "constraint": { "type": "start_on_or_after", "date": "2026-01-08T08:00" }
+        },
+        { "id": "e", "code": "A50", "originalDuration": 960 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "SS", "lagMinutes": 480 },
+        { "id": "r2", "predecessorId": "a", "successorId": "c", "type": "FF", "lagMinutes": 480 },
+        { "id": "r3", "predecessorId": "d", "successorId": "e", "type": "SF", "lagMinutes": 480 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-05T08:00", "ef": "2026-01-07T17:00", "driver": "project_start" },
+        "b": { "es": "2026-01-06T08:00", "ef": "2026-01-07T17:00", "driver": "predecessor" },
+        "c": { "es": "2026-01-07T08:00", "ef": "2026-01-08T17:00", "driver": "predecessor" },
+        "d": { "es": "2026-01-08T08:00", "ef": "2026-01-08T17:00", "driver": "constraint" },
+        "e": { "es": "2026-01-07T08:00", "ef": "2026-01-08T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "elapsed-24h-lag",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-09T08:00", "statusDate": "2026-01-09T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 480 },
+        { "id": "b", "code": "A20", "originalDuration": 480 }
+      ],
+      "relationships": [
+        {
+          "id": "r1",
+          "predecessorId": "a",
+          "successorId": "b",
+          "type": "FS",
+          "lagMinutes": 2880,
+          "lagElapsed": true
+        }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-09T08:00", "ef": "2026-01-09T17:00", "driver": "project_start" },
+        "b": { "es": "2026-01-12T08:00", "ef": "2026-01-12T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "lag-calendar-predecessor",
+      "profile": "p6",
+      "calendars": ["standard", "seven_day"],
+      "settings": {
+        "projectStart": "2026-01-09T08:00",
+        "statusDate": "2026-01-09T08:00",
+        "lagCalendar": "predecessor"
+      },
+      "activities": [
+        { "id": "a", "code": "A10", "calendarId": "cal:7day", "originalDuration": 480 },
+        { "id": "b", "code": "A20", "calendarId": "cal:standard", "originalDuration": 480 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 960 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-09T08:00", "ef": "2026-01-09T17:00", "driver": "project_start" },
+        "b": { "es": "2026-01-12T08:00", "ef": "2026-01-12T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "lag-calendar-successor",
+      "profile": "p6",
+      "calendars": ["standard", "seven_day"],
+      "settings": {
+        "projectStart": "2026-01-09T08:00",
+        "statusDate": "2026-01-09T08:00",
+        "lagCalendar": "successor"
+      },
+      "activities": [
+        { "id": "a", "code": "A10", "calendarId": "cal:7day", "originalDuration": 480 },
+        { "id": "b", "code": "A20", "calendarId": "cal:standard", "originalDuration": 480 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 960 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-09T08:00", "ef": "2026-01-09T17:00", "driver": "project_start" },
+        "b": { "es": "2026-01-14T08:00", "ef": "2026-01-14T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "forward-constraints-and-secondary",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        {
+          "id": "a",
+          "code": "A10",
+          "originalDuration": 480,
+          "constraint": { "type": "start_on_or_after", "date": "2026-01-07T08:00" }
+        },
+        {
+          "id": "b",
+          "code": "A20",
+          "originalDuration": 960,
+          "constraint": { "type": "finish_on_or_after", "date": "2026-01-09T17:00" }
+        },
+        {
+          "id": "c",
+          "code": "A30",
+          "originalDuration": 480,
+          "constraint": { "type": "mandatory_start", "date": "2026-01-06T08:00" }
+        },
+        {
+          "id": "d",
+          "code": "A40",
+          "originalDuration": 480,
+          "constraint": { "type": "start_on_or_after", "date": "2026-01-06T08:00" },
+          "secondaryConstraint": { "type": "finish_on_or_after", "date": "2026-01-08T17:00" }
+        }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "c", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-07T08:00", "ef": "2026-01-07T17:00", "driver": "constraint" },
+        "b": { "es": "2026-01-08T08:00", "ef": "2026-01-09T17:00", "driver": "constraint" },
+        "c": { "es": "2026-01-06T08:00", "ef": "2026-01-06T17:00", "driver": "constraint" },
+        "d": { "es": "2026-01-08T08:00", "ef": "2026-01-08T17:00", "driver": "constraint" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "progress-retained-logic",
+      "profile": "p6",
+      "settings": {
+        "projectStart": "2026-01-05T08:00",
+        "statusDate": "2026-01-07T08:00",
+        "progressMode": "retained_logic"
+      },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 1440, "status": "not_started" },
+        {
+          "id": "b",
+          "code": "A20",
+          "originalDuration": 960,
+          "remainingDuration": 480,
+          "status": "in_progress",
+          "actualStart": "2026-01-06T08:00"
+        }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-07T08:00", "ef": "2026-01-09T17:00", "driver": "status_date" },
+        "b": { "es": "2026-01-06T08:00", "ef": "2026-01-12T17:00", "driver": "predecessor" }
+      },
+      "warnings": ["OUT_OF_SEQUENCE"]
+    },
+    {
+      "name": "progress-override",
+      "profile": "p6",
+      "settings": {
+        "projectStart": "2026-01-05T08:00",
+        "statusDate": "2026-01-07T08:00",
+        "progressMode": "progress_override"
+      },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 1440, "status": "not_started" },
+        {
+          "id": "b",
+          "code": "A20",
+          "originalDuration": 960,
+          "remainingDuration": 480,
+          "status": "in_progress",
+          "actualStart": "2026-01-06T08:00"
+        }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-07T08:00", "ef": "2026-01-09T17:00", "driver": "status_date" },
+        "b": { "es": "2026-01-06T08:00", "ef": "2026-01-07T17:00", "driver": "actual" }
+      },
+      "warnings": ["OUT_OF_SEQUENCE"]
+    },
+    {
+      "name": "completed-and-missing-actual",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-07T08:00" },
+      "activities": [
+        {
+          "id": "a",
+          "code": "A10",
+          "originalDuration": 960,
+          "remainingDuration": 0,
+          "status": "completed",
+          "actualStart": "2026-01-05T08:00",
+          "actualFinish": "2026-01-06T17:00"
+        },
+        {
+          "id": "b",
+          "code": "A20",
+          "originalDuration": 480,
+          "remainingDuration": 0,
+          "status": "completed",
+          "actualStart": "2026-01-06T08:00",
+          "actualFinish": null
+        }
+      ],
+      "relationships": [],
+      "expected": {
+        "a": { "es": "2026-01-05T08:00", "ef": "2026-01-06T17:00", "driver": "actual" },
+        "b": { "es": "2026-01-06T08:00", "ef": "2026-01-06T08:00", "driver": "actual" }
+      },
+      "warnings": ["MISSING_ACTUAL_DATE"]
+    },
+    {
+      "name": "milestones-p6",
+      "profile": "p6",
+      "calendars": ["standard", "seven_day"],
+      "settings": { "projectStart": "2026-01-09T08:00", "statusDate": "2026-01-09T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "calendarId": "cal:7day", "originalDuration": 960 },
+        { "id": "ms", "code": "MS1", "type": "start_milestone", "calendarId": "cal:standard", "originalDuration": 0 },
+        { "id": "mf", "code": "MF1", "type": "finish_milestone", "calendarId": "cal:standard", "originalDuration": 0 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "ms", "type": "FS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "a", "successorId": "mf", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-09T08:00", "ef": "2026-01-10T17:00", "driver": "project_start" },
+        "ms": { "es": "2026-01-12T08:00", "ef": "2026-01-12T08:00", "driver": "predecessor" },
+        "mf": { "es": "2026-01-09T17:00", "ef": "2026-01-09T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "milestones-msp",
+      "profile": "msp",
+      "calendars": ["standard", "seven_day"],
+      "settings": { "projectStart": "2026-01-09T08:00", "statusDate": "2026-01-09T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "calendarId": "cal:7day", "originalDuration": 960 },
+        { "id": "ms", "code": "MS1", "type": "start_milestone", "calendarId": "cal:standard", "originalDuration": 0 },
+        { "id": "mf", "code": "MF1", "type": "finish_milestone", "calendarId": "cal:standard", "originalDuration": 0 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "ms", "type": "FS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "a", "successorId": "mf", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-09T08:00", "ef": "2026-01-10T17:00", "driver": "project_start" },
+        "ms": { "es": "2026-01-12T08:00", "ef": "2026-01-12T08:00", "driver": "predecessor" },
+        "mf": { "es": "2026-01-10T17:00", "ef": "2026-01-10T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    }
+  ]
+}
