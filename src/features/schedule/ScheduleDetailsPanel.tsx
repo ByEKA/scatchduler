@@ -19,6 +19,7 @@ import {
   formatScheduleDateTime,
   formatWorkingDays,
 } from '@/features/schedule/format-schedule';
+import { RelationshipsTab } from '@/features/schedule/RelationshipsTab';
 import { cn } from '@/lib/utils';
 
 export type DetailsTab = 'details' | 'relationships';
@@ -260,9 +261,14 @@ export function ScheduleDetailsPanel({
           </div>
         ) : activeTab === 'relationships' ? (
           relationshipsSlot ?? (
-            <p className="py-8 text-center text-muted-foreground">
-              Relationships inspector loading…
-            </p>
+            <RelationshipsTab
+              document={document}
+              summary={summary}
+              activity={selectedActivity!}
+              mode={mode}
+              onJumpToActivity={onJumpToActivity}
+              onDispatch={onDispatch}
+            />
           )
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

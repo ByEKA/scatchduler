@@ -22,6 +22,7 @@ import {
 import { ScheduleGantt, type ScheduleGanttHandle } from '@/features/schedule/ScheduleGantt';
 import { ScheduleGrid } from '@/features/schedule/ScheduleGrid';
 import { ScheduleSearch } from '@/features/schedule/ScheduleSearch';
+import { ScheduleStatusBar } from '@/features/schedule/ScheduleStatusBar';
 import { ScheduleToolbar } from '@/features/schedule/ScheduleToolbar';
 import { findMatchingActivityIds } from '@/features/schedule/search';
 import { SplitPane } from '@/features/schedule/SplitPane';
@@ -304,6 +305,19 @@ function ScheduleEditorWorkspace({
           onDispatch={editor.dispatch}
         />
       )}
+
+      <ScheduleStatusBar
+        code={schedule.code ?? schedule.name}
+        statusDate={editor.document.settings.statusDate}
+        displayMode={editor.document.settings.displayMode}
+        profile={editor.document.settings.profile}
+        stale={editor.stale}
+        totalActivities={editor.document.activities.length}
+        shownActivities={filterActivityIds !== null ? matches.length : editor.document.activities.length}
+        isFiltered={filterActivityIds !== null}
+        zoom={zoom}
+        durationMs={editor.summary?.durationMs ?? null}
+      />
 
       <DirtyLeaveDialog
         open={blocker.state === 'blocked'}
