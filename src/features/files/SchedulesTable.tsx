@@ -1,17 +1,21 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { ChartGantt, FileUp, Plus, StickyNote } from 'lucide-react';
+import { ChartGantt, FileUp, Lock, Plus, StickyNote } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
+import { Link } from 'react-router';
 import { DataTable } from '@/components/common/DataTable';
 import { EmptyState } from '@/components/common/EmptyState';
 import { TagBadges } from '@/components/common/TagBadges';
+import { FOCUS_OUTLINE_CLASSES } from '@/components/layout/top-bar-parts';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { ProjectSummary, Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
 import { canEdit } from '@/features/workspaces/roles';
 import { useNow } from '@/hooks/useNow';
 import { useProjectSchedules } from '@/hooks/useProjectSchedules';
 import { relativeTime, shortDate } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 /** How much of the notes the Name cell's `title` shows (P3 core spec §6.3). */
 const TITLE_NOTES_LENGTH = 200;
@@ -55,13 +59,15 @@ function sourceLabel(schedule: Schedule): string {
 }
 
 /**
- * The files table's columns (spec §6.3); Activities, Source and Notes hide below 1024 px, Code,
- * Update and Last modified below 768 px (§6.6). The last column holds the row menu that
+ * The files table's columns (spec §6.3, P4 §7.1); Activities, Source and Notes hide below 1024 px,
+ * Code, Update and Last modified below 768 px (§6.6). The last column holds the row menu that
  * `renderMenu` draws, under a visually hidden "Actions" header.
  */
 function scheduleColumns(
   now: Date,
   schedules: readonly Schedule[],
+  workspaceId: string,
+  projectId: string,
   renderMenu: RenderMenu | undefined,
 ): ColumnDef<Schedule, unknown>[] {
   return [
@@ -70,16 +76,43 @@ function scheduleColumns(
       header: 'Name',
       // The widest column: the others keep to their content.
       meta: { className: 'w-full' },
-      cell: ({ row }) => (
-        <div className="flex min-w-0 items-center gap-2">
-          <span title={nameTitle(row.original)} className="max-w-80 truncate font-medium">
-            {row.original.name}
-          </span>
-          {row.original.archivedAt !== null && (
-            <span className={ARCHIVED_BADGE_CLASSES}>Archived</span>
-          )}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const schedule = row.original;
+        const href = `/w/${workspaceId}/p/${projectId}/schedule?scheduleId=${schedule.id}`;
+        const lockLabel =
+          schedule.lock === null ? null : `Being edited by ${schedule.lock.userName}`;
+        return (
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              to={href}
+              title={nameTitle(schedule)}
+              className={cn(
+                'max-w-80 truncate rounded-sm font-medium hover:underline',
+                FOCUS_OUTLINE_CLASSES,
+              )}
+            >
+              {schedule.name}
+            </Link>
+            {lockLabel !== null && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    role="img"
+                    aria-label={lockLabel}
+                    className="inline-flex shrink-0 items-center text-warning-foreground"
+                  >
+                    <Lock className="size-3.5" aria-hidden="true" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={6}>{lockLabel}</TooltipContent>
+              </Tooltip>
+            )}
+            {schedule.archivedAt !== null && (
+              <span className={ARCHIVED_BADGE_CLASSES}>Archived</span>
+            )}
+          </div>
+        );
+      },
     },
     {
       id: 'code',
@@ -224,7 +257,10 @@ export function SchedulesTable({
   const now = useNow(60_000);
   const schedules = useProjectSchedules(project.id);
   const all = schedules.data ?? NO_SCHEDULES;
-  const columns = useMemo(() => scheduleColumns(now, all, renderMenu), [now, all, renderMenu]);
+  const columns = useMemo(
+    () => scheduleColumns(now, all, workspace.id, project.id, renderMenu),
+    [now, all, workspace.id, project.id, renderMenu],
+  );
   const rows = useMemo(
     () => (showArchived ? all : all.filter((schedule) => schedule.archivedAt === null)),
     [all, showArchived],

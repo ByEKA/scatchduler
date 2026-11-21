@@ -10,8 +10,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
-import { useId, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { POPOVER_SHELL_CLASSES } from '@/components/common/popover-classes';
 import { FOCUS_OUTLINE_CLASSES, MENU_ITEM_FOCUS_CLASSES } from '@/components/layout/top-bar-parts';
@@ -30,9 +31,6 @@ import { useSetCurrentSchedule, useSetSchedulesArchived } from '@/hooks/useSched
 import { errorMessage } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
-/** The disabled "Open" item's explanation until Phase 4's schedule editor exists (spec §6.1, D16). */
-const EDITOR_NOT_AVAILABLE = "The schedule editor isn't available yet.";
-
 // Spec §6.7: items 32 tall with 16 px icons, and the ring-colored outline on keyboard focus (§6.6).
 const ITEM_CLASSES = cn('h-8 py-0', MENU_ITEM_FOCUS_CLASSES);
 
@@ -42,9 +40,8 @@ const TRIGGER_CLASSES = cn(
 );
 
 /**
- * Row actions for a schedule on the Project files page (spec §6.3, §6.1, D11, D16). Leaves out
- * actions the caller's role or the schedule's current/archived state forbid; keeps "Open" disabled
- * with its muted note until Phase 4.
+ * Row actions for a schedule on the Project files page (spec §6.3, P4 §7.1). Leaves out
+ * actions the caller's role or the schedule's current/archived state forbid.
  */
 export function ScheduleMenu({
   schedule,
@@ -57,11 +54,11 @@ export function ScheduleMenu({
   project: ProjectSummary;
   workspace: WorkspaceSummary;
 }): ReactElement {
+  const navigate = useNavigate();
   const { openDialog } = useDialogs();
   const setCurrent = useSetCurrentSchedule();
   const setArchived = useSetSchedulesArchived();
   const downloadSource = useDownloadSourceFile();
-  const openHintId = useId();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   // Dialog-opening choices run once the modal menu has closed (onCloseAutoFocus), so focus returns
@@ -142,17 +139,15 @@ export function ScheduleMenu({
             )}
           >
             <DropdownMenuItem
-              disabled
-              aria-describedby={openHintId}
-              className={cn('flex-col items-start gap-0.5 py-1.5', MENU_ITEM_FOCUS_CLASSES)}
+              className={ITEM_CLASSES}
+              onSelect={() => {
+                void navigate(
+                  `/w/${workspace.id}/p/${project.id}/schedule?scheduleId=${schedule.id}`,
+                );
+              }}
             >
-              <span className="flex items-center gap-2">
-                <FolderOpen className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span>Open</span>
-              </span>
-              <span id={openHintId} className="pl-6 text-xs text-muted-foreground">
-                {EDITOR_NOT_AVAILABLE}
-              </span>
+              <FolderOpen aria-hidden="true" />
+              Open
             </DropdownMenuItem>
             {canMakeCurrent && (
               <DropdownMenuItem

@@ -1,7 +1,7 @@
 import { FileUp, Info, Pencil, Plus } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
-import { useParams, useSearchParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { PAGE_HEADING_CLASSES } from '@/components/common/PlaceholderPage';
 import { SectionError } from '@/components/common/SectionError';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -22,9 +22,6 @@ import { coverFor } from '@/lib/cover';
 import { isNotFoundError, shortDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-
-/** The "Open current schedule" Tooltip until the schedule editor exists (spec §6.1, D16). */
-const EDITOR_NOT_AVAILABLE = "The schedule editor isn't available yet.";
 
 // The cover thumbnail: 96 × 64 (spec §6.3).
 const THUMBNAIL_CLASSES = 'h-16 w-24 shrink-0 overflow-hidden rounded-md';
@@ -209,7 +206,7 @@ function Counter({ label, children }: { label: string; children: ReactNode }): R
 
 /**
  * "Status date", "Schedules" (not archived) and "Current schedule", with "Open current schedule"
- * disabled until the schedule editor exists (spec §6.3, §6.1).
+ * linking directly to the schedule editor (spec §6.3, P4 §7.1).
  */
 function ProjectCounters({ project }: { project: ProjectSummary }): ReactElement {
   const current = project.currentSchedule;
@@ -225,9 +222,13 @@ function ProjectCounters({ project }: { project: ProjectSummary }): ReactElement
             {current?.name ?? 'None'}
           </span>
           {current !== null && (
-            <HintedButton hint={EDITOR_NOT_AVAILABLE} variant="outline" size="xs">
-              Open current schedule
-            </HintedButton>
+            <Button asChild variant="outline" size="xs" className={OUTLINE_BUTTON_CLASSES}>
+              <Link
+                to={`/w/${project.workspaceId}/p/${project.id}/schedule?scheduleId=${current.id}`}
+              >
+                Open current schedule
+              </Link>
+            </Button>
           )}
         </Counter>
       </dl>
