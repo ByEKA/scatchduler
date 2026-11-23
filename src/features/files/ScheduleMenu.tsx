@@ -2,8 +2,10 @@ import {
   Archive,
   ArchiveRestore,
   Check,
+  Copy,
   Download,
   FileText,
+  FolderInput,
   FolderOpen,
   MoreHorizontal,
   Pencil,
@@ -19,15 +21,24 @@ import { FOCUS_OUTLINE_CLASSES, MENU_ITEM_FOCUS_CLASSES } from '@/components/lay
 import {
   DropdownMenu,
   DropdownMenuItem,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import type { ProjectSummary, Schedule, WorkspaceSummary } from '@/data/types';
+import type { ID, ProjectSummary, Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
 import { DeleteScheduleDialog } from '@/features/files/DeleteScheduleDialog';
 import { canEdit, isOwner } from '@/features/workspaces/roles';
+import { useProjectFolders } from '@/hooks/useFolders';
 import { useDownloadSourceFile } from '@/hooks/useImportReport';
-import { useSetCurrentSchedule, useSetSchedulesArchived } from '@/hooks/useSchedules';
+import {
+  useMoveSchedulesToFolder,
+  useSetCurrentSchedule,
+  useSetSchedulesArchived,
+} from '@/hooks/useSchedules';
 import { errorMessage } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
@@ -40,8 +51,8 @@ const TRIGGER_CLASSES = cn(
 );
 
 /**
- * Row actions for a schedule on the Project files page (spec §6.3, P4 §7.1). Leaves out
- * actions the caller's role or the schedule's current/archived state forbid.
+ * Row actions for a schedule on the Project files page (spec §6.3, P4 §7.1, P4 later §7.2.4).
+ * Leaves out actions the caller's role or the schedule's current/archived state forbid.
  */
 export function ScheduleMenu({
   schedule,
@@ -58,6 +69,8 @@ export function ScheduleMenu({
   const { openDialog } = useDialogs();
   const setCurrent = useSetCurrentSchedule();
   const setArchived = useSetSchedulesArchived();
+  const moveToFolder = useMoveSchedulesToFolder();
+  const foldersQuery = useProjectFolders(project.id);
   const downloadSource = useDownloadSourceFile();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -67,10 +80,12 @@ export function ScheduleMenu({
   // Guards rapid double triggers on direct mutations.
   const actingRef = useRef(false);
 
+  const folders = foldersQuery.data ?? [];
   const editable = canEdit(workspace);
   const owner = isOwner(workspace);
   const isArchived = schedule.archivedAt !== null;
   const canMakeCurrent = editable && !schedule.isCurrent && !isArchived;
+  const canMoveFolder = editable && (folders.length > 0 || schedule.folderId !== null);
   const canArchive = editable && !schedule.isCurrent && !isArchived;
   const canRestore = editable && isArchived;
   const canDownload = schedule.source === 'import';
@@ -97,6 +112,19 @@ export function ScheduleMenu({
     try {
       await setArchived.mutateAsync({ scheduleIds: [schedule.id], archived });
       toast.success(archived ? 'Schedule archived' : 'Schedule restored');
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      actingRef.current = false;
+    }
+  }
+
+  async function handleMoveFolder(folderId: ID | null): Promise<void> {
+    if (actingRef.current || schedule.folderId === folderId) return;
+    actingRef.current = true;
+    try {
+      await moveToFolder.mutateAsync({ scheduleIds: [schedule.id], folderId });
+      toast.success('Schedule moved');
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -161,19 +189,67 @@ export function ScheduleMenu({
               </DropdownMenuItem>
             )}
             {editable && (
-              <DropdownMenuItem
-                className={ITEM_CLASSES}
-                onSelect={() => {
-                  chosenAction.current = () =>
-                    openDialog('scheduleDetails', {
-                      projectId: project.id,
-                      scheduleId: schedule.id,
-                    });
-                }}
-              >
-                <Pencil aria-hidden="true" />
-                Edit details
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem
+                  className={ITEM_CLASSES}
+                  onSelect={() => {
+                    chosenAction.current = () =>
+                      openDialog('scheduleDetails', {
+                        projectId: project.id,
+                        scheduleId: schedule.id,
+                      });
+                  }}
+                >
+                  <Pencil aria-hidden="true" />
+                  Edit details
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={ITEM_CLASSES}
+                  onSelect={() => {
+                    chosenAction.current = () =>
+                      openDialog('copySchedule', {
+                        projectId: project.id,
+                        scheduleId: schedule.id,
+                      });
+                  }}
+                >
+                  <Copy aria-hidden="true" />
+                  Duplicate…
+                </DropdownMenuItem>
+              </>
+            )}
+            {canMoveFolder && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className={ITEM_CLASSES}>
+                  <FolderInput aria-hidden="true" />
+                  Move to folder
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className={cn(POPOVER_SHELL_CLASSES, 'w-48')}>
+                    <DropdownMenuItem
+                      className={ITEM_CLASSES}
+                      disabled={schedule.folderId === null}
+                      onSelect={() => {
+                        void handleMoveFolder(null);
+                      }}
+                    >
+                      Unfiled
+                    </DropdownMenuItem>
+                    {folders.map((folder) => (
+                      <DropdownMenuItem
+                        key={folder.id}
+                        className={ITEM_CLASSES}
+                        disabled={schedule.folderId === folder.id}
+                        onSelect={() => {
+                          void handleMoveFolder(folder.id);
+                        }}
+                      >
+                        <span className="truncate">{folder.name}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
             )}
             {canArchive && (
               <DropdownMenuItem
