@@ -38,6 +38,16 @@ export const queryKeys = {
   /** One schedule's materialized ScheduleDocument snapshot keyed by id and revision (P4 spec §4.2). */
   scheduleDocument: (scheduleId: ID | undefined, revision: number | undefined) =>
     ['schedule-document', scheduleId, revision] as const,
+  /** Prefix of every program query. */
+  allPrograms: () => ['programs'] as const,
+  /** The programs of one workspace. */
+  programs: (workspaceId: ID | undefined) => ['programs', workspaceId] as const,
+  /** Prefix of every folder query. */
+  allFolders: () => ['folders'] as const,
+  /** The folders of one project. */
+  folders: (projectId: ID | undefined) => ['folders', projectId] as const,
+  /** Cross-workspace schedule library query. */
+  library: () => ['library'] as const,
   /** The members of one workspace (P2 spec §6.3). */
   members: (workspaceId: ID) => ['members', workspaceId] as const,
   /** Prefix of every member query; a profile change refreshes them all. */

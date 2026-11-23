@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query';
 import { useRepository } from '@/data/DataLayerProvider';
 import type {
+  CopyScheduleInput,
   ImportScheduleInput,
   NewScheduleInput,
   UpdateScheduleDetailsInput,
@@ -25,6 +26,7 @@ function refreshAfterScheduleWrite(queryClient: QueryClient): Promise<unknown> {
     queryClient.invalidateQueries({ queryKey: queryKeys.allSchedules() }),
     queryClient.invalidateQueries({ queryKey: queryKeys.allProjects() }),
     queryClient.invalidateQueries({ queryKey: queryKeys.sharedWithMe() }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.library() }),
   ]);
 }
 
@@ -42,6 +44,31 @@ export function useImportSchedule(): UseMutationResult<Schedule, Error, ImportSc
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: ImportScheduleInput) => repository.importSchedule(input),
+    onSettled: () => refreshAfterScheduleWrite(queryClient),
+  });
+}
+
+/** Duplicates a schedule with its snapshot and import metadata into the same project (R6). */
+export function useCopySchedule(): UseMutationResult<Schedule, Error, CopyScheduleInput> {
+  const repository = useRepository();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CopyScheduleInput) => repository.copySchedule(input),
+    onSettled: () => refreshAfterScheduleWrite(queryClient),
+  });
+}
+
+/** Moves 1–500 schedules of one project into a folder (or `null` for Unfiled) (R5). */
+export function useMoveSchedulesToFolder(): UseMutationResult<
+  void,
+  Error,
+  { scheduleIds: ID[]; folderId: ID | null }
+> {
+  const repository = useRepository();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { scheduleIds: ID[]; folderId: ID | null }) =>
+      repository.moveSchedulesToFolder(input),
     onSettled: () => refreshAfterScheduleWrite(queryClient),
   });
 }
