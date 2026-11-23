@@ -203,3 +203,62 @@ test('shows Archived · read-only badge and hides Edit on an archived schedule',
   await expect(page.getByText('Archived · read-only')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0);
 });
+
+test('supports Ctrl+K command palette activity jump and Gantt canvas bar resize & link drawing with Undo', async ({
+  page,
+}) => {
+  await openProject(page, 'Riverside Office Tower');
+  await page.getByRole('link', { name: 'Open current schedule' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Main schedule' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.getByRole('button', { name: '+ Activity' }).click();
+  await page.getByRole('button', { name: '+ Activity' }).click();
+  await page.getByRole('button', { name: 'Calculate' }).click();
+
+  const grid = page.getByRole('treegrid', { name: 'Schedule activities' });
+  const a1010Row = grid.getByRole('row').filter({ hasText: 'A1010' });
+  const a1020Row = grid.getByRole('row').filter({ hasText: 'A1020' });
+  await expect(a1010Row).toContainText('5 d');
+
+  // Use Ctrl+K command palette to jump to A1020
+  await page.keyboard.press('Control+k');
+  const dialog = page.getByRole('dialog', { name: 'Command palette' });
+  await expect(dialog).toBeVisible();
+  const paletteInput = dialog.getByPlaceholder('Search activities, WBS or commands…');
+  await paletteInput.fill('A1020');
+  await dialog.getByRole('option', { name: /A1020/i }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(a1020Row).toHaveAttribute('aria-selected', 'true');
+
+  // Use Zoom to fit to switch to Day zoom (32px/day) and drag A1010 right resize handle (+96px = +3 days -> 8 d)
+  await page.getByRole('button', { name: 'Zoom to fit' }).click();
+  await expect(page.getByRole('combobox', { name: 'Zoom level' })).toContainText('Day');
+  const canvas = page.getByLabel('Gantt chart', { exact: true });
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  await page.mouse.move(box.x + 212, box.y + 16);
+  await expect(canvas).toHaveCSS('cursor', 'ew-resize');
+  await page.mouse.down();
+  await page.mouse.move(box.x + 308, box.y + 16, { steps: 5 });
+  await page.mouse.up();
+  await expect(a1010Row).toContainText('8 d');
+
+  // Undo resize back to 5 d, then draw a finish-to-start link from A1010 finish port to A1020 start port
+  await page.keyboard.press('Control+z');
+  await expect(a1010Row).toContainText('5 d');
+
+  await page.mouse.move(box.x + 223, box.y + 16);
+  await expect(canvas).toHaveCSS('cursor', 'crosshair');
+  await page.mouse.down();
+  await page.mouse.move(box.x + 67, box.y + 48, { steps: 5 });
+  await page.mouse.up();
+  await expect(a1020Row).toContainText('A1010');
+
+  // Undo link creation via Ctrl+Z
+  await page.keyboard.press('Control+z');
+  await expect(a1020Row).not.toContainText('A1010');
+});
+

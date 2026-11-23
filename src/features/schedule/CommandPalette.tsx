@@ -276,7 +276,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }): R
   return (
     <CommandPaletteContext.Provider value={value}>
       {children}
-      <CommandPalette />
+      {open && <CommandPalette />}
     </CommandPaletteContext.Provider>
   );
 }
