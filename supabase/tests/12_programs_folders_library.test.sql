@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(46);
+select plan(43);
 
 create function tests.copy_import_path(p_code text, p_suffix text) returns text
 language sql stable security definer set search_path = '' as $$
@@ -14,7 +14,12 @@ language sql stable security definer set search_path = '' as $$
   from public.projects p where p.code = p_code
 $$;
 
-grant execute on function tests.copy_import_path(text, text), tests.copy_data_path(text, uuid) to authenticated;
+create function tests.folder_id(p_name text) returns uuid
+language sql stable security definer set search_path = '' as $$
+  select f.id from public.folders f where f.name = p_name limit 1
+$$;
+
+grant execute on function tests.copy_import_path(text, text), tests.copy_data_path(text, uuid), tests.folder_id(text) to authenticated;
 
 do $$
 declare
@@ -275,23 +280,20 @@ select throws_ok(
   'R6: duplicate code in the same project is refused'
 );
 
-do $$
-declare
-  v_new_id uuid := gen_random_uuid();
-  v_returned_id uuid;
-begin
-  v_returned_id := public.copy_schedule(
+select is(
+  public.copy_schedule(
     tests.schedule_id('Master'),
-    v_new_id,
+    '11111111-1111-1111-1111-111111111111'::uuid,
     ' Master copy ',
     ' MS-01-COPY ',
     null,
     true,
     null,
     null
-  );
-  perform is(v_returned_id, v_new_id, 'R6: copy_schedule returns the new schedule id');
-end $$;
+  ),
+  '11111111-1111-1111-1111-111111111111'::uuid,
+  'R6: copy_schedule returns the new schedule id'
+);
 
 select results_eq(
   $$ select name, code, is_current, baseline, update_number,
@@ -305,48 +307,63 @@ select results_eq(
 );
 
 -- Copy materialized imported schedule with new source_file_path and data_file_path
-do $$
-declare
-  v_src_id uuid := gen_random_uuid();
-  v_copy_id uuid := gen_random_uuid();
-begin
-  insert into public.schedules (
-    id, project_id, name, code, source, source_format, source_file_name, source_file_path,
-    source_file_size, source_file_sha256, source_project_code, parser_version,
-    import_mapping, import_report, activity_count, data_file_path, calculation_mode
-  ) values (
-    v_src_id, tests.project_id('P1'), 'Imported XER', 'IMP-01', 'import', 'xer', 'plant.xer',
-    tests.copy_import_path('P1', 'xer.gz'), 1024, repeat('a', 64), 'PLANT', '1',
-    '{"schemaVersion":1}'::jsonb, '{"schemaVersion":1}'::jsonb, 14,
-    tests.copy_data_path('P1', v_src_id), 'as_imported'
-  );
+select tests.clear_authentication();
+insert into public.schedules (
+  id, project_id, name, code, source, source_format, source_file_name, source_file_path,
+  source_file_size, source_file_sha256, source_project_code, parser_version,
+  import_mapping, import_report, activity_count, data_file_path, calculation_mode
+) values (
+  '22222222-2222-2222-2222-222222222222'::uuid,
+  tests.project_id('P1'), 'Imported XER', 'IMP-01', 'import', 'xer', 'plant.xer',
+  tests.copy_import_path('P1', 'xer.gz'), 1024, repeat('a', 64), 'PLANT', '1',
+  '{"schemaVersion":1}'::jsonb, '{"schemaVersion":1}'::jsonb, 14,
+  tests.copy_data_path('P1', '22222222-2222-2222-2222-222222222222'::uuid), 'as_imported'
+);
 
-  perform throws_ok(
-    format(
-      'select public.copy_schedule(%L::uuid, %L::uuid, ''Imp Copy'', ''IMP-02'', null, false, null, %L)',
-      v_src_id, v_copy_id, tests.copy_data_path('P1', v_copy_id)
-    ),
-    '23514', 'The stored file path doesn''t match the schedule.',
-    'R6: copying a schedule with a stored original requires a new source_file_path'
-  );
+select tests.authenticate_as(tests.user_id('ed@test.dev'));
+select throws_ok(
+  $$ select public.copy_schedule(
+       '22222222-2222-2222-2222-222222222222'::uuid,
+       '33333333-3333-3333-3333-333333333333'::uuid,
+       'Imp Copy',
+       'IMP-02',
+       null,
+       false,
+       null,
+       tests.copy_data_path('P1', '33333333-3333-3333-3333-333333333333'::uuid)
+     ) $$,
+  '23514', 'The stored file path doesn''t match the schedule.',
+  'R6: copying a schedule with a stored original requires a new source_file_path'
+);
 
-  perform throws_ok(
-    format(
-      'select public.copy_schedule(%L::uuid, %L::uuid, ''Imp Copy'', ''IMP-02'', null, false, %L, null)',
-      v_src_id, v_copy_id, tests.copy_import_path('P1', 'xer.gz')
-    ),
-    '23514', 'The stored schedule data path doesn''t match the schedule.',
-    'R6: copying a materialized schedule requires a new data_file_path'
-  );
+select throws_ok(
+  $$ select public.copy_schedule(
+       '22222222-2222-2222-2222-222222222222'::uuid,
+       '33333333-3333-3333-3333-333333333333'::uuid,
+       'Imp Copy',
+       'IMP-02',
+       null,
+       false,
+       tests.copy_import_path('P1', 'xer.gz'),
+       null
+     ) $$,
+  '23514', 'The stored schedule data path doesn''t match the schedule.',
+  'R6: copying a materialized schedule requires a new data_file_path'
+);
 
-  perform lives_ok(
-    format(
-      'select public.copy_schedule(%L::uuid, %L::uuid, ''Imp Copy'', ''IMP-02'', null, false, %L, %L)',
-      v_src_id, v_copy_id, tests.copy_import_path('P1', 'xer.gz'), tests.copy_data_path('P1', v_copy_id)
-    ),
-    'R6: copies materialized imported schedule with new source and snapshot paths'
-  );
-end $$;
+select lives_ok(
+  $$ select public.copy_schedule(
+       '22222222-2222-2222-2222-222222222222'::uuid,
+       '33333333-3333-3333-3333-333333333333'::uuid,
+       'Imp Copy',
+       'IMP-02',
+       null,
+       false,
+       tests.copy_import_path('P1', 'xer.gz'),
+       tests.copy_data_path('P1', '33333333-3333-3333-3333-333333333333'::uuid)
+     ) $$,
+  'R6: copies materialized imported schedule with new source and snapshot paths'
+);
 
 select results_eq(
   $$ select source, source_format, source_file_name, has_import_report, has_import_mapping,
@@ -373,12 +390,12 @@ select throws_ok(
   'S2: outsiders receive not_found on create_folder for hidden project'
 );
 select throws_ok(
-  $$ select public.rename_folder((select id from public.folders where name = 'Updates'), 'Hack') $$,
+  $$ select public.rename_folder(tests.folder_id('Updates'), 'Hack') $$,
   'P0002', 'Folder not found',
   'S2: outsiders receive not_found on rename_folder for hidden folder'
 );
 select throws_ok(
-  $$ select public.delete_folder((select id from public.folders where name = 'Updates')) $$,
+  $$ select public.delete_folder(tests.folder_id('Updates')) $$,
   'P0002', 'Folder not found',
   'S2: outsiders receive not_found on delete_folder for hidden folder'
 );
