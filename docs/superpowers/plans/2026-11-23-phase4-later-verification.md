@@ -6,8 +6,8 @@ Filled in during execution of `docs/superpowers/plans/2026-11-23-phase4-later.md
 
 | # | Assumption (spec §8) | Verified at | Result | Notes |
 |---|---|---|---|---|
-| V1 | `src/import/xlsx-export.ts` dynamically imported from `useImportReport.ts` keeps SheetJS out of the main `index-*.js` chunk and passes `check:workers` | Task 5 | Pending | |
-| V2 | `copy_schedule` copies both unmaterialized and materialized (`schedule-data`) schedules under RLS and preserves `schedule-imports` delete protection when multiple schedules share a `source_file_path` | Task 1 / Task 3 | Pending | |
+| V1 | `src/import/xlsx-export.ts` dynamically imported from `useImportReport.ts` keeps SheetJS out of the main `index-*.js` chunk and passes `check:workers` | Task 5 (`eab2be0`) | Passed | `xlsx-export-*.js` (`1.21 kB`) and `xlsx-*.js` (`484.36 kB`) remain separate lazy chunks; `check:workers` passed |
+| V2 | `copy_schedule` copies both unmaterialized and materialized (`schedule-data`) schedules under RLS and preserves `schedule-imports` delete protection when multiple schedules share a `source_file_path` | Task 1 (`0f4ade0`) / Task 3 (`1814646`) | Passed (local contract; CI pending) | `copy_schedule` RPC + `.copy()` in `SupabaseRepository.copySchedule` + `12_programs_folders_library.test.sql` (46 assertions) + `programs-folders-library.itest.ts` |
 | V3 | Gantt drag-and-drop (`move`, `resize`, `progress`, `link-draw`) updates Canvas 2D at 60 fps and produces single-step undoable commands | Task 8 / Task 10 | Pending | |
 | V4 | `cmdk` Command Palette passes keyboard navigation and WCAG contrast in both dark and light themes | Task 11 | Pending | |
 | V5 | Self-contained `ProjectsMap` renders deterministically in Chromium E2E without any external network requests | Task 20 / Task 22 | Pending | |
@@ -18,7 +18,7 @@ Baseline at `59b3d26` (`main`): `npm run check` 166 files / 987 tests, `Contrast
 
 | Batch | PR | `check` (files / tests / contrast) | `test:db` | `test:integration` | `test:e2e` | `test:e2e:supabase` |
 |---|---|---|---|---|---|---|
-| A (Tasks 1–6) | | | | | | |
+| A (Tasks 1–6) | `feat/p4-later` | 170 / 998 / 51 | 12 / 381 | 11 / 108 | 31 | 8 |
 | B (Tasks 7–12) | | | | | | |
 | C (Tasks 13–18) | | | | | | |
 | D (Tasks 19–23) | | | | | | |
