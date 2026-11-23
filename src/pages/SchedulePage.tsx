@@ -280,6 +280,8 @@ function ScheduleEditorWorkspace({
             showLinks={editor.showLinks}
             drivingPath={editor.drivingPath}
             zoom={zoom}
+            mode={editor.mode}
+            onDispatch={editor.dispatch}
             onZoomChange={setZoom}
             onSelectKey={editor.selectKey}
             scrollTop={scrollTop}

@@ -13,9 +13,20 @@ import type {
   DrivingPath,
   ScheduleDocument,
 } from '@/data/schedule-types';
+import type { ScheduleCommand } from '@/features/schedule/commands';
 import { formatScheduleDate, formatWorkingDays } from '@/features/schedule/format-schedule';
+import {
+  commitGanttDrag,
+  startGanttDrag,
+  updateGanttDrag,
+  type GanttDragState,
+} from '@/features/schedule/gantt/drag';
 import { CanvasDraw2D } from '@/features/schedule/gantt/draw2d';
-import { computeZoomToFit, hitTestBar } from '@/features/schedule/gantt/hit-test';
+import {
+  computeZoomToFit,
+  hitTestBar,
+  hitTestGanttTarget,
+} from '@/features/schedule/gantt/hit-test';
 import {
   GANTT_HEADER_HEIGHT,
   GANTT_ROW_HEIGHT,
@@ -49,6 +60,8 @@ export interface ScheduleGanttProps {
   showLinks: boolean;
   drivingPath: DrivingPath | null;
   zoom: GanttZoom;
+  mode?: 'view' | 'edit';
+  onDispatch?(command: ScheduleCommand): unknown;
   onZoomChange(zoom: GanttZoom): void;
   onSelectKey(key: string | null): void;
   scrollTop: number;
@@ -81,7 +94,7 @@ function pad2(n: number): string {
 /**
  * Interactive Canvas 2D Gantt chart with sticky two-tier timescale header, theme-reactive CSS
  * tokens, synced vertical scroll, click selection, hover tooltip, drag pan, Ctrl+Wheel zoom,
- * and zoom-to-fit (spec §7.2, V7).
+ * zoom-to-fit, and Edit-mode bar drag-and-drop & link drawing (spec §7.2, P4 later §5).
  */
 export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>(
   function ScheduleGantt(
@@ -94,6 +107,8 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
       showLinks,
       drivingPath,
       zoom,
+      mode = 'view',
+      onDispatch,
       onZoomChange,
       onSelectKey,
       scrollTop,
@@ -119,6 +134,9 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
     const [originOverride, setOriginOverride] = useState<number | null>(null);
     const [scrollLeft, setScrollLeft] = useState<number>(0);
     const [hover, setHover] = useState<{ row: VisibleRow; x: number; y: number } | null>(null);
+    const [ganttDrag, setGanttDrag] = useState<GanttDragState | null>(null);
+    const [cursorStyle, setCursorStyle] = useState<string>('grab');
+    const editMode = mode === 'edit' && onDispatch !== undefined;
 
     const todayMinute = useMemo(() => todayCivilMinute(), []);
 
@@ -280,6 +298,19 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
       return () => observer.disconnect();
     }, []);
 
+    // Cancel active Gantt drag on Escape
+    useEffect(() => {
+      if (ganttDrag === null) return;
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setGanttDrag(null);
+        }
+      };
+      window.addEventListener('keydown', onKeyDown);
+      return () => window.removeEventListener('keydown', onKeyDown);
+    }, [ganttDrag]);
+
     // Render header and body canvases on requestAnimationFrame
     useEffect(() => {
       const paint = () => {
@@ -318,6 +349,9 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
                 drivingPath: drivingPathSet,
               },
               selectedKey,
+              hoveredRowKey: hover?.row.key ?? null,
+              editMode,
+              interactionOverlay: ganttDrag?.overlay ?? null,
               theme,
             };
             renderGantt(draw, scene);
@@ -335,8 +369,11 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
       };
     }, [
       drivingPathSet,
+      editMode,
+      ganttDrag?.overlay,
       ganttLinks,
       ganttRows,
+      hover?.row.key,
       nonWorkingDays,
       scrollLeft,
       scrollTop,
@@ -359,6 +396,22 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
 
     const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
       if (event.button !== 0) return;
+      if (editMode) {
+        const { x, y } = getCanvasCoords(event.clientX, event.clientY);
+        const target = hitTestGanttTarget(x, y, ganttRows, timescale, scrollLeft, scrollTop, true);
+        if (target && target.kind !== 'bar-select') {
+          const visRow = rowsByKey.get(target.row.key);
+          const started = startGanttDrag(target, x, y, {
+            hoursPerDay: visRow?.hoursPerDay ?? 8,
+          });
+          if (started) {
+            setGanttDrag(started);
+            setHover(null);
+            onSelectKey(target.row.key);
+            return;
+          }
+        }
+      }
       dragRef.current = {
         active: true,
         startX: event.clientX,
@@ -368,6 +421,14 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
     };
 
     const handlePointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
+      if (ganttDrag !== null) {
+        const { x, y } = getCanvasCoords(event.clientX, event.clientY);
+        setGanttDrag((prev) =>
+          prev ? updateGanttDrag(prev, x, y, ganttRows, timescale, scrollLeft, scrollTop) : null,
+        );
+        return;
+      }
+
       if (dragRef.current.active) {
         const dx = event.clientX - dragRef.current.startX;
         if (Math.abs(dx) > 4) {
@@ -381,18 +442,65 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
       }
 
       const { x, y } = getCanvasCoords(event.clientX, event.clientY);
-      const hit = hitTestBar(x, y, ganttRows, timescale, scrollLeft, scrollTop);
-      if (!hit) {
+      const target = hitTestGanttTarget(
+        x,
+        y,
+        ganttRows,
+        timescale,
+        scrollLeft,
+        scrollTop,
+        editMode,
+      );
+      if (!target) {
+        if (cursorStyle !== 'grab') setCursorStyle('grab');
         if (hover !== null) setHover(null);
         return;
       }
-      const visRow = rowsByKey.get(hit.key);
-      if (visRow) {
+
+      const nextCursor =
+        target.kind === 'bar-resize'
+          ? 'ew-resize'
+          : target.kind === 'bar-progress'
+            ? 'col-resize'
+            : target.kind === 'link-port-start' || target.kind === 'link-port-finish'
+              ? 'crosshair'
+              : target.kind === 'bar-move'
+                ? 'grab'
+                : 'pointer';
+      if (cursorStyle !== nextCursor) setCursorStyle(nextCursor);
+
+      const visRow = rowsByKey.get(target.row.key);
+      if (
+        visRow &&
+        target.kind !== 'link-port-start' &&
+        target.kind !== 'link-port-finish'
+      ) {
         setHover({ row: visRow, x, y });
+      } else if (hover !== null) {
+        setHover(null);
       }
     };
 
     const handlePointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
+      if (ganttDrag !== null) {
+        const { x, y } = getCanvasCoords(event.clientX, event.clientY);
+        const finalDrag = updateGanttDrag(
+          ganttDrag,
+          x,
+          y,
+          ganttRows,
+          timescale,
+          scrollLeft,
+          scrollTop,
+        );
+        const cmd = commitGanttDrag(finalDrag);
+        setGanttDrag(null);
+        if (cmd && onDispatch) {
+          onDispatch(cmd);
+        }
+        return;
+      }
+
       const wasMoved = dragRef.current.moved;
       dragRef.current.active = false;
       dragRef.current.moved = false;
@@ -408,6 +516,7 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
     const handlePointerLeave = () => {
       dragRef.current.active = false;
       dragRef.current.moved = false;
+      setGanttDrag(null);
       setHover(null);
     };
 
@@ -463,8 +572,12 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerLeave}
             onWheel={handleWheel}
-            style={{ width: '100%', height: '100%' }}
-            className="block cursor-grab active:cursor-grabbing"
+            style={{
+              width: '100%',
+              height: '100%',
+              cursor: ganttDrag ? 'grabbing' : cursorStyle,
+            }}
+            className="block"
           />
           {hover !== null && (
             <div
