@@ -17,7 +17,7 @@ export const MOCK_DB_KEY = 'mock-db.v1';
 /** Separate per-snapshot localStorage prefix so large schedules never rewrite `mock-db.v1`. */
 export const MOCK_SNAPSHOT_PREFIX = 'mock-schedule-data.v1:';
 
-const MOCK_DB_VERSION: MockDb['version'] = 4;
+const MOCK_DB_VERSION: MockDb['version'] = 5;
 
 export interface MockStore {
   /** A deep copy of the current database. */

@@ -16,6 +16,7 @@ import {
 import type { MockDb, MockInvitation, MockMember, MockSchedule } from '@/data/mock/seed';
 import type { MockStore } from '@/data/mock/store';
 import type {
+  CopyScheduleInput,
   DataRepository,
   ImportScheduleInput,
   MaterializeScheduleInput,
@@ -33,15 +34,24 @@ import {
   scheduleDataPath,
 } from '@/data/schedule-codec';
 import type { ScheduleDocument } from '@/data/schedule-types';
-import { compareIds, compareMembers, compareWorkspaces, newestFirst } from '@/data/sort';
+import {
+  compareIds,
+  compareMembers,
+  compareNamed,
+  compareWorkspaces,
+  newestFirst,
+} from '@/data/sort';
 import {
   LOCK_TTL_MS,
+  type Folder,
   type ID,
   type ISODateTime,
   type ImportFormat,
   type ImportMapping,
   type ImportReport,
   type InviteResult,
+  type LibraryData,
+  type Program,
   type Project,
   type ProjectAttributes,
   type ProjectClient,
@@ -113,12 +123,17 @@ function readAsDataUrl(file: Blob): Promise<string> {
   });
 }
 
-/** The project with its schedule counts (archived schedules counted apart) and current schedule. */
+/** The project with its schedule counts (archived schedules counted apart), program name and current schedule. */
 function projectSummary(db: MockDb, project: Project): ProjectSummary {
   const schedules = db.schedules.filter((schedule) => schedule.projectId === project.id);
   const current = currentScheduleOf(schedules, project.id);
+  const program =
+    project.programId === null
+      ? undefined
+      : db.programs.find((item) => item.id === project.programId);
   return {
     ...project,
+    programName: program?.name ?? null,
     scheduleCount: schedules.filter((schedule) => schedule.archivedAt === null).length,
     totalScheduleCount: schedules.length,
     currentSchedule: current ? { id: current.id, name: current.name } : null,
@@ -287,6 +302,8 @@ function toSchedule(schedule: MockSchedule, nowMs: number): Schedule {
   return {
     id: schedule.id,
     projectId: schedule.projectId,
+    folderId: schedule.folderId ?? null,
+    copiedFromId: schedule.copiedFromId ?? null,
     name: schedule.name,
     code: schedule.code,
     notes: schedule.notes,
@@ -460,6 +477,101 @@ export class MockRepository implements DataRepository {
     );
   }
 
+  listPrograms(workspaceId: ID): Promise<Program[]> {
+    return this.run('read', () => {
+      const db = this.store.read();
+      if (!hasRole(db, workspaceId, 'viewer')) return [];
+      return db.programs.filter((pr) => pr.workspaceId === workspaceId).sort(compareNamed);
+    });
+  }
+
+  createProgram(input: { workspaceId: ID; name: string }): Promise<Program> {
+    return this.run('write', () => {
+      const timestamp = this.now().toISOString();
+      return this.commit((db) => {
+        if (!hasRole(db, input.workspaceId, 'editor')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        const trimmed = input.name.trim();
+        if (trimmed === '') {
+          throw new RepositoryError('validation', 'Enter a program name.');
+        }
+        if (trimmed.length > 80) {
+          throw new RepositoryError('validation', 'Use 80 characters or fewer.');
+        }
+        const key = codeKey(trimmed);
+        if (
+          db.programs.some(
+            (pr) => pr.workspaceId === input.workspaceId && codeKey(pr.name) === key,
+          )
+        ) {
+          throw new RepositoryError('conflict', 'A program with this name already exists.');
+        }
+        const program: Program = {
+          id: crypto.randomUUID(),
+          workspaceId: input.workspaceId,
+          name: trimmed,
+          createdAt: timestamp,
+        };
+        db.programs.push(program);
+        return program;
+      });
+    });
+  }
+
+  renameProgram(input: { programId: ID; name: string }): Promise<Program> {
+    return this.run('write', () =>
+      this.commit((db) => {
+        const program = db.programs.find((pr) => pr.id === input.programId);
+        if (!program || !hasRole(db, program.workspaceId, 'viewer')) {
+          throw new RepositoryError('not_found', 'Program not found');
+        }
+        if (!hasRole(db, program.workspaceId, 'editor')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        const trimmed = input.name.trim();
+        if (trimmed === '') {
+          throw new RepositoryError('validation', 'Enter a program name.');
+        }
+        if (trimmed.length > 80) {
+          throw new RepositoryError('validation', 'Use 80 characters or fewer.');
+        }
+        const key = codeKey(trimmed);
+        if (
+          db.programs.some(
+            (pr) =>
+              pr.id !== program.id &&
+              pr.workspaceId === program.workspaceId &&
+              codeKey(pr.name) === key,
+          )
+        ) {
+          throw new RepositoryError('conflict', 'A program with this name already exists.');
+        }
+        program.name = trimmed;
+        return program;
+      }),
+    );
+  }
+
+  deleteProgram(programId: ID): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        const program = db.programs.find((pr) => pr.id === programId);
+        if (!program || !hasRole(db, program.workspaceId, 'viewer')) {
+          throw new RepositoryError('not_found', 'Program not found');
+        }
+        if (!hasRole(db, program.workspaceId, 'owner')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        db.programs = db.programs.filter((pr) => pr.id !== program.id);
+        // R1: deleting a program clears programId on its projects without changing updatedAt.
+        for (const project of db.projects) {
+          if (project.programId === program.id) project.programId = null;
+        }
+      });
+    });
+  }
+
   listProjects(workspaceId: ID): Promise<ProjectSummary[]> {
     return this.run('read', () => projectSummaries(this.store.read(), workspaceId));
   }
@@ -493,6 +605,13 @@ export class MockRepository implements DataRepository {
         if (!hasRole(db, input.workspaceId, 'editor')) {
           throw new RepositoryError('forbidden', NO_PERMISSION);
         }
+        const programId = input.programId ?? null;
+        if (
+          programId !== null &&
+          !db.programs.some((pr) => pr.id === programId && pr.workspaceId === input.workspaceId)
+        ) {
+          throw new RepositoryError('validation', 'Choose a program in this workspace.');
+        }
         checkProjectValues(input.attributes, input.location);
         const key = codeKey(code);
         if (
@@ -503,6 +622,7 @@ export class MockRepository implements DataRepository {
         const project: Project = {
           id: crypto.randomUUID(),
           workspaceId: input.workspaceId,
+          programId,
           code,
           name: input.name.trim(),
           description: optionalText(input.description),
@@ -547,6 +667,16 @@ export class MockRepository implements DataRepository {
         const statusDate =
           input.statusDate === undefined ? undefined : optionalText(input.statusDate);
         if (statusDate !== undefined) checkProjectStatusDate(project, db.schedules, statusDate);
+        if (input.programId !== undefined) {
+          if (
+            input.programId !== null &&
+            !db.programs.some(
+              (pr) => pr.id === input.programId && pr.workspaceId === project.workspaceId,
+            )
+          ) {
+            throw new RepositoryError('validation', 'Choose a program in this workspace.');
+          }
+        }
         checkProjectValues(input.attributes, input.location);
         const code = input.code.trim();
         const key = codeKey(code);
@@ -563,6 +693,7 @@ export class MockRepository implements DataRepository {
         project.code = code;
         project.name = input.name.trim();
         project.description = optionalText(input.description);
+        if (input.programId !== undefined) project.programId = input.programId;
         if (input.cover !== 'keep') project.coverImageUrl = newCoverUrl;
         if (statusDate !== undefined) project.statusDate = statusDate;
         project.attributes = storedAttributes(input.attributes);
@@ -576,9 +707,9 @@ export class MockRepository implements DataRepository {
 
   deleteProject(projectId: ID): Promise<void> {
     return this.run('write', () => {
-      // One store write, as the database's single transaction (R12): the project, its schedules
-      // and their shares go; its tasks stay without a project (`on delete set null`). Their
-      // originals and snapshots go afterwards, as the Supabase adapter removes the stored objects.
+      // One store write, as the database's single transaction (R12): the project, its folders, its
+      // schedules and their shares go; its tasks stay without a project (`on delete set null`).
+      // Their originals and snapshots go afterwards, as the Supabase adapter removes the stored objects.
       const deleted = this.commit((db) => {
         const project = db.projects.find((p) => p.id === projectId);
         if (!project) throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
@@ -592,6 +723,7 @@ export class MockRepository implements DataRepository {
           .filter((p): p is string => p !== null);
         db.shares = db.shares.filter((share) => !scheduleIds.has(share.scheduleId));
         db.schedules = db.schedules.filter((s) => !scheduleIds.has(s.id));
+        db.folders = db.folders.filter((f) => f.projectId !== project.id);
         db.projects = db.projects.filter((p) => p !== project);
         for (const task of db.tasks) {
           if (task.projectId === project.id) task.projectId = null;
@@ -600,6 +732,146 @@ export class MockRepository implements DataRepository {
       });
       for (const id of deleted.scheduleIds) this.originals.delete(id);
       for (const path of deleted.snapshotPaths) this.store.removeSnapshot(path);
+    });
+  }
+
+  listFolders(projectId: ID): Promise<Folder[]> {
+    return this.run('read', () => {
+      const db = this.store.read();
+      const project = db.projects.find((p) => p.id === projectId);
+      if (!project || !hasRole(db, project.workspaceId, 'viewer')) return [];
+      return db.folders.filter((f) => f.projectId === projectId).sort(compareNamed);
+    });
+  }
+
+  createFolder(input: { projectId: ID; parentId?: ID | null; name: string }): Promise<Folder> {
+    return this.run('write', () => {
+      const timestamp = this.now().toISOString();
+      return this.commit((db) => {
+        const project = db.projects.find((p) => p.id === input.projectId);
+        if (!project || !hasRole(db, project.workspaceId, 'viewer')) {
+          throw new RepositoryError('not_found', PROJECT_NOT_FOUND);
+        }
+        if (!hasRole(db, project.workspaceId, 'editor')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        const trimmed = input.name.trim();
+        if (trimmed === '') {
+          throw new RepositoryError('validation', 'Enter a folder name.');
+        }
+        if (trimmed.length > 80) {
+          throw new RepositoryError('validation', 'Use 80 characters or fewer.');
+        }
+        const parentId = input.parentId ?? null;
+        let cur = parentId;
+        let depth = 1;
+        while (cur !== null) {
+          const parent = db.folders.find((f) => f.id === cur);
+          if (!parent || parent.projectId !== project.id) {
+            throw new RepositoryError('validation', 'Choose a folder in this project.');
+          }
+          depth += 1;
+          if (depth > 3) {
+            throw new RepositoryError('validation', 'Folders can be nested up to 3 levels deep.');
+          }
+          cur = parent.parentId;
+        }
+        const key = codeKey(trimmed);
+        if (
+          db.folders.some(
+            (f) =>
+              f.projectId === project.id && f.parentId === parentId && codeKey(f.name) === key,
+          )
+        ) {
+          throw new RepositoryError('conflict', 'A folder with this name already exists here.');
+        }
+        const folder: Folder = {
+          id: crypto.randomUUID(),
+          projectId: project.id,
+          parentId,
+          name: trimmed,
+          createdAt: timestamp,
+        };
+        db.folders.push(folder);
+        return folder;
+      });
+    });
+  }
+
+  renameFolder(input: { folderId: ID; name: string }): Promise<Folder> {
+    return this.run('write', () =>
+      this.commit((db) => {
+        const folder = db.folders.find((f) => f.id === input.folderId);
+        const project = db.projects.find((p) => p.id === folder?.projectId);
+        if (!folder || !project || !hasRole(db, project.workspaceId, 'viewer')) {
+          throw new RepositoryError('not_found', 'Folder not found');
+        }
+        if (!hasRole(db, project.workspaceId, 'editor')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        const trimmed = input.name.trim();
+        if (trimmed === '') {
+          throw new RepositoryError('validation', 'Enter a folder name.');
+        }
+        if (trimmed.length > 80) {
+          throw new RepositoryError('validation', 'Use 80 characters or fewer.');
+        }
+        const key = codeKey(trimmed);
+        if (
+          db.folders.some(
+            (f) =>
+              f.id !== folder.id &&
+              f.projectId === folder.projectId &&
+              f.parentId === folder.parentId &&
+              codeKey(f.name) === key,
+          )
+        ) {
+          throw new RepositoryError('conflict', 'A folder with this name already exists here.');
+        }
+        folder.name = trimmed;
+        return folder;
+      }),
+    );
+  }
+
+  deleteFolder(folderId: ID): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        const folder = db.folders.find((f) => f.id === folderId);
+        const project = db.projects.find((p) => p.id === folder?.projectId);
+        if (!folder || !project || !hasRole(db, project.workspaceId, 'viewer')) {
+          throw new RepositoryError('not_found', 'Folder not found');
+        }
+        if (!hasRole(db, project.workspaceId, 'editor')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        // R4: re-parent child folders and schedules to the deleted folder's parentId without changing updatedAt.
+        for (const child of db.folders) {
+          if (child.parentId === folder.id) child.parentId = folder.parentId;
+        }
+        for (const schedule of db.schedules) {
+          if (schedule.folderId === folder.id) schedule.folderId = folder.parentId;
+        }
+        db.folders = db.folders.filter((f) => f.id !== folder.id);
+      });
+    });
+  }
+
+  moveSchedulesToFolder(input: { scheduleIds: ID[]; folderId: ID | null }): Promise<void> {
+    return this.run('write', () => {
+      this.commit((db) => {
+        const set = this.scheduleSetFor(db, input.scheduleIds, 'editor');
+        if (!set) return;
+        if (
+          input.folderId !== null &&
+          !db.folders.some((f) => f.id === input.folderId && f.projectId === set.projectId)
+        ) {
+          throw new RepositoryError('validation', 'Choose a folder in this project.');
+        }
+        for (const schedule of set.found) {
+          schedule.folderId = input.folderId;
+        }
+      });
     });
   }
 
@@ -624,6 +896,90 @@ export class MockRepository implements DataRepository {
         this.store.writeSnapshot(dataFilePath, document);
       }
       return schedule;
+    });
+  }
+
+  copySchedule(input: CopyScheduleInput): Promise<Schedule> {
+    return this.run('write', () => {
+      const nowDate = this.now();
+      const timestamp = nowDate.toISOString();
+      const nowMs = nowDate.getTime();
+      const result = this.commit((db) => {
+        const source = db.schedules.find((s) => s.id === input.scheduleId);
+        const project = db.projects.find((p) => p.id === source?.projectId);
+        if (!source || !project || !hasRole(db, project.workspaceId, 'viewer')) {
+          throw new RepositoryError('not_found', SCHEDULE_NOT_FOUND);
+        }
+        if (!hasRole(db, project.workspaceId, 'editor')) {
+          throw new RepositoryError('forbidden', NO_PERMISSION);
+        }
+        const name = input.name.trim();
+        if (name === '') {
+          throw new RepositoryError('validation', 'Enter a schedule name.');
+        }
+        if (name.length > 120) {
+          throw new RepositoryError('validation', 'Use 120 characters or fewer.');
+        }
+        const code = checkNewScheduleCode(db.schedules, project.id, input.code);
+        const folderId = input.folderId === undefined ? source.folderId : input.folderId;
+        if (
+          folderId !== null &&
+          !db.folders.some((f) => f.id === folderId && f.projectId === project.id)
+        ) {
+          throw new RepositoryError('validation', 'Choose a folder in this project.');
+        }
+        const newScheduleId = crypto.randomUUID();
+        const newDataFilePath =
+          source.dataFilePath === null
+            ? null
+            : scheduleDataPath(project.workspaceId, project.id, newScheduleId);
+        const copy: MockSchedule = {
+          id: newScheduleId,
+          projectId: project.id,
+          folderId,
+          copiedFromId: source.id,
+          name,
+          code,
+          notes: source.notes,
+          statusDate: source.statusDate,
+          source: source.source,
+          sourceFileName: source.sourceFileName,
+          sourceFormat: source.sourceFormat,
+          isCurrent: false,
+          baseline: 'none',
+          updateNumber: null,
+          archivedAt: null,
+          activityCount: source.activityCount,
+          sourceProjectCode: source.sourceProjectCode,
+          importReport: source.importReport,
+          importMapping: source.importMapping,
+          lock: null,
+          dataRevision: newDataFilePath === null ? 0 : 1,
+          dataFilePath: newDataFilePath,
+          calculationMode: source.calculationMode,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        db.schedules.push(copy);
+        project.updatedAt = timestamp;
+        return {
+          schedule: toSchedule(copy, nowMs),
+          sourceId: source.id,
+          sourceDataFilePath: source.dataFilePath,
+          newDataFilePath,
+        };
+      });
+      if (result.sourceDataFilePath !== null && result.newDataFilePath !== null) {
+        const snapshot = this.store.readSnapshot(result.sourceDataFilePath);
+        if (snapshot !== null) {
+          this.store.writeSnapshot(result.newDataFilePath, snapshot);
+        }
+      }
+      const originalFile = this.originals.get(result.sourceId);
+      if (originalFile !== undefined) {
+        this.originals.set(result.schedule.id, originalFile);
+      }
+      return result.schedule;
     });
   }
 
@@ -900,39 +1256,73 @@ export class MockRepository implements DataRepository {
   }
 
   listSharedWithMe(): Promise<SharedScheduleRow[]> {
+    return this.run('read', () => this.sharedRows(this.store.read()));
+  }
+
+  getLibraryData(): Promise<LibraryData> {
     return this.run('read', () => {
       const db = this.store.read();
-      // Sorted before the join: `newestFirst` breaks ties by `id`, which a row carries as
-      // `shareId`. Like the inner joins of the Phase 2 view, a share whose schedule, project or
-      // sharer is gone yields no row.
-      return db.shares
-        .filter((share) => share.sharedWithId === db.currentUserId)
-        .sort(newestFirst((share) => share.sharedAt))
-        .flatMap((share): SharedScheduleRow[] => {
-          const schedule = db.schedules.find((s) => s.id === share.scheduleId);
-          const project = db.projects.find((p) => p.id === schedule?.projectId);
-          const sharer = db.users.find((u) => u.id === share.sharedById);
-          if (!schedule || !project || !sharer) return [];
-          return [
-            {
-              shareId: share.id,
-              scheduleId: schedule.id,
-              scheduleName: schedule.name,
-              statusDate: schedule.statusDate,
-              projectId: project.id,
-              projectName: project.name,
-              workspaceId: project.workspaceId,
-              sharedBy: {
-                id: sharer.id,
-                firstName: sharer.firstName,
-                lastName: sharer.lastName,
-                avatarUrl: sharer.avatarUrl,
-              },
-              sharedAt: share.sharedAt,
-            },
-          ];
-        });
+      const nowMs = this.now().getTime();
+      const workspaces = db.workspaces
+        .flatMap((workspace): WorkspaceSummary[] => {
+          const myRole = roleOf(db, workspace.id, db.currentUserId);
+          if (myRole === null) return [];
+          const projectCount = db.projects.filter((p) => p.workspaceId === workspace.id).length;
+          return [{ ...workspace, projectCount, myRole }];
+        })
+        .sort(compareWorkspaces);
+      const workspaceIds = new Set(workspaces.map((w) => w.id));
+      const projects = db.projects
+        .filter((p) => workspaceIds.has(p.workspaceId))
+        .sort(newestFirst((p) => p.updatedAt))
+        .map((p) => projectSummary(db, p));
+      const projectIds = new Set(projects.map((p) => p.id));
+      const folders = db.folders.filter((f) => projectIds.has(f.projectId)).sort(compareNamed);
+      const schedules = db.schedules
+        .filter((s) => projectIds.has(s.projectId))
+        .sort(compareSchedules)
+        .map((s) => toSchedule(s, nowMs));
+      return {
+        workspaces,
+        projects,
+        folders,
+        schedules,
+        sharedWithMe: this.sharedRows(db),
+      };
     });
+  }
+
+  private sharedRows(db: MockDb): SharedScheduleRow[] {
+    // Sorted before the join: `newestFirst` breaks ties by `id`, which a row carries as
+    // `shareId`. Like the inner joins of the Phase 2 view, a share whose schedule, project or
+    // sharer is gone yields no row.
+    return db.shares
+      .filter((share) => share.sharedWithId === db.currentUserId)
+      .sort(newestFirst((share) => share.sharedAt))
+      .flatMap((share): SharedScheduleRow[] => {
+        const schedule = db.schedules.find((s) => s.id === share.scheduleId);
+        const project = db.projects.find((p) => p.id === schedule?.projectId);
+        const sharer = db.users.find((u) => u.id === share.sharedById);
+        if (!schedule || !project || !sharer) return [];
+        return [
+          {
+            shareId: share.id,
+            scheduleId: schedule.id,
+            scheduleName: schedule.name,
+            statusDate: schedule.statusDate,
+            projectId: project.id,
+            projectName: project.name,
+            workspaceId: project.workspaceId,
+            sharedBy: {
+              id: sharer.id,
+              firstName: sharer.firstName,
+              lastName: sharer.lastName,
+              avatarUrl: sharer.avatarUrl,
+            },
+            sharedAt: share.sharedAt,
+          },
+        ];
+      });
   }
 
   listPendingTasks(): Promise<Task[]> {
@@ -1205,7 +1595,7 @@ export class MockRepository implements DataRepository {
    * project's status date follows it (R6).
    */
   private addSchedule(
-    input: { projectId: ID; name: string; code: string },
+    input: { projectId: ID; folderId?: ID | null; name: string; code: string },
     imported: ImportScheduleInput | null,
   ): { schedule: Schedule; dataFilePath: string | null } {
     const { projectId } = input;
@@ -1220,6 +1610,13 @@ export class MockRepository implements DataRepository {
         throw new RepositoryError('forbidden', NO_PERMISSION);
       }
       const code = checkNewScheduleCode(db.schedules, projectId, input.code);
+      const folderId = input.folderId ?? null;
+      if (
+        folderId !== null &&
+        !db.folders.some((f) => f.id === folderId && f.projectId === projectId)
+      ) {
+        throw new RepositoryError('validation', 'Choose a folder in this project.');
+      }
       const details = imported === null ? null : importDetails(imported);
       const scheduleId = crypto.randomUUID();
       const dataFilePath =
@@ -1227,6 +1624,8 @@ export class MockRepository implements DataRepository {
       const schedule: MockSchedule = {
         id: scheduleId,
         projectId,
+        folderId,
+        copiedFromId: null,
         name: input.name.trim(),
         code,
         notes: null,

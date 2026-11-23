@@ -22,7 +22,7 @@ describe('mock store', () => {
     const store = createMockStore({ storage, scenario: 'default', now });
     expect(store.read().projects).toHaveLength(7);
     expect(JSON.parse(storage.getItem(MOCK_DB_KEY)!)).toMatchObject({
-      version: 4,
+      version: 5,
       scenario: 'default',
     });
   });
@@ -95,10 +95,10 @@ describe('mock store', () => {
     expect(createMockStore({ storage, scenario: 'default', now }).read().tasks).toHaveLength(3);
   });
 
-  it('writes version 4 and reseeds when the team role changes', () => {
+  it('writes version 5 and reseeds when the team role changes', () => {
     const storage = createMemoryStorage();
     expect(createMockStore({ storage, scenario: 'default' }).read()).toMatchObject({
-      version: 4,
+      version: 5,
       teamRole: 'owner',
     });
     expect(

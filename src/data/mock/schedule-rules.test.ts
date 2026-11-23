@@ -5,6 +5,8 @@ import type { Schedule } from '@/data/types';
 const schedule = (id: string, statusDate: string | null, createdAt: string): Schedule => ({
   id,
   projectId: 'p',
+  folderId: null,
+  copiedFromId: null,
   name: id,
   code: id,
   notes: null,

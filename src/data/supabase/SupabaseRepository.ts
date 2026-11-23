@@ -44,11 +44,14 @@ import {
 } from '@/data/supabase/mappers';
 import { createSignedUrlCache, type SignedUrlCache } from '@/data/supabase/signed-urls';
 import type {
+  Folder,
   ID,
   ImportFormat,
   ImportMapping,
   ImportReport,
   InviteResult,
+  LibraryData,
+  Program,
   Project,
   ProjectSummary,
   Role,
@@ -165,6 +168,50 @@ export class SupabaseRepository implements DataRepository {
         createdAt: summary.createdAt,
       };
     });
+  }
+
+  async listPrograms(): Promise<Program[]> {
+    return [];
+  }
+
+  async createProgram(): Promise<Program> {
+    throw new RepositoryError('unknown', 'Not implemented');
+  }
+
+  async renameProgram(): Promise<Program> {
+    throw new RepositoryError('unknown', 'Not implemented');
+  }
+
+  async deleteProgram(): Promise<void> {
+    throw new RepositoryError('unknown', 'Not implemented');
+  }
+
+  async listFolders(): Promise<Folder[]> {
+    return [];
+  }
+
+  async createFolder(): Promise<Folder> {
+    throw new RepositoryError('unknown', 'Not implemented');
+  }
+
+  async renameFolder(): Promise<Folder> {
+    throw new RepositoryError('unknown', 'Not implemented');
+  }
+
+  async deleteFolder(): Promise<void> {
+    throw new RepositoryError('unknown', 'Not implemented');
+  }
+
+  async moveSchedulesToFolder(): Promise<void> {
+    throw new RepositoryError('unknown', 'Not implemented');
+  }
+
+  async copySchedule(): Promise<Schedule> {
+    throw new RepositoryError('unknown', 'Not implemented');
+  }
+
+  async getLibraryData(): Promise<LibraryData> {
+    return { workspaces: [], projects: [], folders: [], schedules: [], sharedWithMe: [] };
   }
 
   listProjects(workspaceId: ID): Promise<ProjectSummary[]> {

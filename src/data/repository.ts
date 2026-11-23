@@ -1,11 +1,14 @@
 import type { CalculationDisplayMode, ScheduleDocument } from './schedule-types';
 import type {
   BaselineFlag,
+  Folder,
   ID,
   ISODate,
   ImportMapping,
   ImportReport,
   InviteResult,
+  LibraryData,
+  Program,
   Project,
   ProjectAttributes,
   ProjectClient,
@@ -26,6 +29,7 @@ import type {
 
 export interface NewProjectInput {
   workspaceId: ID;
+  programId?: ID | null;
   code: string;
   name: string;
   description: string | null;
@@ -41,6 +45,7 @@ export type CoverChange = 'keep' | 'remove' | File;
 
 export interface UpdateProjectInput {
   projectId: ID;
+  programId?: ID | null;
   code: string;
   name: string;
   description: string | null;
@@ -53,6 +58,7 @@ export interface UpdateProjectInput {
 
 export interface NewScheduleInput {
   projectId: ID;
+  folderId?: ID | null;
   name: string;
   code: string; // trimmed by the adapter; required and unique in the project, ignoring case (R8)
 }
@@ -60,6 +66,7 @@ export interface NewScheduleInput {
 /** One import (spec §4.2, §5.8). */
 export interface ImportScheduleInput {
   projectId: ID;
+  folderId?: ID | null;
   name: string;
   code: string; // as NewScheduleInput's
   file: File; // the original, as the user chose it
@@ -74,6 +81,13 @@ export interface ImportScheduleInput {
   mapping: ImportMapping;
   /** The stored report (spec §5.10); its parserVersion, format and file.sha256 are stored too. */
   report: ImportReport;
+}
+
+export interface CopyScheduleInput {
+  scheduleId: ID;
+  name: string;
+  code: string;
+  folderId?: ID | null;
 }
 
 /** One save of the Schedule details dialog. */
@@ -110,6 +124,12 @@ export interface DataRepository {
   listWorkspaces(): Promise<WorkspaceSummary[]>;
   createTeamWorkspace(input: NewTeamWorkspaceInput): Promise<Workspace>;
 
+  /** Workspace programs, sorted by name (Turkish alphabetical), then oldest first, then by id (R1). */
+  listPrograms(workspaceId: ID): Promise<Program[]>;
+  createProgram(input: { workspaceId: ID; name: string }): Promise<Program>;
+  renameProgram(input: { programId: ID; name: string }): Promise<Program>;
+  deleteProgram(programId: ID): Promise<void>;
+
   /** All projects of a workspace, updatedAt descending. */
   listProjects(workspaceId: ID): Promise<ProjectSummary[]>;
   /** First `limit` items of listProjects(workspaceId). */
@@ -139,6 +159,13 @@ export interface DataRepository {
    */
   deleteProject(projectId: ID): Promise<void>;
 
+  /** Project folders, sorted by name (Turkish alphabetical), then oldest first, then by id (R3). */
+  listFolders(projectId: ID): Promise<Folder[]>;
+  createFolder(input: { projectId: ID; parentId?: ID | null; name: string }): Promise<Folder>;
+  renameFolder(input: { folderId: ID; name: string }): Promise<Folder>;
+  deleteFolder(folderId: ID): Promise<void>;
+  moveSchedulesToFolder(input: { scheduleIds: ID[]; folderId: ID | null }): Promise<void>;
+
   /**
    * Both set the parent project's updatedAt to now. A blank or malformed code rejects
    * 'validation', a code the project already uses (ignoring case) 'conflict' (R8). The first
@@ -150,6 +177,8 @@ export interface DataRepository {
    * takes the project's), source project code, mapping and report (spec §5.8).
    */
   importSchedule(input: ImportScheduleInput): Promise<Schedule>;
+  /** Duplicates a schedule with its snapshot and import metadata into the same project (R6). */
+  copySchedule(input: CopyScheduleInput): Promise<Schedule>;
   /**
    * The project's schedules, archived included: status date descending with undated ones last,
    * then newest created, then by id. An unknown (or hidden) project gives `[]`.
@@ -229,6 +258,8 @@ export interface DataRepository {
 
   /** sharedAt descending. */
   listSharedWithMe(): Promise<SharedScheduleRow[]>;
+  /** Cross-workspace schedule library data for all member workspaces and shared schedules (R7). */
+  getLibraryData(): Promise<LibraryData>;
 
   /** Tasks with done === false: dueDate ascending (nulls last), then createdAt ascending. */
   listPendingTasks(): Promise<Task[]>;

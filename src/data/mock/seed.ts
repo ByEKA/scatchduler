@@ -4,11 +4,13 @@ import { scheduleDataPath } from '@/data/schedule-codec';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import type {
   BaselineFlag,
+  Folder,
   ID,
   ISODate,
   ISODateTime,
   ImportMapping,
   ImportReport,
+  Program,
   Project,
   ProjectSector,
   ProjectStage,
@@ -74,7 +76,7 @@ export type MockSchedule = Omit<
 
 /** The whole mock database, stored as one JSON document (spec §5.6, P2 spec §6.4, P4 §9). */
 export interface MockDb {
-  version: 4;
+  version: 5;
   scenario: Scenario;
   /** The current user's seeded role in Site Operations; a different requested role reseeds. */
   teamRole: Role;
@@ -86,7 +88,9 @@ export interface MockDb {
   workspaces: Workspace[];
   members: MockMember[];
   invitations: MockInvitation[];
+  programs: Program[];
   projects: Project[];
+  folders: Folder[];
   schedules: MockSchedule[];
   shares: MockShare[];
   tasks: Task[];
@@ -555,7 +559,7 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
   const deniz = makeUser('Deniz', 'Kaya', 'deniz.kaya@example.com');
   const personal = makeWorkspace('My workspace', 'personal', msAgo(WORKSPACE_AGE_MS.personal));
   const db: MockDb = {
-    version: 4,
+    version: 5,
     scenario,
     teamRole,
     seededAt: now.toISOString(),
@@ -571,7 +575,9 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
       { workspaceId: personal.id, userId: deniz.id, role: 'owner', joinedAt: personal.createdAt },
     ],
     invitations: [],
+    programs: [],
     projects: [],
+    folders: [],
     schedules: [],
     shares: [],
     tasks: [],
@@ -599,12 +605,24 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
     revokedAt: null,
   });
 
+  const portProgram: Program = {
+    id: crypto.randomUUID(),
+    workspaceId: personal.id,
+    name: 'Port & Industrial Program',
+    createdAt: personal.createdAt,
+  };
+  db.programs.push(portProgram);
+
   for (const row of DEFAULT_PROJECTS) {
     const updatedAt = msAgo(row.updatedMsAgo);
     const statusDate = row.statusDaysBefore === null ? null : daysBefore(row.statusDaysBefore);
+    const createdAt = msAgo(
+      Math.min(row.updatedMsAgo + 30 * DAY_MS, WORKSPACE_AGE_MS[row.workspace]),
+    );
     const project: Project = {
       id: crypto.randomUUID(),
       workspaceId: row.workspace === 'team' ? team.id : personal.id,
+      programId: row.code === '003' ? portProgram.id : null,
       code: row.code,
       name: row.name,
       description: null,
@@ -627,10 +645,33 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
         longitude: row.coordinates?.[1] ?? null,
       },
       // Created 30 days before its last update, but never before its workspace.
-      createdAt: msAgo(Math.min(row.updatedMsAgo + 30 * DAY_MS, WORKSPACE_AGE_MS[row.workspace])),
+      createdAt,
       updatedAt,
     };
     db.projects.push(project);
+
+    let baselinesFolderId: ID | null = null;
+    let updatesFolderId: ID | null = null;
+    if (row.code === '003') {
+      const baselinesFolder: Folder = {
+        id: crypto.randomUUID(),
+        projectId: project.id,
+        parentId: null,
+        name: 'Baselines',
+        createdAt,
+      };
+      const updatesFolder: Folder = {
+        id: crypto.randomUUID(),
+        projectId: project.id,
+        parentId: null,
+        name: 'Monthly Updates',
+        createdAt,
+      };
+      db.folders.push(baselinesFolder, updatesFolder);
+      baselinesFolderId = baselinesFolder.id;
+      updatesFolderId = updatesFolder.id;
+    }
+
     for (const schedule of row.schedules) {
       // Created with the project's last update; an archived schedule was last modified when it
       // was archived (R11).
@@ -639,9 +680,17 @@ export function seed(scenario: Scenario, now: Date, options: SeedOptions = {}): 
       const scheduleId = crypto.randomUUID();
       const statusDate =
         schedule.statusDaysBefore === null ? null : daysBefore(schedule.statusDaysBefore);
+      const folderId =
+        row.code === '003'
+          ? schedule.baseline !== 'none'
+            ? baselinesFolderId
+            : updatesFolderId
+          : null;
       db.schedules.push({
         id: scheduleId,
         projectId: project.id,
+        folderId,
+        copiedFromId: null,
         name: schedule.name,
         code: schedule.code,
         notes: schedule.notes,
