@@ -20,6 +20,7 @@ import {
   type DialogKind,
   type DialogOptions,
 } from '@/features/dialogs/DialogsProvider';
+import { CommandPaletteProvider } from '@/features/schedule/CommandPalette';
 import { CurrentContextProvider } from '@/hooks/useCurrentContext';
 import { SidebarStateProvider } from '@/hooks/useSidebarState';
 import { ThemeProvider } from '@/hooks/useTheme';
@@ -100,18 +101,20 @@ export function renderWithProviders(
                 <CurrentContextProvider>
                   <SidebarStateProvider>
                     <DialogsProvider>
-                      <Routes>
-                        {path === undefined ? (
-                          <Route path="*" element={ui} />
-                        ) : (
-                          <>
-                            <Route path={path} element={ui} />
-                            <Route path="*" element={null} />
-                          </>
-                        )}
-                      </Routes>
-                      <DialogHost />
-                      <DialogStateProbe />
+                      <CommandPaletteProvider>
+                        <Routes>
+                          {path === undefined ? (
+                            <Route path="*" element={ui} />
+                          ) : (
+                            <>
+                              <Route path={path} element={ui} />
+                              <Route path="*" element={null} />
+                            </>
+                          )}
+                        </Routes>
+                        <DialogHost />
+                        <DialogStateProbe />
+                      </CommandPaletteProvider>
                     </DialogsProvider>
                   </SidebarStateProvider>
                 </CurrentContextProvider>

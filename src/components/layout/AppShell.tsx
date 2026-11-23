@@ -5,6 +5,7 @@ import { TopBar } from '@/components/layout/TopBar';
 import { DialogHost } from '@/features/dialogs/DialogHost';
 import { DialogsProvider } from '@/features/dialogs/DialogsProvider';
 import { CompleteProfileDialog } from '@/features/profile/CompleteProfileDialog';
+import { CommandPaletteProvider } from '@/features/schedule/CommandPalette';
 import { CurrentContextProvider } from '@/hooks/useCurrentContext';
 import { SidebarStateProvider } from '@/hooks/useSidebarState';
 
@@ -33,24 +34,26 @@ export function AppShell(): ReactElement {
     <CurrentContextProvider>
       <SidebarStateProvider>
         <DialogsProvider>
-          <div className="grid h-dvh grid-cols-[auto_1fr] grid-rows-[48px_1fr]">
-            <SkipLink />
-            <TopBar />
-            <Sidebar />
-            {/* col-start-2: below 1024 px the sidebar is a drawer and the first column stays empty. */}
-            <main
-              id="main"
-              tabIndex={-1}
-              className="col-start-2 min-w-0 [scrollbar-gutter:stable] overflow-y-auto bg-background px-3 pt-3 pb-6 outline-none lg:px-4"
-            >
-              <div className="mx-auto max-w-[1600px]">
-                <Outlet />
-              </div>
-            </main>
-          </div>
-          <DialogHost />
-          {/* Not a DialogsProvider dialog: it opens by itself when the name is missing (P2 spec §5.6). */}
-          <CompleteProfileDialog />
+          <CommandPaletteProvider>
+            <div className="grid h-dvh grid-cols-[auto_1fr] grid-rows-[48px_1fr]">
+              <SkipLink />
+              <TopBar />
+              <Sidebar />
+              {/* col-start-2: below 1024 px the sidebar is a drawer and the first column stays empty. */}
+              <main
+                id="main"
+                tabIndex={-1}
+                className="col-start-2 min-w-0 [scrollbar-gutter:stable] overflow-y-auto bg-background px-3 pt-3 pb-6 outline-none lg:px-4"
+              >
+                <div className="mx-auto max-w-[1600px]">
+                  <Outlet />
+                </div>
+              </main>
+            </div>
+            <DialogHost />
+            {/* Not a DialogsProvider dialog: it opens by itself when the name is missing (P2 spec §5.6). */}
+            <CompleteProfileDialog />
+          </CommandPaletteProvider>
         </DialogsProvider>
       </SidebarStateProvider>
     </CurrentContextProvider>
