@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { ChartGantt, FileUp, Lock, Plus, StickyNote } from 'lucide-react';
+import { ChartGantt, FileUp, Folder as FolderIcon, Lock, Plus, StickyNote } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { Link } from 'react-router';
@@ -8,8 +8,9 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { TagBadges } from '@/components/common/TagBadges';
 import { FOCUS_OUTLINE_CLASSES } from '@/components/layout/top-bar-parts';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { ProjectSummary, Schedule, WorkspaceSummary } from '@/data/types';
+import type { ID, ProjectSummary, Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
 import { canEdit } from '@/features/workspaces/roles';
 import { useNow } from '@/hooks/useNow';
@@ -25,6 +26,9 @@ const NO_SCHEDULES: readonly Schedule[] = [];
 // A read-only chip after an archived schedule's name; muted text on the muted fill.
 const ARCHIVED_BADGE_CLASSES =
   'inline-flex h-5 shrink-0 items-center rounded-sm bg-muted px-1.5 text-xs font-medium whitespace-nowrap text-muted-foreground';
+
+const FOLDER_BADGE_CLASSES =
+  'inline-flex h-5 shrink-0 items-center gap-1 rounded-sm bg-muted/70 px-1.5 text-2xs font-medium whitespace-nowrap text-muted-foreground';
 
 type RenderMenu = (schedule: Schedule, schedules: readonly Schedule[]) => ReactNode;
 
@@ -58,10 +62,18 @@ function sourceLabel(schedule: Schedule): string {
   return schedule.sourceFileName === null ? 'Imported' : `Imported · ${schedule.sourceFileName}`;
 }
 
+interface SelectionConfig {
+  selectedIds: ReadonlySet<ID>;
+  allSelected: boolean;
+  someSelected: boolean;
+  onToggleSelect(scheduleId: ID, checked: boolean): void;
+  onToggleSelectAll(checked: boolean): void;
+}
+
 /**
- * The files table's columns (spec §6.3, P4 §7.1); Activities, Source and Notes hide below 1024 px,
- * Code, Update and Last modified below 768 px (§6.6). The last column holds the row menu that
- * `renderMenu` draws, under a visually hidden "Actions" header.
+ * The files table's columns (spec §6.3, P4 §7.1, P4 later §7.2.3); Activities, Source and Notes
+ * hide below 1024 px, Code, Update and Last modified below 768 px (§6.6). When `selection` is
+ * given (editors/owners), a leading checkbox column supports bulk actions.
  */
 function scheduleColumns(
   now: Date,
@@ -69,8 +81,37 @@ function scheduleColumns(
   workspaceId: string,
   projectId: string,
   renderMenu: RenderMenu | undefined,
+  selection: SelectionConfig | undefined,
+  folderNamesById: ReadonlyMap<ID, string> | undefined,
 ): ColumnDef<Schedule, unknown>[] {
+  const selectColumn: ColumnDef<Schedule, unknown>[] = selection
+    ? [
+        {
+          id: 'select',
+          header: () => (
+            <Checkbox
+              aria-label="Select all schedules"
+              checked={
+                selection.allSelected ? true : selection.someSelected ? 'indeterminate' : false
+              }
+              onCheckedChange={(value) => selection.onToggleSelectAll(value === true)}
+              className="bg-card"
+            />
+          ),
+          cell: ({ row }) => (
+            <Checkbox
+              aria-label={`Select ${row.original.name}`}
+              checked={selection.selectedIds.has(row.original.id)}
+              onCheckedChange={(value) => selection.onToggleSelect(row.original.id, value === true)}
+              className="bg-card"
+            />
+          ),
+        },
+      ]
+    : [];
+
   return [
+    ...selectColumn,
     {
       id: 'name',
       header: 'Name',
@@ -81,6 +122,8 @@ function scheduleColumns(
         const href = `/w/${workspaceId}/p/${projectId}/schedule?scheduleId=${schedule.id}`;
         const lockLabel =
           schedule.lock === null ? null : `Being edited by ${schedule.lock.userName}`;
+        const folderName =
+          schedule.folderId !== null ? folderNamesById?.get(schedule.folderId) : undefined;
         return (
           <div className="flex min-w-0 items-center gap-2">
             <Link
@@ -106,6 +149,12 @@ function scheduleColumns(
                 </TooltipTrigger>
                 <TooltipContent sideOffset={6}>{lockLabel}</TooltipContent>
               </Tooltip>
+            )}
+            {folderName !== undefined && (
+              <span className={FOLDER_BADGE_CLASSES}>
+                <FolderIcon className="size-3" aria-hidden="true" />
+                <span className="max-w-28 truncate">{folderName}</span>
+              </span>
             )}
             {schedule.archivedAt !== null && (
               <span className={ARCHIVED_BADGE_CLASSES}>Archived</span>
@@ -239,36 +288,99 @@ function NoSchedules({
 }
 
 /**
- * The project's schedules in `listSchedules` order (spec §6.3), archived ones only with
- * `showArchived`; archived rows are muted, with an "Archived" badge after the name. Rows have no
- * link until the schedule editor exists (P4).
+ * The project's schedules table (spec §6.3, P4 §7.1, P4 later §7.2): supports optional
+ * pre-filtered rows, multi-row checkbox selection for editors/owners, and folder pills.
  */
 export function SchedulesTable({
   project,
   workspace,
   showArchived,
+  schedulesOverride,
+  folderNamesById,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
+  hasActiveFilter = false,
+  onClearFilters,
   renderMenu,
 }: {
   project: ProjectSummary;
   workspace: WorkspaceSummary;
   showArchived: boolean;
+  schedulesOverride?: readonly Schedule[];
+  folderNamesById?: ReadonlyMap<ID, string>;
+  selectedIds?: ReadonlySet<ID>;
+  onToggleSelect?(scheduleId: ID, checked: boolean): void;
+  onToggleSelectAll?(checked: boolean): void;
+  hasActiveFilter?: boolean;
+  onClearFilters?(): void;
   renderMenu?: RenderMenu;
 }): ReactElement {
   const now = useNow(60_000);
   const schedules = useProjectSchedules(project.id);
   const all = schedules.data ?? NO_SCHEDULES;
-  const columns = useMemo(
-    () => scheduleColumns(now, all, workspace.id, project.id, renderMenu),
-    [now, all, workspace.id, project.id, renderMenu],
-  );
   const rows = useMemo(
-    () => (showArchived ? all : all.filter((schedule) => schedule.archivedAt === null)),
-    [all, showArchived],
+    () =>
+      schedulesOverride ??
+      (showArchived ? all : all.filter((schedule) => schedule.archivedAt === null)),
+    [all, schedulesOverride, showArchived],
+  );
+
+  const selection = useMemo<SelectionConfig | undefined>(() => {
+    if (!canEdit(workspace) || !selectedIds || !onToggleSelect || !onToggleSelectAll) {
+      return undefined;
+    }
+    const selectedCount = rows.filter((s) => selectedIds.has(s.id)).length;
+    return {
+      selectedIds,
+      allSelected: rows.length > 0 && selectedCount === rows.length,
+      someSelected: selectedCount > 0 && selectedCount < rows.length,
+      onToggleSelect,
+      onToggleSelectAll,
+    };
+  }, [workspace, selectedIds, onToggleSelect, onToggleSelectAll, rows]);
+
+  const columns = useMemo(
+    () =>
+      scheduleColumns(
+        now,
+        all,
+        workspace.id,
+        project.id,
+        renderMenu,
+        selection,
+        folderNamesById,
+      ),
+    [now, all, workspace.id, project.id, renderMenu, selection, folderNamesById],
   );
 
   // A failed background refetch keeps the cached list on screen.
   let state: 'loading' | 'error' | 'ready' = 'ready';
   if (schedules.data === undefined) state = schedules.isError ? 'error' : 'loading';
+
+  const emptyState =
+    hasActiveFilter && all.length > 0 ? (
+      <EmptyState
+        icon={ChartGantt}
+        title="No matching schedules"
+        description="Try another folder, search term or filter."
+        action={
+          onClearFilters ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClearFilters}
+              className="border-input bg-card dark:bg-card"
+            >
+              Clear filters
+            </Button>
+          ) : undefined
+        }
+      />
+    ) : (
+      <NoSchedules project={project} editable={canEdit(workspace)} />
+    );
 
   return (
     <DataTable
@@ -279,7 +391,7 @@ export function SchedulesTable({
       state={state}
       error={schedules.error}
       onRetry={() => void schedules.refetch()}
-      empty={<NoSchedules project={project} editable={canEdit(workspace)} />}
+      empty={emptyState}
       rowClassName={(schedule) =>
         schedule.archivedAt === null ? undefined : 'text-muted-foreground'
       }

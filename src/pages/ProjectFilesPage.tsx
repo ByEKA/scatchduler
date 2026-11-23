@@ -1,5 +1,5 @@
 import { FileUp, Info, Pencil, Plus } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { PAGE_HEADING_CLASSES } from '@/components/common/PlaceholderPage';
@@ -7,16 +7,26 @@ import { SectionError } from '@/components/common/SectionError';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { FOCUS_OUTLINE_CLASSES } from '@/components/layout/top-bar-parts';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { ProjectSummary, WorkspaceSummary } from '@/data/types';
+import type { ID, ProjectSummary, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import { BulkSchedulesBar } from '@/features/files/BulkSchedulesBar';
+import {
+  filterAndSortSchedules,
+  hasActiveFilesFilters,
+  readFilesView,
+  withFilesViewParams,
+  type FilesView,
+} from '@/features/files/files-list';
+import { FilesToolbar } from '@/features/files/FilesToolbar';
+import { FolderSidebar } from '@/features/files/FolderSidebar';
 import { ScheduleMenu } from '@/features/files/ScheduleMenu';
 import { SchedulesTable } from '@/features/files/SchedulesTable';
 import { canEdit, VIEWER_HINT } from '@/features/workspaces/roles';
+import { useProjectFolders } from '@/hooks/useFolders';
 import { useProject } from '@/hooks/useProjects';
+import { useProjectSchedules } from '@/hooks/useProjectSchedules';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { coverFor } from '@/lib/cover';
 import { isNotFoundError, shortDate } from '@/lib/format';
@@ -236,48 +246,76 @@ function ProjectCounters({ project }: { project: ProjectSummary }): ReactElement
   );
 }
 
-/** "Show archived"; the page keeps it in the URL as `archived=1`. */
-function ArchivedToggle({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange(checked: boolean): void;
-}): ReactElement {
-  const id = useId();
-  return (
-    <div className="flex items-center gap-2">
-      <Checkbox
-        id={id}
-        checked={checked}
-        onCheckedChange={(value) => onChange(value === true)}
-        className="bg-card"
-      />
-      <Label htmlFor={id} className="text-sm font-normal">
-        Show archived
-      </Label>
-    </div>
-  );
-}
-
 /**
- * A project's files (spec §6.3): the header, the counters, "Show archived" and the schedules.
- * An unknown project, another workspace's, or one seen only through a share (its workspace isn't
- * one of mine) shows Not found; a failed read shows Retry instead.
+ * A project's files (spec §6.3, P4 later §7.2): header, counters, hierarchical folder sidebar,
+ * search/tag/sort toolbar, bulk action bar, and schedules table.
  */
 export function ProjectFilesPage(): ReactElement {
   const { workspaceId, projectId } = useParams();
   const workspaces = useWorkspaces();
   const projectQuery = useProject(workspaceId, projectId);
+  const schedulesQuery = useProjectSchedules(projectId);
+  const foldersQuery = useProjectFolders(projectId);
   const [searchParams, setSearchParams] = useSearchParams();
-  const urlShowArchived = searchParams.get('archived') === '1';
-  // React Router applies search-param updates inside a transition, so keep the checkbox's
-  // immediate choice until the URL catches up (as ProjectsToolbar does for search).
-  const [pendingArchived, setPendingArchived] = useState<boolean | null>(null);
-  if (pendingArchived !== null && pendingArchived === urlShowArchived) {
-    setPendingArchived(null);
-  }
-  const showArchived = pendingArchived ?? urlShowArchived;
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<ID>>(() => new Set());
+
+  const view = useMemo(() => readFilesView(searchParams), [searchParams]);
+  const allSchedules = useMemo(() => schedulesQuery.data ?? [], [schedulesQuery.data]);
+  const folders = useMemo(() => foldersQuery.data ?? [], [foldersQuery.data]);
+  const folderNamesById = useMemo(
+    () => new Map(folders.map((folder) => [folder.id, folder.name])),
+    [folders],
+  );
+
+  // Schedules shown in folder counts respect the "Show archived" setting.
+  const schedulesForFolderCounts = useMemo(
+    () => (view.archived ? allSchedules : allSchedules.filter((s) => s.archivedAt === null)),
+    [allSchedules, view.archived],
+  );
+  const visibleSchedules = useMemo(
+    () => filterAndSortSchedules(allSchedules, view),
+    [allSchedules, view],
+  );
+
+  const selectedSchedules = useMemo(
+    () => visibleSchedules.filter((s) => selectedIds.has(s.id)),
+    [visibleSchedules, selectedIds],
+  );
+
+  const updateView = useCallback(
+    (patch: Partial<FilesView>) => {
+      setSearchParams((prev) => withFilesViewParams(prev, patch), { replace: true });
+    },
+    [setSearchParams],
+  );
+
+  const clearFilters = useCallback(() => {
+    updateView({ folder: 'all', q: '', tag: 'all', sort: 'default' });
+  }, [updateView]);
+
+  const handleToggleSelect = useCallback((scheduleId: ID, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(scheduleId);
+      else next.delete(scheduleId);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAll = useCallback(
+    (checked: boolean) => {
+      if (!checked) {
+        setSelectedIds(new Set());
+        return;
+      }
+      setSelectedIds(new Set(visibleSchedules.map((s) => s.id)));
+    },
+    [visibleSchedules],
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
 
   if (workspaceId === undefined || projectId === undefined) return <NotFoundPage />;
   const project = projectQuery.data;
@@ -308,32 +346,60 @@ export function ProjectFilesPage(): ReactElement {
   }
   if (project === undefined || workspace === undefined) return <LoadingHeader />;
 
-  function setShowArchived(show: boolean): void {
-    setPendingArchived(show);
-    const next = new URLSearchParams(searchParams);
-    if (show) next.set('archived', '1');
-    else next.delete('archived');
-    setSearchParams(next, { replace: true });
-  }
+  const editable = canEdit(workspace);
 
   return (
     <div className="flex flex-col gap-4">
       <ProjectHeader project={project} workspace={workspace} />
       <ProjectCounters project={project} />
-      <ArchivedToggle checked={showArchived} onChange={setShowArchived} />
-      <SchedulesTable
-        project={project}
-        workspace={workspace}
-        showArchived={showArchived}
-        renderMenu={(schedule, schedules) => (
-          <ScheduleMenu
-            schedule={schedule}
-            schedules={schedules}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        <FolderSidebar
+          projectId={project.id}
+          workspace={workspace}
+          schedules={schedulesForFolderCounts}
+          selectedFolder={view.folder}
+          onSelectFolder={(folder) => {
+            clearSelection();
+            updateView({ folder });
+          }}
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <FilesToolbar
+            view={view}
+            onUpdateView={updateView}
+            onClearFilters={clearFilters}
+          />
+          {editable && (
+            <BulkSchedulesBar
+              selectedSchedules={selectedSchedules}
+              allProjectSchedules={allSchedules}
+              folders={folders}
+              workspace={workspace}
+              onClearSelection={clearSelection}
+            />
+          )}
+          <SchedulesTable
             project={project}
             workspace={workspace}
+            showArchived={view.archived}
+            schedulesOverride={visibleSchedules}
+            folderNamesById={view.folder === 'all' ? folderNamesById : undefined}
+            selectedIds={editable ? selectedIds : undefined}
+            onToggleSelect={editable ? handleToggleSelect : undefined}
+            onToggleSelectAll={editable ? handleToggleSelectAll : undefined}
+            hasActiveFilter={hasActiveFilesFilters(view)}
+            onClearFilters={clearFilters}
+            renderMenu={(schedule, schedules) => (
+              <ScheduleMenu
+                schedule={schedule}
+                schedules={schedules}
+                project={project}
+                workspace={workspace}
+              />
+            )}
           />
-        )}
-      />
+        </div>
+      </div>
     </div>
   );
 }
