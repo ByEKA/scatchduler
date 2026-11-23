@@ -3,6 +3,7 @@
 // error becomes a `RepositoryError` (P2 spec §8.4).
 import { RepositoryError } from '@/data/errors';
 import type {
+  CopyScheduleInput,
   DataRepository,
   ImportScheduleInput,
   MaterializeScheduleInput,
@@ -23,13 +24,15 @@ import {
   scheduleDataPath,
 } from '@/data/schedule-codec';
 import type { ScheduleDocument } from '@/data/schedule-types';
-import { compareMembers, compareWorkspaces } from '@/data/sort';
+import { compareMembers, compareNamed, compareWorkspaces } from '@/data/sort';
 import type { AppSupabaseClient } from '@/data/supabase/client';
 import type { Json } from '@/data/supabase/database.types';
 import { functionError, toRepositoryError } from '@/data/supabase/errors';
 import {
+  mapFolder,
   mapInvitation,
   mapMember,
+  mapProgram,
   mapProject,
   mapProjectSummary,
   mapScheduleItem,
@@ -170,48 +173,232 @@ export class SupabaseRepository implements DataRepository {
     });
   }
 
-  async listPrograms(): Promise<Program[]> {
-    return [];
+  async listPrograms(workspaceId: ID): Promise<Program[]> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('programs')
+        .select('*')
+        .eq('workspace_id', asUuid(workspaceId));
+      if (error) throw error;
+      return data.map(mapProgram).sort(compareNamed);
+    });
   }
 
-  async createProgram(): Promise<Program> {
-    throw new RepositoryError('unknown', 'Not implemented');
+  async createProgram(input: { workspaceId: ID; name: string }): Promise<Program> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('create_program', {
+        p_workspace_id: asUuid(input.workspaceId),
+        p_name: input.name,
+      });
+      if (error) throw error;
+      const row = data[0];
+      if (!row) throw new RepositoryError('unknown', 'Something went wrong. Please try again.');
+      return mapProgram(row);
+    });
   }
 
-  async renameProgram(): Promise<Program> {
-    throw new RepositoryError('unknown', 'Not implemented');
+  async renameProgram(input: { programId: ID; name: string }): Promise<Program> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('rename_program', {
+        p_program_id: asUuid(input.programId),
+        p_name: input.name,
+      });
+      if (error) throw error;
+      const row = data[0];
+      if (!row) throw new RepositoryError('unknown', 'Something went wrong. Please try again.');
+      return mapProgram(row);
+    });
   }
 
-  async deleteProgram(): Promise<void> {
-    throw new RepositoryError('unknown', 'Not implemented');
+  async deleteProgram(programId: ID): Promise<void> {
+    return this.run(async () => {
+      const { error } = await this.client.rpc('delete_program', {
+        p_program_id: asUuid(programId),
+      });
+      if (error) throw error;
+    });
   }
 
-  async listFolders(): Promise<Folder[]> {
-    return [];
+  async listFolders(projectId: ID): Promise<Folder[]> {
+    return this.run(async () => {
+      const { data, error } = await this.client
+        .from('folders')
+        .select('*')
+        .eq('project_id', asUuid(projectId));
+      if (error) throw error;
+      return data.map(mapFolder).sort(compareNamed);
+    });
   }
 
-  async createFolder(): Promise<Folder> {
-    throw new RepositoryError('unknown', 'Not implemented');
+  async createFolder(input: {
+    projectId: ID;
+    parentId?: ID | null;
+    name: string;
+  }): Promise<Folder> {
+    return this.run(async () => {
+      const parentId =
+        input.parentId === undefined || input.parentId === null ? null : asUuid(input.parentId);
+      const { data, error } = await this.client.rpc('create_folder', {
+        p_project_id: asUuid(input.projectId),
+        p_parent_id: parentId as string,
+        p_name: input.name,
+      });
+      if (error) throw error;
+      const row = data[0];
+      if (!row) throw new RepositoryError('unknown', 'Something went wrong. Please try again.');
+      return mapFolder(row);
+    });
   }
 
-  async renameFolder(): Promise<Folder> {
-    throw new RepositoryError('unknown', 'Not implemented');
+  async renameFolder(input: { folderId: ID; name: string }): Promise<Folder> {
+    return this.run(async () => {
+      const { data, error } = await this.client.rpc('rename_folder', {
+        p_folder_id: asUuid(input.folderId),
+        p_name: input.name,
+      });
+      if (error) throw error;
+      const row = data[0];
+      if (!row) throw new RepositoryError('unknown', 'Something went wrong. Please try again.');
+      return mapFolder(row);
+    });
   }
 
-  async deleteFolder(): Promise<void> {
-    throw new RepositoryError('unknown', 'Not implemented');
+  async deleteFolder(folderId: ID): Promise<void> {
+    return this.run(async () => {
+      const { error } = await this.client.rpc('delete_folder', {
+        p_folder_id: asUuid(folderId),
+      });
+      if (error) throw error;
+    });
   }
 
-  async moveSchedulesToFolder(): Promise<void> {
-    throw new RepositoryError('unknown', 'Not implemented');
+  async moveSchedulesToFolder(input: {
+    scheduleIds: ID[];
+    folderId: ID | null;
+  }): Promise<void> {
+    return this.run(async () => {
+      const folderId = input.folderId === null ? null : asUuid(input.folderId);
+      const { error } = await this.client.rpc('move_schedules_to_folder', {
+        p_schedule_ids: input.scheduleIds.map(asUuid),
+        p_folder_id: folderId as string,
+      });
+      if (error) throw error;
+    });
   }
 
-  async copySchedule(): Promise<Schedule> {
-    throw new RepositoryError('unknown', 'Not implemented');
+  async copySchedule(input: CopyScheduleInput): Promise<Schedule> {
+    return this.run(async () => {
+      const { data: source, error: sourceError } = await this.client
+        .from('schedules')
+        .select('id, project_id, source_file_path, source_format, data_file_path')
+        .eq('id', asUuid(input.scheduleId))
+        .maybeSingle();
+      if (sourceError) throw sourceError;
+      if (source === null) throw new RepositoryError('not_found', SCHEDULE_NOT_FOUND);
+      const project = await this.projectRef(source.project_id);
+
+      const newScheduleId = crypto.randomUUID();
+      let newSourcePath: string | null = null;
+      if (source.source_file_path !== null) {
+        const format = (source.source_format ?? 'xer') as ImportFormat;
+        newSourcePath = `${project.workspace_id}/${project.id}/${crypto.randomUUID()}.${STORED_SUFFIX[format]}`;
+        const copyImport = await this.client.storage
+          .from(IMPORTS)
+          .copy(source.source_file_path, newSourcePath);
+        if (copyImport.error) throw copyImport.error;
+      }
+
+      let newDataPath: string | null = null;
+      if (source.data_file_path !== null) {
+        newDataPath = scheduleDataPath(project.workspace_id, project.id, newScheduleId);
+        const copyData = await this.client.storage
+          .from(SCHEDULE_DATA_BUCKET)
+          .copy(source.data_file_path, newDataPath);
+        if (copyData.error) {
+          if (newSourcePath) await this.removeQuietly(IMPORTS, newSourcePath);
+          throw copyData.error;
+        }
+      }
+
+      const keepSourceFolder = input.folderId === undefined;
+      const targetFolderId =
+        input.folderId === undefined || input.folderId === null ? null : asUuid(input.folderId);
+      const { data, error } = await this.client.rpc('copy_schedule', {
+        p_schedule_id: source.id,
+        p_new_schedule_id: newScheduleId,
+        p_name: input.name,
+        p_code: input.code,
+        p_folder_id: targetFolderId as string,
+        p_keep_source_folder: keepSourceFolder,
+        p_source_file_path: newSourcePath as string,
+        p_data_file_path: newDataPath as string,
+      });
+      if (error) {
+        await Promise.all([
+          ...(newSourcePath ? [this.removeQuietly(IMPORTS, newSourcePath)] : []),
+          ...(newDataPath ? [this.removeQuietly(SCHEDULE_DATA_BUCKET, newDataPath)] : []),
+        ]);
+        throw error;
+      }
+      return this.scheduleItem(data);
+    });
   }
 
   async getLibraryData(): Promise<LibraryData> {
-    return { workspaces: [], projects: [], folders: [], schedules: [], sharedWithMe: [] };
+    return this.run(async () => {
+      const [wsRes, projRes, foldRes, schedRes, sharedWithMe] = await Promise.all([
+        this.client.from('workspace_summaries').select('*'),
+        this.client
+          .from('project_summaries')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true }),
+        this.client.from('folders').select('*'),
+        this.client
+          .from('schedule_items')
+          .select('*')
+          .order('status_date', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true }),
+        this.listSharedWithMe(),
+      ]);
+      if (wsRes.error) throw wsRes.error;
+      if (projRes.error) throw projRes.error;
+      if (foldRes.error) throw foldRes.error;
+      if (schedRes.error) throw schedRes.error;
+
+      const workspaces = wsRes.data.map(mapWorkspaceSummary).sort(compareWorkspaces);
+      const workspaceIds = new Set(workspaces.map((w) => w.id));
+      const memberProjectRows = projRes.data.filter(
+        (row) => row.workspace_id !== null && workspaceIds.has(row.workspace_id),
+      );
+      const paths = memberProjectRows.flatMap((row) =>
+        row.cover_image_path ? [row.cover_image_path] : [],
+      );
+      const urls = paths.length > 0 ? await this.signedUrls.urlsFor(COVERS, paths) : new Map();
+      const projects = memberProjectRows.map((row) =>
+        mapProjectSummary(
+          row,
+          row.cover_image_path ? (urls.get(row.cover_image_path) ?? null) : null,
+        ),
+      );
+      const projectIds = new Set(projects.map((p) => p.id));
+      const folders = foldRes.data
+        .map(mapFolder)
+        .filter((f) => projectIds.has(f.projectId))
+        .sort(compareNamed);
+      const schedules = schedRes.data
+        .map(mapScheduleItem)
+        .filter((s) => projectIds.has(s.projectId));
+
+      return {
+        workspaces,
+        projects,
+        folders,
+        schedules,
+        sharedWithMe,
+      };
+    });
   }
 
   listProjects(workspaceId: ID): Promise<ProjectSummary[]> {
@@ -350,6 +537,8 @@ export class SupabaseRepository implements DataRepository {
         .from('schedules')
         .insert({
           project_id: project.id,
+          folder_id:
+            input.folderId === undefined || input.folderId === null ? null : asUuid(input.folderId),
           name: input.name.trim(),
           code: input.code.trim(),
           source: 'blank',
@@ -393,6 +582,8 @@ export class SupabaseRepository implements DataRepository {
         .insert({
           id: scheduleId,
           project_id: project.id,
+          folder_id:
+            input.folderId === undefined || input.folderId === null ? null : asUuid(input.folderId),
           name: input.name.trim(),
           code: input.code.trim(),
           source: 'import',

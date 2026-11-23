@@ -157,13 +157,27 @@ export async function loadSeed(
     );
   }
 
-  // 4. Projects, schedules, shares and tasks.
+  // 4. Programs, projects, folders, schedules, shares and tasks.
+  if (db.programs.length > 0) {
+    check(
+      await admin.from('programs').insert(
+        db.programs.map((pr) => ({
+          id: pr.id,
+          workspace_id: workspaceId(pr.workspaceId),
+          name: pr.name,
+          created_at: pr.createdAt,
+        })),
+      ),
+      'inserting programs',
+    );
+  }
   if (db.projects.length > 0) {
     check(
       await admin.from('projects').insert(
         db.projects.map((p) => ({
           id: p.id,
           workspace_id: workspaceId(p.workspaceId),
+          program_id: p.programId,
           code: p.code,
           name: p.name,
           description: p.description,
@@ -190,6 +204,20 @@ export async function loadSeed(
       'inserting projects',
     );
   }
+  if (db.folders.length > 0) {
+    check(
+      await admin.from('folders').insert(
+        db.folders.map((f) => ({
+          id: f.id,
+          project_id: f.projectId,
+          parent_id: f.parentId,
+          name: f.name,
+          created_at: f.createdAt,
+        })),
+      ),
+      'inserting folders',
+    );
+  }
   // The insert trigger makes a project's first schedule current (R1) and ignores `is_current`, so
   // each project's current schedule goes in first, in a statement of its own. The admin client
   // skips the user guards; R5 and R6 hold for it too, and the seed already follows them.
@@ -213,6 +241,8 @@ export async function loadSeed(
   const scheduleRow = (s: (typeof db.schedules)[number]) => ({
     id: s.id,
     project_id: s.projectId,
+    folder_id: s.folderId,
+    copied_from_id: s.copiedFromId,
     name: s.name,
     code: s.code,
     notes: s.notes,

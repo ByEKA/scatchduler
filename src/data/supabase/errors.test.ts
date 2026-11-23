@@ -18,6 +18,16 @@ describe('toRepositoryError', () => {
       'This ID is already used in this workspace',
     ],
     [
+      pg('23505', 'duplicate key value violates unique constraint "programs_workspace_name_uq"'),
+      'conflict',
+      'A program with this name already exists.',
+    ],
+    [
+      pg('23505', 'duplicate key value violates unique constraint "folders_sibling_name_uq"'),
+      'conflict',
+      'A folder with this name already exists here.',
+    ],
+    [
       pg('23505', 'duplicate key value violates unique constraint "schedules_project_code_uq"'),
       'conflict',
       'This code is already used in this project.',
