@@ -11,6 +11,7 @@ function summary(code: string, patch: Partial<ProjectSummary> = {}): ProjectSumm
   const project = db.projects.find((p) => p.code === code)!;
   return {
     ...project,
+    programName: null,
     scheduleCount: db.schedules.filter((s) => s.projectId === project.id).length,
     totalScheduleCount: db.schedules.filter((s) => s.projectId === project.id).length,
     currentSchedule: null,

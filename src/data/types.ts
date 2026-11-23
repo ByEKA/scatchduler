@@ -96,9 +96,25 @@ export interface ProjectLocation {
   longitude: number | null;
 }
 
+export interface Program {
+  id: ID;
+  workspaceId: ID;
+  name: string;
+  createdAt: ISODateTime;
+}
+
+export interface Folder {
+  id: ID;
+  projectId: ID;
+  parentId: ID | null;
+  name: string;
+  createdAt: ISODateTime;
+}
+
 export interface Project {
   id: ID;
   workspaceId: ID;
+  programId: ID | null;
   code: string; // user-facing "Project ID", unique per workspace (case-insensitive)
   name: string;
   description: string | null;
@@ -112,6 +128,7 @@ export interface Project {
 }
 
 export interface ProjectSummary extends Project {
+  programName: string | null;
   scheduleCount: number; // schedules that aren't archived
   totalScheduleCount: number; // archived included (the Delete project dialog)
   currentSchedule: { id: ID; name: string } | null;
@@ -136,6 +153,8 @@ export interface ScheduleLock {
 export interface Schedule {
   id: ID;
   projectId: ID;
+  folderId: ID | null;
+  copiedFromId: ID | null;
   name: string;
   code: string | null; // required from Phase 3 core on (R8); P2-era rows null until edited
   notes: string | null;
@@ -168,6 +187,14 @@ export interface SharedScheduleRow {
   workspaceId: ID;
   sharedBy: Pick<User, 'id' | 'firstName' | 'lastName' | 'avatarUrl'>;
   sharedAt: ISODateTime;
+}
+
+export interface LibraryData {
+  workspaces: WorkspaceSummary[];
+  projects: ProjectSummary[];
+  folders: Folder[];
+  schedules: Schedule[];
+  sharedWithMe: SharedScheduleRow[];
 }
 
 export interface Task {

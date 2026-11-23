@@ -58,6 +58,7 @@ const DATE_FIELDS = [
 
 // Read only, these are disabled (the selects and the photo's drop area), so they can't take focus.
 const DISABLED_WHEN_READ_ONLY: ReadonlySet<FieldName> = new Set<FieldName>([
+  'programId',
   'status',
   'stage',
   'projectType',
@@ -377,6 +378,7 @@ export function NewProjectWizard({ mode = CREATE_MODE }: { mode?: WizardMode }):
           {step === 0 && (
             <DetailsStep
               codeCheck={codeCheck}
+              workspaceId={workspaceId}
               currentCoverUrl={edited?.coverImageUrl ?? null}
               readOnly={readOnly}
             />

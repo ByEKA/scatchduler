@@ -1,21 +1,52 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { FolderKanban, Plus, SearchX, UserCog } from 'lucide-react';
-import { useMemo } from 'react';
+import {
+  ChevronDown,
+  ChevronRight,
+  FolderKanban,
+  Layers,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  SearchX,
+  Trash2,
+  UserCog,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { useParams, useSearchParams } from 'react-router';
+import { toast } from 'sonner';
 import { DataTable, type DataTableRowLink } from '@/components/common/DataTable';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PAGE_HEADING_CLASSES } from '@/components/common/PlaceholderPage';
 import { SectionError } from '@/components/common/SectionError';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { FOCUS_OUTLINE_CLASSES } from '@/components/layout/top-bar-parts';
+import { FOCUS_OUTLINE_CLASSES, MENU_ITEM_FOCUS_CLASSES } from '@/components/layout/top-bar-parts';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { ProjectSummary, WorkspaceSummary } from '@/data/types';
+import type { ID, Program, ProjectSummary, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
 import { ProjectCard, ProjectCardSkeleton } from '@/features/home/ProjectCard';
+import { ProgramDialog, type ProgramDialogTarget } from '@/features/projects/ProgramDialog';
 import { ProjectMenu } from '@/features/projects/ProjectMenu';
+import { ProjectsMap } from '@/features/projects/ProjectsMap';
 import { ProjectsToolbar } from '@/features/projects/ProjectsToolbar';
 import {
   filterProjects,
@@ -23,17 +54,18 @@ import {
   sortProjects,
   withoutFilters,
 } from '@/features/projects/project-list';
-import { canEdit, VIEWER_HINT } from '@/features/workspaces/roles';
+import { canEdit, isOwner, VIEWER_HINT } from '@/features/workspaces/roles';
+import { useDeleteProgram, useWorkspacePrograms } from '@/hooks/usePrograms';
 import { useWorkspaceProjects } from '@/hooks/useProjects';
-import { useProjectsLayout } from '@/hooks/useProjectsLayout';
+import { useProjectsLayout, type ProjectsLayout } from '@/hooks/useProjectsLayout';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
-import { pluralize, shortDate } from '@/lib/format';
+import { errorMessage, pluralize, shortDate } from '@/lib/format';
 import { optionLabel, PROJECT_TYPE_OPTIONS, STAGE_OPTIONS } from '@/lib/project-options';
 import { cn } from '@/lib/utils';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 const TILE_GRID_CLASSES = 'grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4';
-
+const MENU_ITEM_CLASSES = cn('h-8 py-0', MENU_ITEM_FOCUS_CLASSES);
 const TILE_SKELETON_COUNT = 4;
 
 const LINK_BUTTON_CLASSES = cn(
@@ -151,9 +183,16 @@ function NewProjectButton({ disabled }: { disabled: boolean }): ReactElement {
   );
 }
 
-/** "Members" (team workspaces only) and "+ New project". */
-function HeaderActions({ workspace }: { workspace: WorkspaceSummary }): ReactElement {
+/** "Members" (team workspaces only), "+ New program" (editors/owners) and "+ New project". */
+function HeaderActions({
+  workspace,
+  onNewProgram,
+}: {
+  workspace: WorkspaceSummary;
+  onNewProgram(): void;
+}): ReactElement {
   const { openDialog } = useDialogs();
+  const editable = canEdit(workspace);
   return (
     <div className="flex flex-wrap items-center gap-2">
       {workspace.kind === 'team' && (
@@ -168,7 +207,19 @@ function HeaderActions({ workspace }: { workspace: WorkspaceSummary }): ReactEle
           Members
         </Button>
       )}
-      <NewProjectButton disabled={!canEdit(workspace)} />
+      {editable && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onNewProgram}
+          className="border-input bg-card dark:bg-card"
+        >
+          <Layers aria-hidden="true" />
+          New program
+        </Button>
+      )}
+      <NewProjectButton disabled={!editable} />
     </div>
   );
 }
@@ -297,23 +348,175 @@ function List({ state }: { state: ContentState }): ReactElement {
 
 const NO_PROJECTS: readonly ProjectSummary[] = [];
 
-/** The workspace's projects, filtered and sorted as the URL asks (spec §6.2). */
+function GroupedByProgram({
+  state,
+  layout,
+  programs,
+  hasActiveFilters,
+  onRenameProgram,
+  onDeleteProgram,
+}: {
+  state: ContentState;
+  layout: ProjectsLayout;
+  programs: readonly Program[];
+  hasActiveFilters: boolean;
+  onRenameProgram(program: Program): void;
+  onDeleteProgram(program: Program): void;
+}): ReactElement {
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+
+  if (state.kind !== 'ready') {
+    return layout === 'list' ? <List state={state} /> : <Tiles state={state} />;
+  }
+
+  if (state.projects.length === 0 && (hasActiveFilters || programs.length === 0)) {
+    return <div className="py-12">{state.empty}</div>;
+  }
+
+  const editable = canEdit(state.workspace);
+  const owner = isOwner(state.workspace);
+  const projectsByProgram = new Map<ID | null, ProjectSummary[]>();
+  for (const project of state.projects) {
+    const bucket = projectsByProgram.get(project.programId) ?? [];
+    bucket.push(project);
+    projectsByProgram.set(project.programId, bucket);
+  }
+
+  const sections: Array<{ key: string; program: Program | null; label: string; projects: ProjectSummary[] }> = [];
+  for (const program of programs) {
+    const list = projectsByProgram.get(program.id) ?? [];
+    if (list.length > 0 || !hasActiveFilters) {
+      sections.push({ key: program.id, program, label: program.name, projects: list });
+    }
+  }
+  const unassigned = projectsByProgram.get(null) ?? [];
+  if (unassigned.length > 0) {
+    sections.push({ key: '__none__', program: null, label: 'No program', projects: unassigned });
+  }
+
+  const toggle = (key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      {sections.map(({ key, program, label, projects: sectionProjects }) => {
+        const isCollapsed = collapsed.has(key);
+        const sectionState: ContentState = {
+          kind: 'ready',
+          workspace: state.workspace,
+          projects: sectionProjects,
+          empty: (
+            <p className="text-sm text-muted-foreground">No projects in this program yet.</p>
+          ),
+        };
+        return (
+          <section key={key} aria-label={label} className="flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                aria-expanded={!isCollapsed}
+                onClick={() => toggle(key)}
+                className={cn(
+                  'flex items-center gap-2 rounded-md px-1 py-0.5 text-left hover:text-foreground',
+                  FOCUS_OUTLINE_CLASSES,
+                )}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+                ) : (
+                  <ChevronDown className="size-4 text-muted-foreground" aria-hidden="true" />
+                )}
+                <Layers className="size-4 text-muted-foreground" aria-hidden="true" />
+                <h2 className="text-sm font-semibold">{label}</h2>
+                <span className="text-xs text-muted-foreground">
+                  · {pluralize(sectionProjects.length, 'project')}
+                </span>
+              </button>
+
+              {program !== null && editable && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={`Manage program ${program.name}`}
+                      className={cn(
+                        'flex size-7 items-center justify-center rounded-md bg-card text-muted-foreground ring-1 ring-edge hover:bg-accent hover:text-foreground',
+                        FOCUS_OUTLINE_CLASSES,
+                      )}
+                    >
+                      <MoreHorizontal className="size-4" aria-hidden="true" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      className={MENU_ITEM_CLASSES}
+                      onSelect={() => onRenameProgram(program)}
+                    >
+                      <Pencil className="size-3.5" aria-hidden="true" />
+                      Rename program…
+                    </DropdownMenuItem>
+                    {owner && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          className={MENU_ITEM_CLASSES}
+                          onSelect={() => onDeleteProgram(program)}
+                        >
+                          <Trash2 className="size-3.5" aria-hidden="true" />
+                          Delete program…
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+
+            {!isCollapsed &&
+              (sectionProjects.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border bg-card/50 px-4 py-6 text-center text-sm text-muted-foreground">
+                  No projects assigned to this program yet.
+                </div>
+              ) : layout === 'list' ? (
+                <List state={sectionState} />
+              ) : (
+                <Tiles state={sectionState} />
+              ))}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/** The workspace's projects, filtered and sorted as the URL asks (spec §6.2, P4 later §7.3). */
 export function ProjectsPage(): ReactElement {
   const { workspaceId } = useParams();
   const workspaces = useWorkspaces();
   const workspace = workspaces.data?.find((item) => item.id === workspaceId);
   // Only a workspace of mine has projects to list, so an unknown id never asks for them.
   const projects = useWorkspaceProjects(workspace?.id);
+  const programs = useWorkspacePrograms(workspace?.id);
+  const deleteProgram = useDeleteProgram();
   const [layout, setLayout] = useProjectsLayout();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { q, status, stage, sort } = readProjectsView(searchParams);
+  const [programDialogTarget, setProgramDialogTarget] = useState<ProgramDialogTarget | null>(null);
+  const [deletingProgram, setDeletingProgram] = useState<Program | null>(null);
+  const { q, status, stage, sort, group } = readProjectsView(searchParams);
 
   const visible = useMemo(
     () =>
       projects.data === undefined
         ? undefined
-        : sortProjects(filterProjects(projects.data, { q, status, stage, sort }), sort),
-    [projects.data, q, status, stage, sort],
+        : sortProjects(filterProjects(projects.data, { q, status, stage, sort, group }), sort),
+    [projects.data, q, status, stage, sort, group],
   );
 
   // An unknown workspace, or one that isn't mine, once the list of mine has loaded.
@@ -321,6 +524,17 @@ export function ProjectsPage(): ReactElement {
 
   function clearFilters(): void {
     setSearchParams(withoutFilters(searchParams), { replace: true });
+  }
+
+  async function handleConfirmDeleteProgram(): Promise<void> {
+    if (!deletingProgram) return;
+    try {
+      await deleteProgram.mutateAsync(deletingProgram.id);
+      toast.success('Program deleted');
+      setDeletingProgram(null);
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
   }
 
   // A failed background refetch keeps the cached lists on screen.
@@ -343,6 +557,8 @@ export function ProjectsPage(): ReactElement {
     state = { kind: 'ready', workspace, projects: visible, empty };
   }
 
+  const hasActiveFilters = q.trim() !== '' || status !== null || stage !== null;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -361,10 +577,80 @@ export function ProjectsPage(): ReactElement {
             loading={state.kind === 'loading'}
           />
         </div>
-        {workspace !== undefined && <HeaderActions workspace={workspace} />}
+        {workspace !== undefined && (
+          <HeaderActions
+            workspace={workspace}
+            onNewProgram={() =>
+              setProgramDialogTarget({ mode: 'create', workspaceId: workspace.id })
+            }
+          />
+        )}
       </div>
       <ProjectsToolbar layout={layout} onLayoutChange={setLayout} />
-      {layout === 'list' ? <List state={state} /> : <Tiles state={state} />}
+      {layout === 'map' ? (
+        state.kind === 'loading' ? (
+          <Skeleton aria-hidden="true" className="h-[460px] w-full rounded-lg" />
+        ) : state.kind === 'error' ? (
+          <SectionError
+            error={state.error}
+            onRetry={state.retry}
+            className="min-h-[260px] rounded-lg bg-card ring-1 ring-edge"
+          />
+        ) : state.projects.length === 0 ? (
+          <div className="py-12">{state.empty}</div>
+        ) : (
+          <ProjectsMap projects={state.projects} workspace={state.workspace} />
+        )
+      ) : group === 'program' ? (
+        <GroupedByProgram
+          state={state}
+          layout={layout}
+          programs={programs.data ?? []}
+          hasActiveFilters={hasActiveFilters}
+          onRenameProgram={(program) => setProgramDialogTarget({ mode: 'rename', program })}
+          onDeleteProgram={(program) => setDeletingProgram(program)}
+        />
+      ) : layout === 'list' ? (
+        <List state={state} />
+      ) : (
+        <Tiles state={state} />
+      )}
+
+      {programDialogTarget !== null && (
+        <ProgramDialog
+          target={programDialogTarget}
+          onClose={() => setProgramDialogTarget(null)}
+        />
+      )}
+
+      <AlertDialog
+        open={deletingProgram !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingProgram(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {deletingProgram ? `Delete ${deletingProgram.name}?` : 'Delete program?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Projects in this program will stay in the workspace under No program.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                void handleConfirmDeleteProgram();
+              }}
+            >
+              Delete program
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

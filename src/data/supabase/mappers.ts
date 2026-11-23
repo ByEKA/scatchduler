@@ -5,9 +5,11 @@ import type { NewProjectInput, UpdateProjectInput } from '@/data/repository';
 import type { Database } from '@/data/supabase/database.types';
 import type {
   BaselineFlag,
+  Folder,
   ISODateTime,
   ImportFormat,
   Plan,
+  Program,
   Project,
   ProjectSector,
   ProjectStage,
@@ -35,6 +37,8 @@ type ProfileRow = Tables['profiles']['Row'];
 type SubscriptionRow = Tables['subscriptions']['Row'];
 type WorkspaceRow = Tables['workspaces']['Row'];
 type WorkspaceSummaryRow = Views['workspace_summaries']['Row'];
+type ProgramRow = Tables['programs']['Row'];
+type FolderRow = Tables['folders']['Row'];
 type ProjectRow = Tables['projects']['Row'];
 type ProjectSummaryRow = Views['project_summaries']['Row'];
 type ScheduleItemRow = Views['schedule_items']['Row'];
@@ -103,17 +107,41 @@ export function mapWorkspaceSummary(row: WorkspaceSummaryRow): WorkspaceSummary 
   };
 }
 
+export function mapProgram(row: ProgramRow): Program {
+  return {
+    id: row.id,
+    workspaceId: row.workspace_id,
+    name: row.name,
+    createdAt: toIso(row.created_at),
+  };
+}
+
+export function mapFolder(row: FolderRow): Folder {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    parentId: row.parent_id,
+    name: row.name,
+    createdAt: toIso(row.created_at),
+  };
+}
+
 // A `projects` row fits this shape too, so both project mappers share one conversion.
 function projectFrom(
   row: Omit<
     ProjectSummaryRow,
-    'schedule_count' | 'total_schedule_count' | 'current_schedule_id' | 'current_schedule_name'
+    | 'schedule_count'
+    | 'total_schedule_count'
+    | 'current_schedule_id'
+    | 'current_schedule_name'
+    | 'program_name'
   >,
   coverUrl: string | null,
 ): Project {
   return {
     id: need(row.id, 'id'),
     workspaceId: need(row.workspace_id, 'workspace_id'),
+    programId: row.program_id ?? null,
     code: need(row.code, 'code'),
     name: need(row.name, 'name'),
     description: row.description,
@@ -152,6 +180,7 @@ export function mapProjectSummary(row: ProjectSummaryRow, coverUrl: string | nul
   const { current_schedule_id: currentId, current_schedule_name: currentName } = row;
   return {
     ...projectFrom(row, coverUrl),
+    programName: row.program_name ?? null,
     scheduleCount: need(row.schedule_count, 'schedule_count'),
     totalScheduleCount: need(row.total_schedule_count, 'total_schedule_count'),
     currentSchedule:
@@ -173,6 +202,8 @@ export function mapScheduleItem(row: ScheduleItemRow): Schedule {
   return {
     id: need(row.id, 'id'),
     projectId: need(row.project_id, 'project_id'),
+    folderId: row.folder_id ?? null,
+    copiedFromId: row.copied_from_id ?? null,
     name: need(row.name, 'name'),
     code: row.code,
     notes: row.notes,
@@ -301,12 +332,14 @@ function projectColumns(
 
 /** The `projects` insert for the form input: text trimmed, empty text stored as `null`. */
 export function toProjectInsert(input: NewProjectInput, coverPath: string | null): ProjectInsert {
-  return {
+  const insert: ProjectInsert = {
     workspace_id: input.workspaceId,
     ...projectColumns(input),
     cover_image_path: coverPath,
     status_date: optionalText(input.statusDate),
   };
+  if (input.programId !== undefined) insert.program_id = input.programId;
+  return insert;
 }
 
 /**
@@ -321,5 +354,6 @@ export function toProjectUpdate(
   const update: ProjectUpdate = projectColumns(input);
   if (input.statusDate !== undefined) update.status_date = optionalText(input.statusDate);
   if (coverPath !== undefined) update.cover_image_path = coverPath;
+  if (input.programId !== undefined) update.program_id = input.programId;
   return update;
 }

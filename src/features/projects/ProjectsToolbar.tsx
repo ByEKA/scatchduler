@@ -1,4 +1,4 @@
-import { LayoutGrid, List, ListFilter, Search } from 'lucide-react';
+import { Layers, LayoutGrid, List, ListFilter, Map as MapIcon, Search } from 'lucide-react';
 import { Popover as PopoverPrimitive, Select as SelectPrimitive } from 'radix-ui';
 import { useId, useState } from 'react';
 import type { ReactElement } from 'react';
@@ -230,6 +230,17 @@ export function ProjectsToolbar({
             if (isOptionValue(PROJECT_SORT_OPTIONS, value)) setParam('sort', value);
           }}
         />
+        <Button
+          type="button"
+          variant={view.group === 'program' ? 'secondary' : 'outline'}
+          size="sm"
+          aria-pressed={view.group === 'program'}
+          onClick={() => setParam('group', view.group === 'program' ? null : 'program')}
+          className={cn(view.group !== 'program' && 'border-input bg-card dark:bg-card')}
+        >
+          <Layers aria-hidden="true" />
+          Group by program
+        </Button>
         <ToggleGroup
           type="single"
           variant="outline"
@@ -238,7 +249,7 @@ export function ProjectsToolbar({
           value={layout}
           // A click on the pressed item would leave none pressed; the layout stays as it is.
           onValueChange={(value) => {
-            if (value === 'tiles' || value === 'list') onLayoutChange(value);
+            if (value === 'tiles' || value === 'list' || value === 'map') onLayoutChange(value);
           }}
           className="bg-card md:ml-auto"
         >
@@ -249,6 +260,10 @@ export function ProjectsToolbar({
           <ToggleGroupItem value="list" className={LAYOUT_ITEM_CLASSES}>
             <List aria-hidden="true" />
             <span className="max-sm:sr-only">List</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="map" className={LAYOUT_ITEM_CLASSES}>
+            <MapIcon aria-hidden="true" />
+            <span className="max-sm:sr-only">Map</span>
           </ToggleGroupItem>
         </ToggleGroup>
       </div>

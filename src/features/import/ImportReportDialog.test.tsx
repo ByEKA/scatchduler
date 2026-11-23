@@ -47,13 +47,15 @@ describe('ImportReportDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('downloads the report as CSV and as JSON', async () => {
+  it('downloads the report as CSV, Excel and JSON', async () => {
     const { user } = await openReport();
     await user.click(await screen.findByRole('button', { name: 'Download CSV' }));
+    await user.click(screen.getByRole('button', { name: 'Download Excel' }));
     await user.click(screen.getByRole('button', { name: 'Download JSON' }));
     await vi.waitFor(() =>
       expect(vi.mocked(saveFile).mock.calls.map(([, name]) => name)).toEqual([
         'North Plant - import report.csv',
+        'North Plant - import report.xlsx',
         'North Plant - import report.json',
       ]),
     );

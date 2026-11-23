@@ -1,6 +1,10 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { computeZoomToFit, hitTestBar } from '@/features/schedule/gantt/hit-test';
+import {
+  computeZoomToFit,
+  hitTestBar,
+  hitTestGanttTarget,
+} from '@/features/schedule/gantt/hit-test';
 import { GANTT_ROW_HEIGHT, type GanttRow } from '@/features/schedule/gantt/renderer';
 import { createTimescale } from '@/features/schedule/gantt/timescale';
 import { civilDaysFromYmd, MINUTES_PER_DAY } from '@/lib/civil-date';
@@ -15,7 +19,7 @@ describe('Gantt hit-test and zoom-to-fit', () => {
       activityType: 'task',
       start: origin + 2 * MINUTES_PER_DAY,
       finish: origin + 7 * MINUTES_PER_DAY,
-      progressFinish: null,
+      progressFinish: origin + 4 * MINUTES_PER_DAY,
       isCritical: false,
       isNearCritical: false,
       label: 'Excavation',
@@ -30,6 +34,17 @@ describe('Gantt hit-test and zoom-to-fit', () => {
       isCritical: true,
       isNearCritical: false,
       label: 'Handover',
+    },
+    {
+      key: 'wbs:w1',
+      kind: 'wbs',
+      activityType: null,
+      start: origin + 2 * MINUTES_PER_DAY,
+      finish: origin + 7 * MINUTES_PER_DAY,
+      progressFinish: null,
+      isCritical: false,
+      isNearCritical: false,
+      label: 'Substructure',
     },
   ];
 
@@ -47,7 +62,49 @@ describe('Gantt hit-test and zoom-to-fit', () => {
 
     // With scroll offset applied
     expect(hitTestBar(70, 16, rows, ts, 50, 0)?.key).toBe('act:a1');
-    expect(hitTestBar(120, 100, rows, ts, 0, 0)).toBeNull();
+    expect(hitTestBar(120, 150, rows, ts, 0, 0)).toBeNull();
+  });
+
+  it('distinguishes link ports, resize, progress and move in Edit mode while keeping View mode and WBS rows select-only', () => {
+    const ts = createTimescale('day', origin);
+    // Task bar a1: x1 = 64, x2 = 224, progressX = 128, row 0 centerY = 16, barBottom = 24
+    // View mode returns bar-select only
+    expect(hitTestGanttTarget(222, 16, rows, ts, 0, 0, false)?.kind).toBe('bar-select');
+    expect(hitTestGanttTarget(56, 16, rows, ts, 0, 0, false)).toBeNull();
+
+    // Edit mode on task bar:
+    // Start connector port at x = 64 - 8 = 56, y = 16
+    expect(hitTestGanttTarget(56, 16, rows, ts, 0, 0, true)).toMatchObject({
+      kind: 'link-port-start',
+      rowIndex: 0,
+    });
+    // Finish connector port at x = 224 + 8 = 232, y = 16
+    expect(hitTestGanttTarget(232, 16, rows, ts, 0, 0, true)).toMatchObject({
+      kind: 'link-port-finish',
+      rowIndex: 0,
+    });
+    // Resize handle near x2 = 224
+    expect(hitTestGanttTarget(222, 16, rows, ts, 0, 0, true)?.kind).toBe('bar-resize');
+    // Progress handle near progressX = 128 at lower band y = 22
+    expect(hitTestGanttTarget(128, 22, rows, ts, 0, 0, true)?.kind).toBe('bar-progress');
+    // Interior bar body -> bar-move
+    expect(hitTestGanttTarget(160, 14, rows, ts, 0, 0, true)?.kind).toBe('bar-move');
+
+    // Milestone row 1 (cx = 224, centerY = 48): start port at 224 - 6 - 8 = 210, finish port at 224 + 6 + 8 = 238
+    expect(hitTestGanttTarget(210, GANTT_ROW_HEIGHT + 16, rows, ts, 0, 0, true)?.kind).toBe(
+      'link-port-start',
+    );
+    expect(hitTestGanttTarget(238, GANTT_ROW_HEIGHT + 16, rows, ts, 0, 0, true)?.kind).toBe(
+      'link-port-finish',
+    );
+    expect(hitTestGanttTarget(224, GANTT_ROW_HEIGHT + 16, rows, ts, 0, 0, true)?.kind).toBe(
+      'bar-move',
+    );
+
+    // WBS row 2 never returns editable drag targets even in Edit mode
+    expect(hitTestGanttTarget(160, GANTT_ROW_HEIGHT * 2 + 16, rows, ts, 0, 0, true)?.kind).toBe(
+      'bar-select',
+    );
   });
 
   it('computes zoom-to-fit covering the full schedule span with padding', () => {

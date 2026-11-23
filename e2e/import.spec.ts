@@ -62,3 +62,13 @@ test('the report downloads as CSV', async ({ page }) => {
   await page.getByRole('button', { name: 'Download CSV' }).click();
   expect((await download).suggestedFilename()).toBe('North Plant - import report.csv');
 });
+
+test('the report downloads as Excel (.xlsx)', async ({ page }) => {
+  await page.getByRole('button', { name: 'Import schedule' }).first().click();
+  await page.locator('input[type="file"]').setInputFiles(fixture('two-projects.xer'));
+  await page.getByRole('button', { name: 'Next' }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download Excel' }).click();
+  expect((await download).suggestedFilename()).toBe('North Plant - import report.xlsx');
+});
+

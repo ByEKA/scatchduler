@@ -11,6 +11,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import type { Schedule, WorkspaceSummary } from '@/data/types';
 import { useDialogs } from '@/features/dialogs/DialogsProvider';
+import {
+  useRegisterSchedulePalette,
+  type SchedulePaletteCommandItem,
+  type SchedulePaletteRegistration,
+} from '@/features/schedule/command-palette-context';
 import { CycleErrorBanner } from '@/features/schedule/CycleErrorBanner';
 import { DirtyLeaveDialog } from '@/features/schedule/DirtyLeaveDialog';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
@@ -114,6 +119,154 @@ function ScheduleEditorWorkspace({
     },
     [editor, handleGanttScrollTop, visibleRows],
   );
+
+  const selectAndScrollToWbs = useCallback(
+    (wbsId: string) => {
+      editor.selectKey(`wbs:${wbsId}`);
+      const targetIdx = visibleRows.findIndex((r) => r.key === `wbs:${wbsId}`);
+      if (targetIdx >= 0) {
+        const nextTop = Math.max(0, (targetIdx - 2) * SCHEDULE_ROW_HEIGHT);
+        handleGanttScrollTop(nextTop);
+      }
+    },
+    [editor, handleGanttScrollTop, visibleRows],
+  );
+
+  const handleZoomToFit = useCallback(() => {
+    ganttRef.current?.zoomToFit();
+  }, []);
+
+  const paletteRegistration = useMemo<SchedulePaletteRegistration>(() => {
+    const editable = canEdit(workspace) && schedule.archivedAt === null;
+    const baseCommands: SchedulePaletteCommandItem[] = [
+      {
+        id: 'calculate',
+        label: 'Calculate schedule',
+        shortcut: 'F5',
+        onSelect: () => {
+          void editor.calculate();
+        },
+      },
+      {
+        id: 'toggle-critical',
+        label: editor.showCritical ? 'Hide critical path' : 'Show critical path',
+        onSelect: () => {
+          editor.setShowCritical(!editor.showCritical);
+        },
+      },
+      {
+        id: 'toggle-links',
+        label: editor.showLinks ? 'Hide relationship lines' : 'Show relationship lines',
+        onSelect: () => {
+          editor.setShowLinks(!editor.showLinks);
+        },
+      },
+      {
+        id: 'toggle-driving',
+        label: editor.drivingPath ? 'Clear driving path' : 'Show driving path',
+        disabled: editor.selectedActivityId === null,
+        onSelect: () => {
+          void editor.toggleDrivingPath();
+        },
+      },
+      {
+        id: 'zoom-to-fit',
+        label: 'Zoom to fit',
+        onSelect: handleZoomToFit,
+      },
+      {
+        id: 'toggle-details',
+        label: detailsOpen ? 'Hide details panel' : 'Show details panel',
+        onSelect: toggleDetails,
+      },
+    ];
+
+    const commands: SchedulePaletteCommandItem[] = !editable
+      ? baseCommands
+      : editor.mode === 'view'
+        ? [
+            {
+              id: 'enter-edit',
+              label: 'Enter edit mode',
+              onSelect: () => {
+                void editor.enterEdit();
+              },
+            },
+            ...baseCommands,
+          ]
+        : [
+            {
+              id: 'save-schedule',
+              label: 'Save schedule',
+              shortcut: 'Ctrl+S',
+              disabled: !editor.dirty,
+              onSelect: () => {
+                void editor.save();
+              },
+            },
+            ...baseCommands,
+            {
+              id: 'add-activity',
+              label: 'Add activity',
+              onSelect: () => {
+                const selectedAct = editor.document.activities.find(
+                  (a) => a.id === editor.selectedActivityId,
+                );
+                const wbsId =
+                  selectedAct?.wbsId ??
+                  (editor.selectedKey?.startsWith('wbs:')
+                    ? editor.selectedKey.slice(4)
+                    : (editor.document.wbs[0]?.id ?? null));
+                editor.dispatch({
+                  type: 'addActivity',
+                  wbsId,
+                  afterActivityId: editor.selectedActivityId,
+                });
+              },
+            },
+            {
+              id: 'add-wbs',
+              label: 'Add WBS node',
+              onSelect: () => {
+                const parentId = editor.selectedKey?.startsWith('wbs:')
+                  ? editor.selectedKey.slice(4)
+                  : null;
+                editor.dispatch({
+                  type: 'addWbsNode',
+                  parentId,
+                  afterWbsId: null,
+                });
+              },
+            },
+          ];
+
+    return {
+      activities: editor.document.activities.map((a) => ({
+        id: a.id,
+        code: a.code,
+        name: a.name,
+      })),
+      wbs: editor.document.wbs.map((w) => ({
+        id: w.id,
+        code: w.code,
+        name: w.name,
+      })),
+      commands,
+      onJumpToActivity: jumpAndScrollToActivity,
+      onSelectWbs: selectAndScrollToWbs,
+    };
+  }, [
+    detailsOpen,
+    editor,
+    handleZoomToFit,
+    jumpAndScrollToActivity,
+    schedule.archivedAt,
+    selectAndScrollToWbs,
+    toggleDetails,
+    workspace,
+  ]);
+
+  useRegisterSchedulePalette(paletteRegistration);
 
   const handleSearchQueryChange = useCallback(
     (nextQuery: string) => {
@@ -280,6 +433,8 @@ function ScheduleEditorWorkspace({
             showLinks={editor.showLinks}
             drivingPath={editor.drivingPath}
             zoom={zoom}
+            mode={editor.mode}
+            onDispatch={editor.dispatch}
             onZoomChange={setZoom}
             onSelectKey={editor.selectKey}
             scrollTop={scrollTop}

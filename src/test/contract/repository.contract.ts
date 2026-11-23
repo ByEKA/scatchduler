@@ -1457,5 +1457,241 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         ).rejects.toMatchObject({ code: 'forbidden' });
       });
     });
+
+    describe('programs, folders, schedule duplication and library (P4 later)', () => {
+      it('creates, renames, assigns and deletes programs while enforcing roles and workspace checks (R1, R2)', async () => {
+        const f = await makeFixture();
+        const personal = f.workspaces.personal;
+        const team = f.workspaces.team!;
+
+        // Seeded program on Harbor Logistics Hub (003)
+        const seededPrograms = await f.repository.listPrograms(personal);
+        expect(seededPrograms.map((p) => p.name)).toEqual(['Port & Industrial Program']);
+        const harbor = await f.repository.getProject(f.projectIds['003']!);
+        expect(harbor.programId).toBe(seededPrograms[0]!.id);
+        expect(harbor.programName).toBe('Port & Industrial Program');
+
+        // Create and rename program
+        const created = await f.repository.createProgram({
+          workspaceId: personal,
+          name: '  Transit & Rail  ',
+        });
+        expect(created).toMatchObject({ workspaceId: personal, name: 'Transit & Rail' });
+
+        await expect(
+          f.repository.createProgram({ workspaceId: personal, name: 'transit & rail' }),
+        ).rejects.toMatchObject({
+          code: 'conflict',
+          message: 'A program with this name already exists.',
+        });
+
+        await expect(
+          f.repository.createProgram({ workspaceId: personal, name: '   ' }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Enter a program name.',
+        });
+
+        const renamed = await f.repository.renameProgram({
+          programId: created.id,
+          name: 'Urban Transit',
+        });
+        expect(renamed.name).toBe('Urban Transit');
+
+        // Assign program to a project via updateProject
+        const metroBefore = await f.repository.getProject(f.projectIds['002']!);
+        await f.repository.updateProject(
+          makeUpdateProjectInput(metroBefore, { programId: created.id }),
+        );
+        const metroAssigned = await f.repository.getProject(metroBefore.id);
+        expect(metroAssigned).toMatchObject({
+          programId: created.id,
+          programName: 'Urban Transit',
+        });
+
+        // Cross-workspace program assignment rejected (R2)
+        await expect(
+          f.repository.createProject(
+            makeNewProjectInput(team, { code: 'T-99', programId: created.id }),
+          ),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Choose a program in this workspace.',
+        });
+
+        // Deleting a program clears programId without changing project updatedAt (R1)
+        const updatedBeforeDelete = metroAssigned.updatedAt;
+        await f.repository.deleteProgram(created.id);
+        const metroAfterDelete = await f.repository.getProject(metroBefore.id);
+        expect(metroAfterDelete.programId).toBeNull();
+        expect(metroAfterDelete.programName).toBeNull();
+        expect(metroAfterDelete.updatedAt).toBe(updatedBeforeDelete);
+
+        // Role checks: editors can create/rename, only owners can delete
+        const editor = await makeFixture({ teamRole: 'editor' });
+        const teamProg = await editor.repository.createProgram({
+          workspaceId: editor.workspaces.team!,
+          name: 'Tunnel Works',
+        });
+        await expect(editor.repository.deleteProgram(teamProg.id)).rejects.toMatchObject({
+          code: 'forbidden',
+        });
+
+        const viewer = await makeFixture({ teamRole: 'viewer' });
+        await expect(
+          viewer.repository.createProgram({
+            workspaceId: viewer.workspaces.team!,
+            name: 'Viewer Prog',
+          }),
+        ).rejects.toMatchObject({ code: 'forbidden' });
+      });
+
+      it('manages 3-level folder hierarchy, re-parents on delete, and moves schedules without touching updatedAt (R3, R4, R5)', async () => {
+        const f = await makeFixture();
+        const riverside = f.projectIds['001']!;
+
+        const root = await f.repository.createFolder({
+          projectId: riverside,
+          name: '   Updates ',
+        });
+        expect(root).toMatchObject({ projectId: riverside, parentId: null, name: 'Updates' });
+
+        await expect(
+          f.repository.createFolder({ projectId: riverside, name: 'updates' }),
+        ).rejects.toMatchObject({
+          code: 'conflict',
+          message: 'A folder with this name already exists here.',
+        });
+
+        const level2 = await f.repository.createFolder({
+          projectId: riverside,
+          parentId: root.id,
+          name: '2026',
+        });
+        const level3 = await f.repository.createFolder({
+          projectId: riverside,
+          parentId: level2.id,
+          name: 'Q4',
+        });
+        expect(level3.parentId).toBe(level2.id);
+
+        // 4th level rejected (R3)
+        await expect(
+          f.repository.createFolder({
+            projectId: riverside,
+            parentId: level3.id,
+            name: 'October',
+          }),
+        ).rejects.toMatchObject({
+          code: 'validation',
+          message: 'Folders can be nested up to 3 levels deep.',
+        });
+
+        // Move schedule into level2 without changing updatedAt (R5)
+        const [main] = await f.repository.listSchedules(riverside);
+        const beforeUpdated = main!.updatedAt;
+        await f.repository.moveSchedulesToFolder({
+          scheduleIds: [main!.id],
+          folderId: level2.id,
+        });
+        const moved = (await f.repository.listSchedules(riverside))[0]!;
+        expect(moved.folderId).toBe(level2.id);
+        expect(moved.updatedAt).toBe(beforeUpdated);
+
+        // Deleting level2 re-parents level3 and the schedule to root (R4)
+        await f.repository.deleteFolder(level2.id);
+        const foldersAfter = await f.repository.listFolders(riverside);
+        expect(foldersAfter.find((fl) => fl.id === level3.id)?.parentId).toBe(root.id);
+        const afterDeleteSchedule = (await f.repository.listSchedules(riverside))[0]!;
+        expect(afterDeleteSchedule.folderId).toBe(root.id);
+        expect(afterDeleteSchedule.updatedAt).toBe(beforeUpdated);
+      });
+
+      it('duplicates materialized and imported schedules with independent snapshots and preserved import artifacts (R6)', async () => {
+        const f = await makeFixture();
+        const harbor = f.projectIds['003']!;
+        const harborSchedules = await f.repository.listSchedules(harbor);
+        const up2 = harborSchedules.find((s) => s.code === 'UP-02')!;
+
+        // Duplicate materialized schedule UP-02
+        const copy = await f.repository.copySchedule({
+          scheduleId: up2.id,
+          name: 'Update 2 (What-if)',
+          code: 'UP-02-COPY',
+        });
+        expect(copy).toMatchObject({
+          projectId: harbor,
+          folderId: up2.folderId,
+          copiedFromId: up2.id,
+          name: 'Update 2 (What-if)',
+          code: 'UP-02-COPY',
+          isCurrent: false,
+          baseline: 'none',
+          updateNumber: null,
+          archivedAt: null,
+          activityCount: up2.activityCount,
+          hasScheduleData: true,
+          dataRevision: 1,
+          statusDate: up2.statusDate,
+          notes: up2.notes,
+        });
+
+        const srcDoc = await f.repository.getScheduleDocument(up2.id);
+        const copyDoc = await f.repository.getScheduleDocument(copy.id);
+        expect(copyDoc.document).toEqual(srcDoc.document);
+
+        // Editing the copy does not mutate the source snapshot
+        await f.repository.acquireScheduleLock(copy.id);
+        const mutatedDoc = makeSampleScheduleDocument({ activities: [] });
+        await f.repository.saveScheduleDocument({
+          scheduleId: copy.id,
+          expectedRevision: 1,
+          document: mutatedDoc,
+        });
+        expect((await f.repository.getScheduleDocument(up2.id)).document?.activities).toHaveLength(
+          6,
+        );
+        expect((await f.repository.getScheduleDocument(copy.id)).document?.activities).toHaveLength(
+          0,
+        );
+
+        // Duplicate imported schedule preserves import report, mapping and original file
+        const metro = f.projectIds['002']!;
+        const imported = await f.repository.importSchedule(await makeImportScheduleInput(metro));
+        const importedCopy = await f.repository.copySchedule({
+          scheduleId: imported.id,
+          name: 'North Plant Copy',
+          code: 'NTH-COPY',
+          folderId: null,
+        });
+        expect(importedCopy).toMatchObject({
+          copiedFromId: imported.id,
+          source: 'import',
+          sourceFormat: imported.sourceFormat,
+          sourceFileName: imported.sourceFileName,
+          hasImportReport: true,
+          hasImportMapping: true,
+          hasScheduleData: true,
+        });
+        expect(await f.repository.getImportReport(importedCopy.id)).toEqual(
+          await f.repository.getImportReport(imported.id),
+        );
+        expect(await f.repository.getImportMapping(importedCopy.id)).toEqual(
+          await f.repository.getImportMapping(imported.id),
+        );
+        const copyFile = await f.repository.getScheduleSourceFile(importedCopy.id);
+        expect(copyFile.name).toBe(imported.sourceFileName);
+      });
+
+      it('returns cross-workspace library data for all member workspaces and shared schedules (R7)', async () => {
+        const f = await makeFixture();
+        const lib = await f.repository.getLibraryData();
+        expect(lib.workspaces.map((w) => w.name)).toEqual(['My workspace', 'Site Operations']);
+        expect(lib.projects).toHaveLength(7);
+        expect(lib.folders.map((fl) => fl.name)).toEqual(['Baselines', 'Monthly Updates']);
+        expect(lib.schedules).toHaveLength(10);
+        expect(lib.sharedWithMe).toHaveLength(2);
+      });
+    });
   });
 }

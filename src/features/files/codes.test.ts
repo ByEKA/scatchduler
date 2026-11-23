@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isCodeTaken,
   suggestCodeFor,
+  suggestCopyCode,
   suggestImportCode,
   suggestNewScheduleCode,
   suggestUpdateNumber,
@@ -58,5 +59,13 @@ describe('schedule code suggestions', () => {
         '2026-02-20',
       ),
     ).toBe(3);
+  });
+
+  it('suggests a copy code with -COPY and -COPY-n suffixes within 24 characters', () => {
+    expect(suggestCopyCode(['UP-02'], 'UP-02')).toBe('UP-02-COPY');
+    expect(suggestCopyCode(['UP-02', 'UP-02-copy'], 'UP-02')).toBe('UP-02-COPY-2');
+    expect(suggestCopyCode(['UP-02', 'UP-02-COPY'], 'UP-02-COPY')).toBe('UP-02-COPY-2');
+    expect(suggestCopyCode(['S01'], null)).toBe('S02');
+    expect(suggestCopyCode([], 'A'.repeat(24))).toBe(`${'A'.repeat(19)}-COPY`);
   });
 });

@@ -8,6 +8,7 @@ import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
 import { AuthCallbackPage } from '@/pages/AuthCallbackPage';
 import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { HomePage } from '@/pages/HomePage';
+import { LibraryPage } from '@/pages/LibraryPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { ProjectFilesPage } from '@/pages/ProjectFilesPage';
 import { ProjectsPage } from '@/pages/ProjectsPage';
@@ -33,7 +34,7 @@ export const appRoutes: RouteObject[] = [
     children: [
       { index: true, element: <Navigate to="/home" replace /> },
       { path: 'home', element: <HomePage /> },
-      { path: 'library', element: <PlaceholderPage title="Library" /> },
+      { path: 'library', element: <LibraryPage /> },
       { path: 'assets', element: <PlaceholderPage title="Assets" /> },
       { path: 'w/:workspaceId/projects', element: <ProjectsPage /> },
       { path: 'w/:workspaceId/p/:projectId/files', element: <ProjectFilesPage /> },

@@ -88,6 +88,7 @@ export function useCreateProject(): UseMutationResult<Project, Error, NewProject
       Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.projects(input.workspaceId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.library() }),
       ]),
   });
 }
@@ -113,6 +114,7 @@ export function useUpdateProject(): UseMutationResult<
         queryClient.invalidateQueries({ queryKey: queryKeys.projects(workspaceId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.sharedWithMe() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.library() }),
       ]),
   });
 }
@@ -136,9 +138,11 @@ export function useDeleteProject(): UseMutationResult<
     onSettled: (_result, _error, { workspaceId }) =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.projects(workspaceId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.allFolders() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.allSchedules() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.sharedWithMe() }),
         queryClient.invalidateQueries({ queryKey: queryKeys.workspaces() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.library() }),
       ]),
   });
 }

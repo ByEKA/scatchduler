@@ -203,4 +203,67 @@ describe('ProjectsPage', () => {
       expect(screen.getByRole('heading', { level: 1, name: 'Projects' })).toHaveFocus(),
     );
   });
+
+  it('creates a program, toggles Group by program, and renames and deletes a program', async () => {
+    const { user } = await renderProjects();
+    await screen.findAllByRole('article');
+
+    // Create a new program from HeaderActions
+    await user.click(screen.getByRole('button', { name: 'New program' }));
+    const createDialog = await screen.findByRole('dialog', { name: 'New program' });
+    await user.type(within(createDialog).getByLabelText('Program name'), 'Transit Expansion');
+    await user.click(within(createDialog).getByRole('button', { name: 'Create program' }));
+    expect(await screen.findByText('Program created')).toBeInTheDocument();
+
+    // Toggle "Group by program"
+    await user.click(screen.getByRole('button', { name: 'Group by program' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('group=program');
+
+    const portSection = await screen.findByRole('region', { name: 'Port & Industrial Program' });
+    const transitSection = screen.getByRole('region', { name: 'Transit Expansion' });
+    const noProgramSection = screen.getByRole('region', { name: 'No program' });
+
+    expect(within(portSection).getByText('Harbor Logistics Hub')).toBeInTheDocument();
+    expect(
+      within(transitSection).getByText('No projects assigned to this program yet.'),
+    ).toBeInTheDocument();
+    expect(within(noProgramSection).getByText('Riverside Office Tower')).toBeInTheDocument();
+
+    // Delete "Port & Industrial Program" -> Harbor moves into "No program"
+    await user.click(screen.getByRole('button', { name: 'Manage program Port & Industrial Program' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete program…' }));
+    const confirm = await screen.findByRole('alertdialog', {
+      name: 'Delete Port & Industrial Program?',
+    });
+    await user.click(within(confirm).getByRole('button', { name: 'Delete program' }));
+    expect(await screen.findByText('Program deleted')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('region', { name: 'Port & Industrial Program' }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(screen.getByRole('region', { name: 'No program' })).getByText(
+          'Harbor Logistics Hub',
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('switches to the Map layout, displays pins and Not on the map, and persists across remount', async () => {
+    const { user, unmount, dataLayer } = await renderProjects();
+    await screen.findAllByRole('article');
+
+    await user.click(screen.getByRole('radio', { name: 'Map' }));
+    expect(screen.getByRole('img', { name: 'Projects coordinate map' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Harbor Logistics Hub (003)' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('complementary', { name: 'Not on the map' })).getByRole('heading', {
+        name: 'Not on the map (2)',
+      }),
+    ).toBeInTheDocument();
+
+    unmount();
+    await renderProjects({ dataLayer });
+    expect(await screen.findByRole('img', { name: 'Projects coordinate map' })).toBeInTheDocument();
+  });
 });

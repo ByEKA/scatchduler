@@ -79,3 +79,21 @@ export function suggestUpdateNumber(
   while (taken.has(candidate)) candidate += 1;
   return candidate;
 }
+
+/**
+ * Suggested code for a duplicated schedule (P4 later spec §7.2.4, R6): appends `-COPY` (or
+ * `-COPY-2`, `-COPY-3`, …) to the source code's stem, truncated to 24 characters; falls back to
+ * `suggestNewScheduleCode` when the source has no code.
+ */
+export function suggestCopyCode(taken: readonly string[], sourceCode: string | null): string {
+  const raw = sourceCode?.trim() ?? '';
+  if (raw === '') return suggestNewScheduleCode(taken);
+  const stem = raw.replace(/-copy(?:-\d+)?$/i, '') || raw;
+  for (let n = 1; ; n += 1) {
+    const suffix = n === 1 ? '-COPY' : `-COPY-${n}`;
+    const prefix = stem.slice(0, Math.max(1, MAX_CODE_LENGTH - suffix.length));
+    const candidate = `${prefix}${suffix}`;
+    if (!isCodeTaken(taken, candidate)) return candidate;
+  }
+}
+

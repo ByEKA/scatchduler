@@ -2,16 +2,18 @@
 
 Project memory for Claude Code. Read it at the start of every session.
 
-**Status:** Phase 4 core complete. Next: the Phase 5 spec.
+**Status:** Phase 4 core, Phase 4 later and Phase 3 deferred complete. Next: the Phase 5 spec.
 
 Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
 
 ## What this is
 
-A construction-scheduling web app (our own product, first used as a lab tool). Phase 1 builds the signed-in app shell and the Home screen on mock data; Phase 2 moves the data layer to Supabase; Phase 3 adds projects, files and schedule imports; Phase 4 core adds the CPM engine, virtualized activity grid, Canvas 2D Gantt and locked schedule editor.
+A construction-scheduling web app (our own product, first used as a lab tool). Phase 1 builds the signed-in app shell and the Home screen on mock data; Phase 2 moves the data layer to Supabase; Phase 3 adds projects, files and schedule imports; Phase 4 core adds the CPM engine, virtualized activity grid, Canvas 2D Gantt and locked schedule editor; Phase 4 later & Phase 3 deferred add Gantt drag-and-drop & link drawing, the `Ctrl+K` command palette, cross-workspace `/library`, Project Files folders/copy/search/bulk/Excel report, and Projects programs & self-contained coordinate map.
 
-Sources of truth — read them before writing code. The Phase 4 core spec comes first, then the Phase 3 core spec, then the Phase 2 spec and plan; the Phase 1 spec and plan hold for everything later phases leave unchanged.
+Sources of truth — read them before writing code. The Phase 4 later spec and Phase 4 core spec come first, then the Phase 3 core spec, then the Phase 2 spec and plan; the Phase 1 spec and plan hold for everything later phases leave unchanged.
 
+- Phase 4 later & Phase 3 deferred spec: `docs/superpowers/specs/2026-11-23-phase4-later-design.md`
+- Phase 4 later & Phase 3 deferred plan: `docs/superpowers/plans/2026-11-23-phase4-later.md` (verification: `docs/superpowers/plans/2026-11-23-phase4-later-verification.md`)
 - Phase 4 core spec: `docs/superpowers/specs/2026-11-20-phase4-core-design.md`
 - Phase 4 core plan: `docs/superpowers/plans/2026-11-20-phase4-core.md` (assumption checks and results: `docs/superpowers/plans/2026-11-20-phase4-core-verification.md`)
 - Phase 3 core spec: `docs/superpowers/specs/2026-11-05-phase3-core-design.md` (the full Phase 3 spec `2026-11-03-phase3-projects-files-library-design.md` is the reference for the deferred parts only)

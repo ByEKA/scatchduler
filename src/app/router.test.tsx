@@ -19,10 +19,18 @@ describe('routes', () => {
 
   it('renders placeholder pages inside the shell', async () => {
     mockViewport(1440);
-    renderApp('/library');
-    expect(await screen.findByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument();
+    renderApp('/assets');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Assets' })).toBeInTheDocument();
     expect(screen.getByText('This area is part of a later phase.')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument();
+  });
+
+  it('renders the schedule library page at /library inside the shell', async () => {
+    mockViewport(1440);
+    renderApp('/library');
+    expect(await screen.findByRole('heading', { level: 1, name: 'Library' })).toBeInTheDocument();
+    expect(await screen.findByRole('region', { name: 'My workspace' })).toBeInTheDocument();
+    expect(screen.queryByText('This area is part of a later phase.')).not.toBeInTheDocument();
   });
 
   it('names the project on project pages', async () => {
@@ -48,7 +56,6 @@ describe('routes', () => {
   });
 
   it.each([
-    ['/library', 'Library'],
     ['/assets', 'Assets'],
     ['/settings/profile', 'Profile'],
     ['/settings/billing', 'Billing'],

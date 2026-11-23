@@ -12,6 +12,8 @@ function makeSchedule(overrides: Partial<Schedule> = {}): Schedule {
   return {
     id: 'sched-1',
     projectId: 'proj-1',
+    folderId: null,
+    copiedFromId: null,
     name: 'Update 2',
     code: 'UP-02',
     isCurrent: true,

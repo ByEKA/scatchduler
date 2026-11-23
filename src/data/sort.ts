@@ -62,3 +62,15 @@ export function newestFirst<T extends { id: ID }>(
 ): (a: T, b: T) => number {
   return (a, b) => Date.parse(timestamp(b)) - Date.parse(timestamp(a)) || compareIds(a.id, b.id);
 }
+
+/** Alphabetical by name (Turkish collator), then oldest first, then by id (programs and folders). */
+export function compareNamed<T extends { id: ID; name: string; createdAt: string }>(
+  a: T,
+  b: T,
+): number {
+  return (
+    compareText(a.name, b.name) ||
+    Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
+    compareIds(a.id, b.id)
+  );
+}

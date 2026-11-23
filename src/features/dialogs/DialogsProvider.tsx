@@ -6,6 +6,7 @@ export type DialogKind =
   | 'newSchedule'
   | 'importSchedule'
   | 'scheduleDetails'
+  | 'copySchedule'
   | 'importReport'
   | 'newProject'
   | 'editProject'
@@ -15,7 +16,7 @@ export type DialogKind =
 export interface DialogOptions {
   /** The project 'editProject' edits, or the one a schedule dialog opens for. */
   projectId?: ID;
-  /** The schedule 'scheduleDetails' or 'importReport' opens for. */
+  /** The schedule 'scheduleDetails', 'copySchedule' or 'importReport' opens for. */
   scheduleId?: ID;
   /** The workspace whose members 'workspaceMembers' shows, or the one 'editProject' edits in. */
   workspaceId?: ID;

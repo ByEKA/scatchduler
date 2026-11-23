@@ -301,3 +301,63 @@ test('shows edit lock across users, supports owner Force Unlock and keeps viewer
     await viewerContext.close();
   }
 });
+
+test('creates a folder, duplicates a materialized schedule into it, verifies copied snapshot and browses /library', async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const suffix = String(Date.now() % 100000);
+  const folderName = `Folder-${suffix}`;
+  const copyCode = `CPY-${suffix}`;
+
+  await signIn(page, 'deniz.kaya@example.com');
+  await page
+    .getByRole('region', { name: 'Recent projects' })
+    .getByRole('link', { name: 'Harbor Logistics Hub' })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: /Harbor Logistics Hub/ })).toBeVisible();
+
+  // Create a folder
+  const foldersNav = page.getByRole('navigation', { name: 'Folders' });
+  await foldersNav.getByRole('button', { name: 'New folder' }).click();
+  const folderDialog = page.getByRole('dialog', { name: 'New folder' });
+  await folderDialog.getByLabel('Folder name').fill(folderName);
+  await folderDialog.getByRole('button', { name: 'Create folder' }).click();
+  await expect(page.getByText('Folder created')).toBeVisible();
+
+  // Duplicate Update 2 (materialized seeded schedule) into the new folder
+  await page.getByRole('button', { name: 'Actions for Update 2', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Duplicate…' }).click();
+  const copyDialog = page.getByRole('dialog', { name: 'Duplicate schedule' });
+  await copyDialog.getByLabel('Code', { exact: true }).fill(copyCode);
+  await copyDialog.getByLabel('Folder').selectOption({ label: folderName });
+  await copyDialog.getByRole('button', { name: 'Duplicate schedule' }).click();
+  await expect(page.getByText('Schedule duplicated')).toBeVisible();
+
+  // Filter by the created folder and open the duplicated schedule in the editor
+  await foldersNav.getByRole('button', { name: new RegExp(`^${folderName}`, 'i') }).click();
+  const copyRow = page
+    .getByRole('table', { name: 'Schedules' })
+    .getByRole('row')
+    .filter({ hasText: copyCode });
+  await expect(copyRow).toBeVisible();
+  await copyRow.getByRole('link', { name: 'Update 2 (copy)' }).click();
+
+  // Verify copied gzipped snapshot from schedule-data loads its activities
+  await expect(page.getByRole('heading', { level: 1, name: 'Update 2 (copy)' })).toBeVisible();
+  await expect(
+    page.getByRole('treegrid', { name: 'Schedule activities' }),
+  ).toContainText('Site mobilization');
+
+  // Verify it appears in /library with its folder badge
+  await page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('link', { name: 'Library' })
+    .click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Library' })).toBeVisible();
+  await page.getByRole('searchbox', { name: 'Search library' }).fill(copyCode);
+  const personalSection = page.getByRole('region', { name: 'My workspace' });
+  await expect(personalSection).toContainText('Update 2 (copy)');
+  await expect(personalSection).toContainText(folderName);
+});
+

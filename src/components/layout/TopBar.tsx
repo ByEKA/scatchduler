@@ -1,4 +1,4 @@
-import { PanelLeft } from 'lucide-react';
+import { PanelLeft, Search } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Link } from 'react-router';
 import { BrandLogo } from '@/components/brand/BrandLogo';
@@ -9,6 +9,7 @@ import { UserMenu } from '@/components/layout/UserMenu';
 import { WorkspaceSwitcher } from '@/components/layout/WorkspaceSwitcher';
 import { Button } from '@/components/ui/button';
 import { brand } from '@/config/brand';
+import { useCommandPalette } from '@/features/schedule/command-palette-context';
 import { useSidebarState } from '@/hooks/useSidebarState';
 
 function toggleLabel(mode: 'inline' | 'drawer', open: boolean): string {
@@ -18,11 +19,11 @@ function toggleLabel(mode: 'inline' | 'drawer', open: boolean): string {
 
 /**
  * The top bar (spec §6.4, P4 §7.1). Left: sidebar toggle, logo, workspace, project and schedule
- * switchers. Right: plan badge and account menu. The switchers shrink and truncate when space runs
- * short.
+ * switchers. Right: command palette trigger, plan badge and account menu.
  */
 export function TopBar(): ReactElement {
   const { mode, open, toggle } = useSidebarState();
+  const { setOpen: setPaletteOpen } = useCommandPalette();
   return (
     <header className="col-span-2 flex h-12 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:gap-3">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -50,6 +51,19 @@ export function TopBar(): ReactElement {
         <ScheduleSwitcher />
       </div>
       <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label="Command palette"
+          onClick={() => setPaletteOpen(true)}
+          className="h-7 gap-2 px-2 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Search className="size-3.5" aria-hidden="true" />
+          <span className="max-sm:hidden">Search…</span>
+          <kbd className="rounded-xs border border-border bg-muted px-1 py-0.5 font-mono text-2xs text-muted-foreground max-sm:hidden">
+            Ctrl+K
+          </kbd>
+        </Button>
         <PlanBadge />
         <UserMenu />
       </div>

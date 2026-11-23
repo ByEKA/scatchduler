@@ -25,18 +25,25 @@ describe('project list rules', () => {
       status: null,
       stage: null,
       sort: 'updated',
+      group: 'none',
     });
-    expect(readProjectsView(params('q=pier&status=on_hold&stage=construction&sort=name'))).toEqual({
+    expect(
+      readProjectsView(params('q=pier&status=on_hold&stage=construction&sort=name&group=program')),
+    ).toEqual({
       q: 'pier',
       status: 'on_hold',
       stage: 'construction',
       sort: 'name',
+      group: 'program',
     });
-    expect(readProjectsView(params('status=paused&stage=x&sort=size&from=2026-02-30'))).toEqual({
+    expect(
+      readProjectsView(params('status=paused&stage=x&sort=size&group=bogus&from=2026-02-30')),
+    ).toEqual({
       q: '',
       status: null,
       stage: null,
       sort: 'updated',
+      group: 'none',
     });
   });
 
@@ -49,9 +56,11 @@ describe('project list rules', () => {
     expect(p.toString()).toBe('status=completed');
     expect(withViewParam(p, 'status', null).toString()).toBe('');
     expect(withViewParam(p, 'q', '').toString()).toBe('status=completed');
-    expect(withoutFilters(params('sort=name&q=x&status=active&stage=pursuit')).toString()).toBe(
-      'sort=name',
-    );
+    expect(withViewParam(params(''), 'group', 'program').toString()).toBe('group=program');
+    expect(withViewParam(params('group=program'), 'group', 'none').toString()).toBe('');
+    expect(
+      withoutFilters(params('sort=name&group=program&q=x&status=active&stage=pursuit')).toString(),
+    ).toBe('sort=name&group=program');
   });
 
   it('counts the filters and names each for its chip', () => {

@@ -592,6 +592,21 @@ export function ReportView({
             downloadReport.mutate({
               report,
               scheduleName: scheduleName.trim() || report.file.name,
+              format: 'xlsx',
+            })
+          }
+          className="inline-flex items-center gap-1.5 rounded-sm text-xs font-medium text-link hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50"
+        >
+          <Download className="size-3.5" aria-hidden="true" />
+          Download Excel
+        </button>
+        <button
+          type="button"
+          disabled={downloadReport.isPending}
+          onClick={() =>
+            downloadReport.mutate({
+              report,
+              scheduleName: scheduleName.trim() || report.file.name,
               format: 'json',
             })
           }

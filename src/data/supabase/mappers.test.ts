@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { UpdateProjectInput } from '@/data/repository';
 import {
+  mapFolder,
   mapMember,
+  mapProgram,
   mapProjectSummary,
   mapScheduleItem,
   mapScheduleLock,
@@ -35,6 +37,8 @@ describe('mappers', () => {
       status: 'on_hold',
       stage: 'construction',
       sector: 'public',
+      program_id: 'pr1',
+      program_name: 'Port Program',
       location_lat: 41.0151,
       location_lng: 28.9795,
       schedule_count: 2,
@@ -45,6 +49,8 @@ describe('mappers', () => {
     expect(mapProjectSummary(row, 'https://signed/url')).toEqual({
       id: 'p1',
       workspaceId: 'w1',
+      programId: 'pr1',
+      programName: 'Port Program',
       code: '001',
       name: 'Pier',
       description: null,
@@ -74,11 +80,44 @@ describe('mappers', () => {
     });
   });
 
+  it('maps programs and folders normalizing timestamps', () => {
+    expect(
+      mapProgram({
+        id: 'pr1',
+        workspace_id: 'w1',
+        name: 'Port Program',
+        created_at: '2026-10-01T08:00:00.5+00:00',
+      }),
+    ).toEqual({
+      id: 'pr1',
+      workspaceId: 'w1',
+      name: 'Port Program',
+      createdAt: '2026-10-01T08:00:00.500Z',
+    });
+    expect(
+      mapFolder({
+        id: 'f1',
+        project_id: 'p1',
+        parent_id: null,
+        name: 'Baselines',
+        created_at: '2026-10-02T08:00:00+00:00',
+      }),
+    ).toEqual({
+      id: 'f1',
+      projectId: 'p1',
+      parentId: null,
+      name: 'Baselines',
+      createdAt: '2026-10-02T08:00:00.000Z',
+    });
+  });
+
   it('maps a schedule item with its tags', () => {
     expect(
       mapScheduleItem({
         id: 's1',
         project_id: 'p1',
+        folder_id: 'f1',
+        copied_from_id: 's0',
         name: 'Update 2',
         code: 'UP-02',
         notes: null,
@@ -106,6 +145,8 @@ describe('mappers', () => {
     ).toEqual({
       id: 's1',
       projectId: 'p1',
+      folderId: 'f1',
+      copiedFromId: 's0',
       name: 'Update 2',
       code: 'UP-02',
       notes: null,
@@ -134,6 +175,8 @@ describe('mappers', () => {
       mapScheduleItem({
         id: 's2',
         project_id: 'p1',
+        folder_id: null,
+        copied_from_id: null,
         name: 'Locked XER',
         code: 'LX-1',
         notes: null,
@@ -173,6 +216,8 @@ describe('mappers', () => {
       mapScheduleItem({
         id: 's3',
         project_id: 'p1',
+        folder_id: null,
+        copied_from_id: null,
         name: 'Fallback Name',
         code: 'FN-1',
         notes: null,

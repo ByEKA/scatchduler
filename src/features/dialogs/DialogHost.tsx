@@ -5,6 +5,7 @@ import {
   useDialogHostState,
   type DialogEntry,
 } from '@/features/dialogs/DialogsProvider';
+import { CopyScheduleDialog } from '@/features/files/CopyScheduleDialog';
 import { ScheduleDetailsDialog } from '@/features/files/ScheduleDetailsDialog';
 import { ImportReportDialog } from '@/features/import/ImportReportDialog';
 import { ImportScheduleDialog } from '@/features/import/ImportScheduleDialog';
@@ -32,6 +33,14 @@ function renderDialog(entry: DialogEntry): ReactElement | null {
       return entry.options.projectId === undefined ||
         entry.options.scheduleId === undefined ? null : (
         <ScheduleDetailsDialog
+          projectId={entry.options.projectId}
+          scheduleId={entry.options.scheduleId}
+        />
+      );
+    case 'copySchedule':
+      return entry.options.projectId === undefined ||
+        entry.options.scheduleId === undefined ? null : (
+        <CopyScheduleDialog
           projectId={entry.options.projectId}
           scheduleId={entry.options.scheduleId}
         />

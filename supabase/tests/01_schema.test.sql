@@ -1,18 +1,18 @@
 begin;
 \ir _helpers.psql
-select plan(45);
+select plan(50);
 
 select has_table('public', t, format('table public.%s exists', t))
   from unnest(array['profiles', 'subscriptions', 'workspaces', 'workspace_members', 'workspace_invitations',
-                    'projects', 'schedules', 'schedule_shares', 'tasks']) as t;
+                    'programs', 'projects', 'folders', 'schedules', 'schedule_shares', 'tasks']) as t;
 
 select is((select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
            where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity), 0, 'RLS is enabled on every public table');
 
 select has_column('public', 'projects', c, format('projects.%s exists', c))
-  from unnest(array['status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
+  from unnest(array['program_id', 'status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
 select has_column('public', 'schedules', c, format('schedules.%s exists', c))
-  from unnest(array['code', 'notes', 'is_current', 'baseline', 'update_number', 'archived_at', 'activity_count']) as c;
+  from unnest(array['folder_id', 'copied_from_id', 'code', 'notes', 'is_current', 'baseline', 'update_number', 'archived_at', 'activity_count']) as c;
 select has_column('public', 'schedules', c, format('schedules.%s exists', c))
   from unnest(array['source_format', 'source_file_size', 'source_file_sha256', 'source_project_code', 'parser_version', 'import_mapping', 'import_report']) as c;
 select has_column('public', 'schedules', c, format('schedules.%s exists', c))

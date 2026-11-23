@@ -39,13 +39,20 @@ const items = () => screen.getAllByRole('menuitem').map((item) => item.textConte
 describe('ScheduleMenu', () => {
   it('offers what the role and the schedule state allow', async () => {
     const current = await renderMenu('004', 'RP-01');
-    expect(items()).toEqual(['Open', 'Edit details']);
+    expect(items()).toEqual(['Open', 'Edit details', 'Duplicate…']);
     current.unmount();
     const baseline = await renderMenu('004', 'BL-01');
-    expect(items()).toEqual(['Open', 'Make current', 'Edit details', 'Archive', 'Delete']);
+    expect(items()).toEqual([
+      'Open',
+      'Make current',
+      'Edit details',
+      'Duplicate…',
+      'Archive',
+      'Delete',
+    ]);
     baseline.unmount();
     const draft = await renderMenu('004', 'RP-00');
-    expect(items()).toEqual(['Open', 'Edit details', 'Restore', 'Delete']);
+    expect(items()).toEqual(['Open', 'Edit details', 'Duplicate…', 'Restore', 'Delete']);
     draft.unmount();
     await renderMenu('T-01', 'BL-03', { teamRole: 'viewer' });
     expect(items()).toEqual(['Open']);
@@ -106,9 +113,15 @@ describe('ScheduleMenu', () => {
     expect(screen.getByTestId('dialog')).toHaveTextContent('importReport');
   });
 
+  it('opens the copySchedule dialog when "Duplicate…" is clicked', async () => {
+    const { user } = await renderMenu('003', 'UP-02');
+    await user.click(screen.getByRole('menuitem', { name: 'Duplicate…' }));
+    expect(screen.getByTestId('dialog')).toHaveTextContent('copySchedule');
+  });
+
   it('allows owners to delete the current schedule when it is the only one', async () => {
     await renderMenu('001', 'MS-01');
-    expect(items()).toEqual(['Open', 'Edit details', 'Delete']);
+    expect(items()).toEqual(['Open', 'Edit details', 'Duplicate…', 'Delete']);
   });
 
   it('keeps a failed delete in the dialog and returns focus to the trigger on cancel', async () => {

@@ -21,7 +21,10 @@ const rowNames = (table: HTMLElement) =>
   within(table)
     .getAllByRole('row')
     .slice(1)
-    .map((row) => within(row).getAllByRole('cell')[0]!.textContent);
+    .map((row) => {
+      const cells = within(row).getAllByRole('cell');
+      return (cells.length === 11 ? cells[1] : cells[0])!.textContent;
+    });
 
 describe('ProjectFilesPage', () => {
   it("shows Not found for an unknown project, another workspace's and a share-only one", async () => {
@@ -128,6 +131,7 @@ describe('ProjectFilesPage', () => {
         .getAllByRole('columnheader')
         .map((h) => h.textContent),
     ).toEqual([
+      '',
       'Name',
       'Code',
       'Tags',
@@ -155,6 +159,51 @@ describe('ProjectFilesPage', () => {
     await waitFor(() =>
       expect(rowNames(table)).toEqual(['Recovery plan', 'Recovery plan draftArchived', 'Baseline']),
     );
+  });
+
+  it('supports folder filtering, search, and bulk Move/Archive actions', async () => {
+    const { user } = renderFiles('003');
+    const table = await screen.findByRole('table', { name: 'Schedules' });
+    const nav = await screen.findByRole('navigation', { name: 'Folders' });
+
+    await waitFor(() => {
+      expect(within(nav).getByRole('button', { name: /^Baselines/i })).toBeInTheDocument();
+    });
+
+    // Filter by Baselines folder
+    await user.click(within(nav).getByRole('button', { name: /^Baselines/i }));
+    await waitFor(() => expect(rowNames(table)).toEqual(['Baseline']));
+
+    // Back to All schedules and search by notes ("crane")
+    await user.click(within(nav).getByRole('button', { name: /^All schedules/i }));
+    const search = screen.getByRole('searchbox', { name: 'Search schedules' });
+    await user.type(search, 'crane');
+    await waitFor(() => expect(rowNames(table)).toEqual(['Update 2Monthly Updates']));
+
+    // Clear filters
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(4));
+
+    // Multi-select Update 1 & Baseline and bulk move to Unfiled
+    await user.click(within(table).getByRole('checkbox', { name: 'Select Update 1' }));
+    await user.click(within(table).getByRole('checkbox', { name: 'Select Baseline' }));
+    const bulkBar = await screen.findByRole('region', { name: 'Bulk actions' });
+    expect(bulkBar).toHaveTextContent('2 selected');
+
+    await user.click(within(bulkBar).getByRole('button', { name: 'Move to folder…' }));
+    await user.click(await screen.findByRole('menuitem', { name: 'Unfiled' }));
+    expect(await screen.findByText('Moved 2 schedules')).toBeInTheDocument();
+
+    // Unfiled folder now contains both moved schedules
+    await user.click(within(nav).getByRole('button', { name: /^Unfiled/i }));
+    await waitFor(() => expect(rowNames(table)).toEqual(['Update 1', 'Baseline']));
+
+    // Bulk archive Update 1
+    await user.click(within(table).getByRole('checkbox', { name: 'Select Update 1' }));
+    const bulkArchiveBar = await screen.findByRole('region', { name: 'Bulk actions' });
+    await user.click(within(bulkArchiveBar).getByRole('button', { name: 'Archive' }));
+    expect(await screen.findByText('Schedule archived')).toBeInTheDocument();
+    await waitFor(() => expect(rowNames(table)).toEqual(['Baseline']));
   });
 
   it('shows "—" for missing values, never "null", for a P2-era schedule', async () => {
