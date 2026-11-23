@@ -46,12 +46,13 @@ export function useDownloadSourceFile(): UseMutationResult<void, Error, ID> {
 export interface DownloadImportReportInput {
   report: ImportReport;
   scheduleName: string;
-  format: 'csv' | 'json';
+  format: 'csv' | 'json' | 'xlsx';
 }
 
 /**
- * Saves a report as "{schedule name} - import report.csv" (one row per issue) or ".json" (the
- * report object). The CSV builder loads with `import()`, so it stays out of the main chunk (§3).
+ * Saves a report as "{schedule name} - import report.csv" (one row per issue), ".xlsx" (4-sheet
+ * workbook) or ".json" (the report object). The CSV and Excel builders load with `import()`, so
+ * they stay out of the main chunk (§3).
  */
 export function useDownloadImportReport(): UseMutationResult<
   void,
@@ -61,10 +62,18 @@ export function useDownloadImportReport(): UseMutationResult<
   return useMutation({
     mutationFn: async ({ report, scheduleName, format }: DownloadImportReportInput) => {
       const { reportFileName, reportToCsv } = await import('@/import/csv-export');
-      const blob =
-        format === 'csv'
-          ? new Blob([reportToCsv(report)], { type: 'text/csv;charset=utf-8' })
-          : new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      let blob: Blob;
+      if (format === 'csv') {
+        blob = new Blob([reportToCsv(report)], { type: 'text/csv;charset=utf-8' });
+      } else if (format === 'xlsx') {
+        const { reportToXlsx } = await import('@/import/xlsx-export');
+        const bytes = reportToXlsx(report, scheduleName);
+        blob = new Blob([bytes.slice()], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+      } else {
+        blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      }
       saveFile(blob, reportFileName(scheduleName, format));
     },
     onError: () => {

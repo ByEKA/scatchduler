@@ -25,7 +25,7 @@ export function reportToCsv(report: ImportReport): string {
   return rows.join('\r\n');
 }
 
-/** The downloads are named after the schedule: "{name} - import report.csv" or ".json". */
-export function reportFileName(scheduleName: string, extension: 'csv' | 'json'): string {
+/** The downloads are named after the schedule: "{name} - import report.csv", ".xlsx" or ".json". */
+export function reportFileName(scheduleName: string, extension: 'csv' | 'json' | 'xlsx'): string {
   return `${scheduleName} - import report.${extension}`;
 }
