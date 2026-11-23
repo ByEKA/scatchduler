@@ -6,6 +6,7 @@ import { FileDropzone } from '@/components/common/FileDropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import type { ID } from '@/data/types';
 import {
   CODE_TAKEN_MESSAGE,
   COVER_IMAGE_TYPES,
@@ -20,6 +21,7 @@ import {
   TextField,
   useWizardFields,
 } from '@/features/projects/steps/StepFields';
+import { useWorkspacePrograms } from '@/hooks/usePrograms';
 import { cn } from '@/lib/utils';
 
 /**
@@ -93,6 +95,33 @@ function ProjectIdField({ codeCheck }: { codeCheck: CodeCheck }): ReactElement {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+function ProgramField({ workspaceId }: { workspaceId: ID | undefined }): ReactElement | null {
+  const { register } = useFormContext<ProjectFormValues>();
+  const { locked, onFieldChange } = useWizardFields();
+  const programsQuery = useWorkspacePrograms(workspaceId);
+  const id = useId();
+  const programs = programsQuery.data ?? [];
+  if (programs.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel htmlFor={id}>Program (optional)</FieldLabel>
+      <select
+        id={id}
+        disabled={locked}
+        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+        {...register('programId', { onChange: () => onFieldChange('programId') })}
+      >
+        <option value="">None</option>
+        {programs.map((program) => (
+          <option key={program.id} value={program.id}>
+            {program.name}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -178,16 +207,18 @@ function CurrentPhoto({ url, readOnly }: { url: string; readOnly: boolean }): Re
 }
 
 /**
- * Step 1: name, Project ID with its availability check, photo and description (spec §6.7). An
- * edited project's photo (`currentCoverUrl`) shows under the drop area until "Remove" or a chosen
- * file replaces it.
+ * Step 1: name, Project ID with its availability check, optional program, photo and description
+ * (spec §6.7, P4 later §7.3.1). An edited project's photo (`currentCoverUrl`) shows under the drop
+ * area until "Remove" or a chosen file replaces it.
  */
 export function DetailsStep({
   codeCheck,
+  workspaceId,
   currentCoverUrl = null,
   readOnly = false,
 }: {
   codeCheck: CodeCheck;
+  workspaceId?: ID;
   currentCoverUrl?: string | null;
   readOnly?: boolean;
 }): ReactElement {
@@ -202,6 +233,7 @@ export function DetailsStep({
         <TextField name="name" label="Project name" required />
         <ProjectIdField codeCheck={codeCheck} />
       </FieldRow>
+      <ProgramField workspaceId={workspaceId} />
       <Controller
         control={control}
         name="coverImage"

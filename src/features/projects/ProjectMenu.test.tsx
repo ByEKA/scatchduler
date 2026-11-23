@@ -29,7 +29,9 @@ describe('ProjectMenu', () => {
     await owner.user.click(
       screen.getByRole('button', { name: 'Actions for Harbor Logistics Hub' }),
     );
-    expect(items()).toEqual(['Open', 'Edit project', 'Delete project']);
+    await waitFor(() =>
+      expect(items()).toEqual(['Open', 'Edit project', 'Program', 'Delete project']),
+    );
     owner.unmount();
     const editor = await renderMenu('T-01', 'editor');
     await editor.user.click(

@@ -38,6 +38,7 @@ export type WizardStepId = (typeof WIZARD_STEPS)[number]['id'];
 export interface ProjectFormValues {
   name: string;
   code: string;
+  programId: string;
   coverImage: File | null;
   keepCover: boolean;
   description: string;
@@ -61,6 +62,7 @@ export interface ProjectFormValues {
 export const EMPTY_PROJECT_FORM: ProjectFormValues = {
   name: '',
   code: '',
+  programId: '',
   coverImage: null,
   keepCover: true,
   description: '',
@@ -83,7 +85,7 @@ export const EMPTY_PROJECT_FORM: ProjectFormValues = {
 
 /** The fields of each step in the order the step shows them; "Next" validates these only. */
 export const STEP_FIELDS: Record<WizardStepId, Array<keyof ProjectFormValues>> = {
-  details: ['name', 'code', 'coverImage', 'description'],
+  details: ['name', 'code', 'programId', 'coverImage', 'description'],
   attributes: [
     'status',
     'stage',
@@ -176,6 +178,7 @@ export const projectFormSchema = z
       .min(1, 'Enter a project ID')
       .max(16, 'Use 16 characters or fewer')
       .regex(/^[A-Za-z0-9_-]*$/, 'Use letters, numbers, - or _'),
+    programId: z.string(),
     coverImage,
     keepCover: z.boolean(),
     // The counter shows the length as typed, so the limit applies to it too.
@@ -267,6 +270,7 @@ function projectDetails(values: ProjectFormValues): {
 export function toNewProjectInput(values: ProjectFormValues, workspaceId: ID): NewProjectInput {
   return {
     workspaceId,
+    ...(values.programId !== '' ? { programId: values.programId } : {}),
     code: values.code.trim(),
     name: values.name.trim(),
     description: textOrNull(values.description),
@@ -285,6 +289,7 @@ export function projectFormValues(project: Project): ProjectFormValues {
   return {
     name: project.name,
     code: project.code,
+    programId: project.programId ?? '',
     coverImage: null,
     keepCover: true,
     description: project.description ?? '',
@@ -319,6 +324,7 @@ export function toUpdateProjectInput(
 ): UpdateProjectInput {
   return {
     projectId,
+    programId: values.programId === '' ? null : values.programId,
     code: values.code.trim(),
     name: values.name.trim(),
     description: textOrNull(values.description),

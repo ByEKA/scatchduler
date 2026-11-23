@@ -13,16 +13,18 @@ import {
 import { matchesSearch } from '@/lib/search';
 
 export type ProjectSort = 'updated' | 'name' | 'status-date';
+export type ProjectGroup = 'none' | 'program';
 
-/** What the URL asks the Projects page to show (spec D21). */
+/** What the URL asks the Projects page to show (spec D21, P4 later §7.3.1). */
 export interface ProjectsView {
   q: string;
   status: ProjectStatus | null;
   stage: ProjectStage | null;
   sort: ProjectSort;
+  group: ProjectGroup;
 }
 
-export type ProjectsParam = 'q' | 'status' | 'stage' | 'sort';
+export type ProjectsParam = 'q' | 'status' | 'stage' | 'sort' | 'group';
 
 /** The "Sort by" options in order; "Last updated" is the default (spec D24). */
 export const PROJECT_SORT_OPTIONS: ReadonlyArray<Option<ProjectSort>> = [
@@ -32,23 +34,26 @@ export const PROJECT_SORT_OPTIONS: ReadonlyArray<Option<ProjectSort>> = [
 ];
 
 const DEFAULT_SORT: ProjectSort = 'updated';
+const DEFAULT_GROUP: ProjectGroup = 'none';
 
 /** The view the URL asks for; an unknown or malformed value reads as its default (our call). */
 export function readProjectsView(params: URLSearchParams): ProjectsView {
   const status = params.get('status');
   const stage = params.get('stage');
   const sort = params.get('sort');
+  const group = params.get('group');
   return {
     q: params.get('q') ?? '',
     status: isOptionValue(STATUS_OPTIONS, status) ? status : null,
     stage: isOptionValue(STAGE_OPTIONS, stage) ? stage : null,
     sort: isOptionValue(PROJECT_SORT_OPTIONS, sort) ? sort : DEFAULT_SORT,
+    group: group === 'program' ? 'program' : DEFAULT_GROUP,
   };
 }
 
 /**
- * A copy of `params` with `key` set to `value`. An empty value, `null` and the default sort remove
- * the parameter, so the URL holds only what differs from the defaults.
+ * A copy of `params` with `key` set to `value`. An empty value, `null` and the default sort/group
+ * remove the parameter, so the URL holds only what differs from the defaults.
  */
 export function withViewParam(
   params: URLSearchParams,
@@ -56,7 +61,12 @@ export function withViewParam(
   value: string | null,
 ): URLSearchParams {
   const next = new URLSearchParams(params);
-  if (value === null || value === '' || (key === 'sort' && value === DEFAULT_SORT)) {
+  if (
+    value === null ||
+    value === '' ||
+    (key === 'sort' && value === DEFAULT_SORT) ||
+    (key === 'group' && value === DEFAULT_GROUP)
+  ) {
     next.delete(key);
   } else {
     next.set(key, value);
@@ -64,7 +74,7 @@ export function withViewParam(
   return next;
 }
 
-/** A copy of `params` without the search and the filters; the sort stays. */
+/** A copy of `params` without the search and the filters; the sort and group stay. */
 export function withoutFilters(params: URLSearchParams): URLSearchParams {
   const next = new URLSearchParams(params);
   for (const key of ['q', 'status', 'stage'] as const) next.delete(key);
