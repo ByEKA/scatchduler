@@ -107,7 +107,11 @@ export function mapWorkspaceSummary(row: WorkspaceSummaryRow): WorkspaceSummary 
 function projectFrom(
   row: Omit<
     ProjectSummaryRow,
-    'schedule_count' | 'total_schedule_count' | 'current_schedule_id' | 'current_schedule_name'
+    | 'schedule_count'
+    | 'total_schedule_count'
+    | 'current_schedule_id'
+    | 'current_schedule_name'
+    | 'program_name'
   >,
   coverUrl: string | null,
 ): Project {

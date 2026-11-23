@@ -1,6 +1,6 @@
 begin;
 \ir _helpers.psql
-select plan(40);
+select plan(45);
 
 select is_empty($$ select table_name from information_schema.role_table_grants where grantee = 'anon' and table_schema = 'public' $$,
   'anon has no privileges on public tables');
@@ -11,6 +11,8 @@ select column_privs_are('public', 'workspaces', 'name', 'authenticated', array['
 select column_privs_are('public', 'workspaces', 'kind', 'authenticated', array['SELECT'], 'workspaces.kind is read-only');
 select table_privs_are('public', 'workspace_members', 'authenticated', array['SELECT'], 'memberships change only through functions');
 select table_privs_are('public', 'workspace_invitations', 'authenticated', array['SELECT'], 'invitations change only through the Edge Function');
+select table_privs_are('public', 'programs', 'authenticated', array['SELECT'], 'programs change only through RPCs');
+select table_privs_are('public', 'folders', 'authenticated', array['SELECT'], 'folders change only through RPCs');
 select table_privs_are('public', 'projects', 'authenticated', array['DELETE', 'INSERT', 'SELECT'], 'projects: select, insert, delete; columns for update');
 select column_privs_are('public', 'projects', 'updated_at', 'authenticated', array['INSERT', 'SELECT'], 'projects.updated_at is never updated by users');
 select column_privs_are('public', 'tasks', 'done', 'authenticated', array['SELECT', 'UPDATE'], 'tasks.done is editable');
@@ -24,16 +26,16 @@ select table_privs_are('public', 'workspace_summaries', 'anon', array[]::text[],
 select function_privs_are('public', 'create_team_workspace', array['text'], 'authenticated', array['EXECUTE'], 'signed-in users call the RPCs');
 select function_privs_are('public', 'create_team_workspace', array['text'], 'anon', array[]::text[], 'anon cannot');
 select column_privs_are('public', 'projects', c, 'authenticated', array['INSERT', 'SELECT', 'UPDATE'], format('projects.%s is set and edited', c))
-  from unnest(array['status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
+  from unnest(array['program_id', 'status', 'stage', 'sector', 'location_lat', 'location_lng']) as c;
 select table_privs_are('public', 'schedules', 'authenticated', array['DELETE', 'SELECT'], 'schedules: select and delete at table level; columns for insert and update');
 select column_privs_are('public', 'schedules', 'code', 'authenticated', array['INSERT', 'SELECT', 'UPDATE'], 'schedules.code is set and edited');
 select column_privs_are('public', 'schedules', 'is_current', 'authenticated', array['SELECT'], 'is_current changes only through set_current_schedule');
 select column_privs_are('public', 'schedules', 'project_id', 'authenticated', array['INSERT', 'SELECT'], 'a schedule never moves to another project');
 select column_privs_are('public', 'schedules', 'updated_at', 'authenticated', array['SELECT'], 'schedules.updated_at is never written by users');
 select column_privs_are('public', 'schedules', c, 'authenticated', array['INSERT', 'SELECT'], format('schedules.%s is set on insert only', c))
-  from unnest(array['source_format', 'import_report', 'activity_count', 'data_file_path', 'calculation_mode']) as c;
+  from unnest(array['folder_id', 'source_format', 'import_report', 'activity_count', 'data_file_path', 'calculation_mode']) as c;
 select column_privs_are('public', 'schedules', c, 'authenticated', array['SELECT'], format('schedules.%s is never written directly by users', c))
-  from unnest(array['data_revision', 'locked_by']) as c;
+  from unnest(array['copied_from_id', 'data_revision', 'locked_by']) as c;
 select table_privs_are('public', 'schedule_items', 'authenticated', array['SELECT'], 'schedule_items is readable by signed-in users');
 select table_privs_are('public', 'schedule_items', 'anon', array[]::text[], 'anon cannot read schedule_items');
 select is_empty($$
@@ -46,18 +48,27 @@ select set_eq($$
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname in ('public', 'app') and has_function_privilege('authenticated', p.oid, 'execute') $$,
   $$ values ('app.display_name(uuid)'), ('app.my_project_ids(text)'), ('app.my_workspace_ids(text)'),
-            ('public.acquire_schedule_lock(uuid)'), ('public.create_team_workspace(text)'),
+            ('public.acquire_schedule_lock(uuid)'),
+            ('public.copy_schedule(uuid, uuid, text, text, uuid, boolean, text, text)'),
+            ('public.create_folder(uuid, uuid, text)'),
+            ('public.create_program(uuid, text)'),
+            ('public.create_team_workspace(text)'),
+            ('public.delete_folder(uuid)'),
+            ('public.delete_program(uuid)'),
             ('public.delete_project(uuid)'), ('public.delete_schedules(uuid[])'),
             ('public.force_release_schedule_lock(uuid)'),
             ('public.is_project_code_available(uuid, text)'),
             ('public.materialize_schedule_data(uuid, text, integer, text)'),
+            ('public.move_schedules_to_folder(uuid[], uuid)'),
             ('public.release_schedule_lock(uuid)'), ('public.remove_member(uuid, uuid)'),
+            ('public.rename_folder(uuid, text)'),
+            ('public.rename_program(uuid, text)'),
             ('public.renew_schedule_lock(uuid)'),
             ('public.save_schedule_data(uuid, integer, text, integer, text, date)'),
             ('public.set_current_schedule(uuid)'), ('public.set_schedules_archived(uuid[], boolean)'),
             ('public.update_member_role(uuid, uuid, text)'),
             ('public.update_schedule_details(uuid, text, text, date, text, text, integer)') $$,
-  'signed-in users can execute exactly the fifteen RPCs and three app helpers');
+  'signed-in users can execute exactly the twenty-three RPCs and three app helpers');
 
 select * from finish();
 rollback;

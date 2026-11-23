@@ -35,6 +35,8 @@ describe('mappers', () => {
       status: 'on_hold',
       stage: 'construction',
       sector: 'public',
+      program_id: null,
+      program_name: null,
       location_lat: 41.0151,
       location_lng: 28.9795,
       schedule_count: 2,
@@ -79,6 +81,8 @@ describe('mappers', () => {
       mapScheduleItem({
         id: 's1',
         project_id: 'p1',
+        folder_id: null,
+        copied_from_id: null,
         name: 'Update 2',
         code: 'UP-02',
         notes: null,
@@ -134,6 +138,8 @@ describe('mappers', () => {
       mapScheduleItem({
         id: 's2',
         project_id: 'p1',
+        folder_id: null,
+        copied_from_id: null,
         name: 'Locked XER',
         code: 'LX-1',
         notes: null,
@@ -173,6 +179,8 @@ describe('mappers', () => {
       mapScheduleItem({
         id: 's3',
         project_id: 'p1',
+        folder_id: null,
+        copied_from_id: null,
         name: 'Fallback Name',
         code: 'FN-1',
         notes: null,
