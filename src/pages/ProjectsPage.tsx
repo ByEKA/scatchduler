@@ -46,6 +46,7 @@ import { useDialogs } from '@/features/dialogs/DialogsProvider';
 import { ProjectCard, ProjectCardSkeleton } from '@/features/home/ProjectCard';
 import { ProgramDialog, type ProgramDialogTarget } from '@/features/projects/ProgramDialog';
 import { ProjectMenu } from '@/features/projects/ProjectMenu';
+import { ProjectsMap } from '@/features/projects/ProjectsMap';
 import { ProjectsToolbar } from '@/features/projects/ProjectsToolbar';
 import {
   filterProjects,
@@ -586,7 +587,21 @@ export function ProjectsPage(): ReactElement {
         )}
       </div>
       <ProjectsToolbar layout={layout} onLayoutChange={setLayout} />
-      {group === 'program' ? (
+      {layout === 'map' ? (
+        state.kind === 'loading' ? (
+          <Skeleton aria-hidden="true" className="h-[460px] w-full rounded-lg" />
+        ) : state.kind === 'error' ? (
+          <SectionError
+            error={state.error}
+            onRetry={state.retry}
+            className="min-h-[260px] rounded-lg bg-card ring-1 ring-edge"
+          />
+        ) : state.projects.length === 0 ? (
+          <div className="py-12">{state.empty}</div>
+        ) : (
+          <ProjectsMap projects={state.projects} workspace={state.workspace} />
+        )
+      ) : group === 'program' ? (
         <GroupedByProgram
           state={state}
           layout={layout}

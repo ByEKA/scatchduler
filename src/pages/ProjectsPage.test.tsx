@@ -248,4 +248,22 @@ describe('ProjectsPage', () => {
       ).toBeInTheDocument();
     });
   });
+
+  it('switches to the Map layout, displays pins and Not on the map, and persists across remount', async () => {
+    const { user, unmount, dataLayer } = await renderProjects();
+    await screen.findAllByRole('article');
+
+    await user.click(screen.getByRole('radio', { name: 'Map' }));
+    expect(screen.getByRole('img', { name: 'Projects coordinate map' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Harbor Logistics Hub (003)' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('complementary', { name: 'Not on the map' })).getByRole('heading', {
+        name: 'Not on the map (2)',
+      }),
+    ).toBeInTheDocument();
+
+    unmount();
+    await renderProjects({ dataLayer });
+    expect(await screen.findByRole('img', { name: 'Projects coordinate map' })).toBeInTheDocument();
+  });
 });
