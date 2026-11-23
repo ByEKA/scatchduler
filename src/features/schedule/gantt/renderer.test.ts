@@ -331,4 +331,100 @@ describe('Gantt headless renderer (S10, S12)', () => {
     });
     expect(noLinksDraw.calls.some((c) => c.op === 'polyline')).toBe(false);
   });
+
+  it('draws connector ports in Edit mode, ghost bar + badge on move/resize/progress, and rubber-band line + relationship badge on link-draw', () => {
+    const rows: GanttRow[] = [
+      {
+        key: 'act:a1',
+        kind: 'activity',
+        activityType: 'task',
+        start: origin,
+        finish: origin + 3 * MINUTES_PER_DAY,
+        progressFinish: null,
+        isCritical: false,
+        isNearCritical: false,
+        label: 'A1',
+      },
+      {
+        key: 'act:a2',
+        kind: 'activity',
+        activityType: 'task',
+        start: origin + 3 * MINUTES_PER_DAY,
+        finish: origin + 6 * MINUTES_PER_DAY,
+        progressFinish: null,
+        isCritical: false,
+        isNearCritical: false,
+        label: 'A2',
+      },
+    ];
+
+    const baseScene: GanttScene = {
+      rows,
+      links: [],
+      timescale: createTimescale('day', origin),
+      scrollTop: 0,
+      scrollLeft: 0,
+      statusMinute: null,
+      todayMinute: null,
+      nonWorkingDays: isWeekend,
+      show: { critical: true, links: true, drivingPath: null },
+      selectedKey: 'act:a1',
+      hoveredRowKey: 'act:a2',
+      editMode: true,
+      theme: TEST_THEME,
+    };
+
+    // 1. Connector ports drawn on selected and hovered rows in Edit mode
+    const portDraw = createRecordingDraw2D(640, 200);
+    renderGantt(portDraw, baseScene);
+    expect(
+      portDraw.calls.filter(
+        (c) => c.op === 'strokeRect' && c.args[4] === TEST_THEME.linkDriving,
+      ).length,
+    ).toBe(4);
+
+    // 2. Ghost bar + badge label on bar-ghost overlay
+    const ghostDraw = createRecordingDraw2D(640, 200);
+    renderGantt(ghostDraw, {
+      ...baseScene,
+      interactionOverlay: {
+        kind: 'bar-ghost',
+        mode: 'bar-resize',
+        rowIndex: 0,
+        startMinute: origin,
+        finishMinute: origin + 5 * MINUTES_PER_DAY,
+        progressMinute: origin + 2 * MINUTES_PER_DAY,
+        badgeLabel: '5 d',
+      },
+    });
+    expect(ghostDraw.calls.some((c) => c.op === 'setAlpha' && c.args[0] === 0.45)).toBe(true);
+    expect(ghostDraw.calls.some((c) => c.op === 'text' && c.args[2] === '5 d')).toBe(true);
+
+    // 3. Rubber-band line + FS badge on link-draw overlay
+    const linkDraw = createRecordingDraw2D(640, 200);
+    renderGantt(linkDraw, {
+      ...baseScene,
+      interactionOverlay: {
+        kind: 'link-draw',
+        sourceRowIndex: 0,
+        sourcePort: 'finish',
+        fromX: 104,
+        fromY: 16,
+        toX: 88,
+        toY: 48,
+        targetRowIndex: 1,
+        targetPort: 'start',
+        relType: 'FS',
+      },
+    });
+    expect(
+      linkDraw.calls.some(
+        (c) =>
+          c.op === 'line' &&
+          c.args[4] === TEST_THEME.linkDriving &&
+          Array.isArray((c.args[5] as { dash?: number[] } | undefined)?.dash),
+      ),
+    ).toBe(true);
+    expect(linkDraw.calls.some((c) => c.op === 'text' && c.args[2] === 'FS')).toBe(true);
+  });
 });

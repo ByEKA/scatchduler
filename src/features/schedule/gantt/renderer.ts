@@ -1,4 +1,5 @@
 import type { ActivityType, RelationshipType } from '@/data/schedule-types';
+import type { GanttInteractionOverlay } from '@/features/schedule/gantt/drag';
 import type { Draw2D } from '@/features/schedule/gantt/draw2d';
 import { routeOrthogonalLink } from '@/features/schedule/gantt/links';
 import type { GanttTheme } from '@/features/schedule/gantt/theme';
@@ -42,6 +43,9 @@ export interface GanttScene {
   nonWorkingDays: (dayMinute: number) => boolean;
   show: { critical: boolean; links: boolean; drivingPath: ReadonlySet<string> | null };
   selectedKey: string | null;
+  hoveredRowKey?: string | null;
+  editMode?: boolean;
+  interactionOverlay?: GanttInteractionOverlay | null;
   theme: GanttTheme;
 }
 
@@ -49,6 +53,8 @@ const BAR_HEIGHT = 16;
 const BAR_OFFSET_Y = (GANTT_ROW_HEIGHT - BAR_HEIGHT) / 2;
 const MIN_BAR_WIDTH = 4;
 const MILESTONE_RADIUS = 6;
+const PORT_OFFSET = 8;
+const PORT_HALF = 3.5;
 const HORIZONTAL_CULL_MARGIN = 24;
 const HEADER_TOP_FONT = '500 11px Inter Variable, ui-sans-serif, system-ui, sans-serif';
 const HEADER_BOTTOM_FONT = '400 11px Inter Variable, ui-sans-serif, system-ui, sans-serif';
@@ -295,6 +301,117 @@ export function renderGantt(draw: Draw2D, scene: GanttScene): void {
       if (isDimmed && draw.setAlpha) {
         draw.restore();
       }
+    }
+  }
+
+  // 7. Connector ports on selected/hovered activity row in Edit mode
+  if (scene.editMode) {
+    for (let i = firstRow; i <= lastRow; i++) {
+      const row = rows[i]!;
+      if (
+        row.kind !== 'activity' ||
+        row.activityType === 'wbs_summary' ||
+        row.activityType === 'level_of_effort'
+      ) {
+        continue;
+      }
+      if (row.key !== scene.selectedKey && row.key !== scene.hoveredRowKey) continue;
+      if (row.start === null && row.finish === null) continue;
+
+      const startMin = row.start ?? row.finish!;
+      const finishMin = row.finish ?? row.start!;
+      const x1 = timescale.x(startMin) - scrollLeft;
+      const x2 = timescale.x(finishMin) - scrollLeft;
+      const cy = i * GANTT_ROW_HEIGHT + GANTT_ROW_HEIGHT / 2 - scrollTop;
+
+      let startPortX: number;
+      let finishPortX: number;
+      if (row.activityType === 'start_milestone' || row.activityType === 'finish_milestone') {
+        const cx = row.activityType === 'finish_milestone' ? x2 : x1;
+        startPortX = cx - MILESTONE_RADIUS - PORT_OFFSET;
+        finishPortX = cx + MILESTONE_RADIUS + PORT_OFFSET;
+      } else {
+        const width = Math.max(MIN_BAR_WIDTH, x2 - x1);
+        startPortX = x1 - PORT_OFFSET;
+        finishPortX = x1 + width + PORT_OFFSET;
+      }
+
+      for (const px of [startPortX, finishPortX]) {
+        draw.fillRect(px - PORT_HALF, cy - PORT_HALF, PORT_HALF * 2, PORT_HALF * 2, theme.card);
+        draw.strokeRect(
+          px - PORT_HALF,
+          cy - PORT_HALF,
+          PORT_HALF * 2,
+          PORT_HALF * 2,
+          theme.linkDriving,
+          1,
+        );
+      }
+    }
+  }
+
+  // 8. Interactive drag overlay (ghost bar + badge or rubber-band link + relationship badge)
+  const overlay = scene.interactionOverlay;
+  if (overlay?.kind === 'bar-ghost') {
+    const gx1 = timescale.x(overlay.startMinute) - scrollLeft;
+    const gx2 = timescale.x(overlay.finishMinute) - scrollLeft;
+    const gw = Math.max(MIN_BAR_WIDTH, gx2 - gx1);
+    const gy = overlay.rowIndex * GANTT_ROW_HEIGHT - scrollTop + BAR_OFFSET_Y;
+
+    draw.save();
+    draw.setAlpha?.(0.45);
+    draw.fillRect(gx1, gy, gw, BAR_HEIGHT, theme.bar);
+    if (overlay.progressMinute !== null && overlay.progressMinute > overlay.startMinute) {
+      const gpx = Math.min(gx1 + gw, timescale.x(overlay.progressMinute) - scrollLeft);
+      if (gpx > gx1) {
+        draw.fillRect(gx1, gy, gpx - gx1, BAR_HEIGHT, theme.barProgress);
+      }
+    }
+    draw.restore();
+    draw.strokeRect(gx1, gy, gw, BAR_HEIGHT, theme.foreground, 1);
+
+    const badgeW = Math.max(36, draw.measureText(overlay.badgeLabel, HEADER_TOP_FONT) + 12);
+    const badgeX = Math.max(4, Math.min(viewWidth - badgeW - 4, gx1 + gw / 2 - badgeW / 2));
+    const badgeY = Math.max(2, gy - 18);
+    draw.fillRect(badgeX, badgeY, badgeW, 16, theme.card);
+    draw.strokeRect(badgeX, badgeY, badgeW, 16, theme.border, 1);
+    draw.text(badgeX + badgeW / 2, badgeY + 8, overlay.badgeLabel, {
+      color: theme.foreground,
+      font: HEADER_TOP_FONT,
+      align: 'center',
+      baseline: 'middle',
+    });
+  } else if (overlay?.kind === 'link-draw') {
+    draw.line(overlay.fromX, overlay.fromY, overlay.toX, overlay.toY, theme.linkDriving, {
+      width: 1.5,
+      dash: [4, 3],
+    });
+    draw.fillRect(
+      overlay.fromX - PORT_HALF,
+      overlay.fromY - PORT_HALF,
+      PORT_HALF * 2,
+      PORT_HALF * 2,
+      theme.linkDriving,
+    );
+    draw.fillRect(
+      overlay.toX - PORT_HALF,
+      overlay.toY - PORT_HALF,
+      PORT_HALF * 2,
+      PORT_HALF * 2,
+      theme.linkDriving,
+    );
+    if (overlay.relType !== null) {
+      const badgeW = 28;
+      const badgeX = Math.max(4, Math.min(viewWidth - badgeW - 4, overlay.toX - badgeW / 2));
+      const badgeY = Math.max(2, overlay.toY - 22);
+      draw.fillRect(badgeX, badgeY, badgeW, 16, theme.card);
+      draw.strokeRect(badgeX, badgeY, badgeW, 16, theme.linkDriving, 1);
+      draw.text(badgeX + badgeW / 2, badgeY + 8, overlay.relType, {
+        color: theme.foreground,
+        font: HEADER_TOP_FONT,
+        align: 'center',
+        baseline: 'middle',
+      });
     }
   }
 }
