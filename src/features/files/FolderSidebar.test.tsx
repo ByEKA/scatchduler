@@ -64,7 +64,7 @@ describe('FolderSidebar', () => {
     });
 
     // Create depth-2 subfolder "2026" inside "Tender"
-    await user.click(within(nav).getByRole('button', { name: 'Actions for Tender' }));
+    await user.click(within(nav).getByRole('button', { name: 'Manage folder Tender' }));
     await user.click(await screen.findByRole('menuitem', { name: 'New subfolder…' }));
     const subDialog = await screen.findByRole('dialog', { name: 'New folder in Tender' });
     await user.type(within(subDialog).getByLabelText('Folder name'), '2026');
@@ -74,7 +74,7 @@ describe('FolderSidebar', () => {
     });
 
     // Create depth-3 subfolder "Q4" inside "2026"
-    await user.click(within(nav).getByRole('button', { name: 'Actions for 2026' }));
+    await user.click(within(nav).getByRole('button', { name: 'Manage folder 2026' }));
     await user.click(await screen.findByRole('menuitem', { name: 'New subfolder…' }));
     const sub3Dialog = await screen.findByRole('dialog', { name: 'New folder in 2026' });
     await user.type(within(sub3Dialog).getByLabelText('Folder name'), 'Q4');
@@ -84,7 +84,7 @@ describe('FolderSidebar', () => {
     });
 
     // Depth-3 folder "Q4" should not offer "New subfolder…"
-    await user.click(within(nav).getByRole('button', { name: 'Actions for Q4' }));
+    await user.click(within(nav).getByRole('button', { name: 'Manage folder Q4' }));
     expect(screen.queryByRole('menuitem', { name: 'New subfolder…' })).not.toBeInTheDocument();
 
     // Rename "Q4" to "Q4 Final"
@@ -99,7 +99,7 @@ describe('FolderSidebar', () => {
     });
 
     // Delete "Q4 Final"
-    await user.click(within(nav).getByRole('button', { name: 'Actions for Q4 Final' }));
+    await user.click(within(nav).getByRole('button', { name: 'Manage folder Q4 Final' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete…' }));
     const deleteDialog = await screen.findByRole('alertdialog');
     await user.click(within(deleteDialog).getByRole('button', { name: 'Delete folder' }));
@@ -117,7 +117,7 @@ describe('FolderSidebar', () => {
     const viewerNav = await screen.findByRole('navigation', { name: 'Folders' });
     expect(within(viewerNav).getByRole('button', { name: 'New folder' })).toBeDisabled();
     expect(
-      within(viewerNav).queryByRole('button', { name: 'Actions for Baselines' }),
+      within(viewerNav).queryByRole('button', { name: 'Manage folder Baselines' }),
     ).not.toBeInTheDocument();
   });
 });

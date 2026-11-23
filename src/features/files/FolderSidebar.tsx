@@ -207,7 +207,7 @@ export function FolderSidebar({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  aria-label={`Actions for ${folder.name}`}
+                  aria-label={`Manage folder ${folder.name}`}
                   className={cn(
                     'flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground',
                     FOCUS_OUTLINE_CLASSES,

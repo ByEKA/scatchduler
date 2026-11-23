@@ -119,8 +119,20 @@ export function LibraryToolbar({
   }
   const searchText = draft?.text ?? view.q;
 
+  const [pendingArchived, setPendingArchived] = useState<boolean | null>(null);
+  if (pendingArchived !== null && pendingArchived === view.archived) {
+    setPendingArchived(null);
+  }
+  const showArchived = pendingArchived ?? view.archived;
+
+  const [pendingNonEmpty, setPendingNonEmpty] = useState<boolean | null>(null);
+  if (pendingNonEmpty !== null && pendingNonEmpty === view.nonEmpty) {
+    setPendingNonEmpty(null);
+  }
+  const hideEmpty = pendingNonEmpty ?? view.nonEmpty;
+
   const updateView = (patch: Partial<LibraryView>) => {
-    setSearchParams(withLibraryViewParams(searchParams, patch), { replace: true });
+    setSearchParams((prev) => withLibraryViewParams(prev, patch), { replace: true });
   };
 
   const handleSearchChange = (text: string) => {
@@ -130,7 +142,9 @@ export function LibraryToolbar({
 
   const handleClearFilters = () => {
     setDraft({ text: '', pending: [''] });
-    setSearchParams(clearLibraryFilters(searchParams), { replace: true });
+    setPendingArchived(false);
+    setPendingNonEmpty(false);
+    setSearchParams((prev) => clearLibraryFilters(prev), { replace: true });
   };
 
   const workspaceOptions = [
@@ -212,8 +226,12 @@ export function LibraryToolbar({
         <div className="flex items-center gap-2">
           <Checkbox
             id={archivedId}
-            checked={view.archived}
-            onCheckedChange={(checked) => updateView({ archived: checked === true })}
+            checked={showArchived}
+            onCheckedChange={(checked) => {
+              const next = checked === true;
+              setPendingArchived(next);
+              updateView({ archived: next });
+            }}
             className="bg-card"
           />
           <Label htmlFor={archivedId} className="text-sm font-normal">
@@ -224,8 +242,12 @@ export function LibraryToolbar({
         <div className="flex items-center gap-2">
           <Checkbox
             id={nonEmptyId}
-            checked={view.nonEmpty}
-            onCheckedChange={(checked) => updateView({ nonEmpty: checked === true })}
+            checked={hideEmpty}
+            onCheckedChange={(checked) => {
+              const next = checked === true;
+              setPendingNonEmpty(next);
+              updateView({ nonEmpty: next });
+            }}
             className="bg-card"
           />
           <Label htmlFor={nonEmptyId} className="text-sm font-normal">
