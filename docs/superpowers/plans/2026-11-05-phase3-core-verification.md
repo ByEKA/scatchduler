@@ -4,7 +4,7 @@
 |---|---|
 | **Spec** | `docs/superpowers/specs/2026-11-05-phase3-core-design.md` (§8 assumptions V1–V9, §2.2 success criteria) |
 | **Plan** | `docs/superpowers/plans/2026-11-05-phase3-core.md` (Task 1 checks V1–V7; Task 23 checks V6 and V8; Task 24 checks V9 and adds the final results) |
-| **Status** | Task 1, 2026-11-06: V1–V5 and V7 hold, so the design's primary path applies and no §8 fallback is in use (except SheetJS CE 0.20.3 shipping no NOTICE file, V1). Task 23, 2026-11-19: V6 (Chromium IIFE worker) and V8 (50 MB XER in CI) pass. Task 24, 2026-11-20: V9 passes on all 64 P6 XER files (68 projects, 0 errors), the English P6 workbook and all 11 refused `.mpp`/`.xls` files, with three gaps deferred by owner consent (Microsoft Project XML, Turkish Excel export and per-file source-tool totals); every automated suite passes (see [Final results](#final-results)). Production/cross-browser checks and the deferred V9 items wait in the [owner checklist](#owner-checklist). |
+| **Status** | Task 1, 2026-11-06: V1–V5 and V7 hold, so the design's primary path applies and no §8 fallback is in use (except SheetJS CE 0.20.3 shipping no NOTICE file, V1). Task 23, 2026-11-19: V6 (Chromium IIFE worker) and V8 (50 MB XER in CI) pass. Task 24, 2026-11-20: V9 passes on 64 of the collection's 73 P6 XER files in the cloud read (68 projects, 0 errors) and on all 73 (78 projects, 0 errors) in the local rerun of 2026-11-24 (D70), the English P6 workbook and all 11 refused `.mpp`/`.xls` files, with three gaps deferred by owner consent (Microsoft Project XML, Turkish Excel export and per-file source-tool totals); every automated suite passes (see [Final results](#final-results)). Production/cross-browser checks and the deferred V9 items wait in the [owner checklist](#owner-checklist). |
 
 ## Environment
 
@@ -111,6 +111,9 @@ V2–V5 and V7's download are checked by `integration/p3-assumptions.itest.ts` (
   2. Real Turkish Excel (`.xlsx`) export (both workbooks in the collection are English; Turkish link types, lags, duration units, dates and constraint names remain covered by committed fixtures only).
   3. Per-file source-tool totals comparison (activities, links, WBS elements, calendars read from P6 / MS Project / Excel).
 
+
+**Local rerun (2026-11-24, D70).** `npm run real-exports` over the main checkout's `real-exports/` at `e31948e`: 87 files read, none threw (73 XER, 2 `.xlsx`, 11 `.mpp`, 1 `.xls`). All 78 XER projects (P6 5.0, 5.0.2000, 6.0, 6.0.0, 6.2, 7.0 and 8.0) read with 0 errors: 151,576 activities in all, the largest 23,457 activities in 1,930 ms. The only error is `FILE_NO_ACTIVITIES` on the summary workbook, whose table has no activity code column until the user maps one. The collection is publicly available sample data (owner, 2026-11-24; spec D70).
+
 ## Owner checklist
 
 Each item needs the owner (a browser other than Chromium, a desktop application, the production project, or deferred real exports). Tick the box and fill in the result line.
@@ -155,4 +158,4 @@ Recorded in Task 24 on 2026-11-20 at `01e4ffb` plus this commit's doc updates (`
 | S9 | pass: viewer disabled-action tests pass in component tests, contract tests, `test:db`, and `e2e-supabase/supabase.spec.ts` |
 | S10 | pass: `scripts/third-party-licenses.test.mjs` passes and every build emits non-empty `dist/third-party-licenses.txt` (119 packages) |
 | S11 | pass: hand-over round trip (`getScheduleSourceFile` + `getImportMapping` → `analyze` gives identical `ImportModel`) passes on mock (`repository.contract.ts`) and Supabase (`integration/imports.itest.ts`) |
-| S12 | pass with owner-accepted gaps (2026-11-20): all 64 P6 XERs (68 projects) and English P6 `.xlsx` read with 0 errors; MS Project XML, Turkish `.xlsx` and source-tool totals deferred to [Owner checklist](#owner-checklist) item 5 with owner consent |
+| S12 | pass with owner-accepted gaps (2026-11-20): all 73 P6 XERs (78 projects; 64 in the cloud read, all 73 in the 2026-11-24 local rerun, D70) and English P6 `.xlsx` read with 0 errors; MS Project XML, Turkish `.xlsx` and source-tool totals deferred to [Owner checklist](#owner-checklist) item 5 with owner consent |
