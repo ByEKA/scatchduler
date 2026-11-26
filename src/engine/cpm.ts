@@ -1004,6 +1004,74 @@ export function runPostPasses(
   }
 }
 
+interface ForwardLinkBound {
+  /** The link's bound snapped to the successor's calendar exactly as runForwardPass snaps it. */
+  readonly bound: number;
+  /**
+   * The successor date that bound limits: ES, the remaining start of an in-progress activity, or EF.
+   */
+  readonly target: number;
+  /**
+   * False when the successor's dates don't come from forward logic (completed, or level of effort).
+   */
+  readonly forwardLogic: boolean;
+}
+
+/**
+ * The forward pass's bound for one link, recomputed for floats and driving (spec §5.4 step 4).
+ * The `TRUNCATED_LEAD` clamp is left out on purpose. A clamped lead never becomes the driver, and
+ * its float is measured from the unclamped bound. If `runForwardPass` changes how it snaps a link,
+ * change this helper too.
+ */
+function forwardLinkBound(
+  rel: ScheduleRelationship,
+  rules: ResolvedRules,
+  succ: ScheduleActivity,
+  succCal: CompiledCalendar,
+  lagCal: CompiledCalendar,
+  predEs: number,
+  predEf: number,
+  succEs: number,
+  succEf: number,
+): ForwardLinkBound {
+  const anchor = rel.type === 'FS' || rel.type === 'FF' ? predEf : predEs;
+  const raw = addWorkingMinutes(lagCal, anchor, rel.lagMinutes);
+  const startSide = rel.type === 'FS' || rel.type === 'SS';
+  const isStartMs = succ.type === 'start_milestone';
+  const isFinishMs = succ.type === 'finish_milestone';
+  const remDur = isStartMs || isFinishMs ? 0 : Math.max(0, succ.remainingDuration);
+
+  // Dates of completed and level-of-effort activities don't come from forward logic.
+  if (succ.status === 'completed' || succ.type === 'level_of_effort') {
+    return startSide
+      ? { bound: snapForwardToWorkStart(succCal, raw), target: succEs, forwardLogic: false }
+      : { bound: snapBackwardToWorkFinish(succCal, raw), target: succEf, forwardLogic: false };
+  }
+  if (succ.status === 'in_progress') {
+    // runForwardPass in-progress branch: start-side links bound the remaining start.
+    if (startSide) {
+      const remainingStart = remDur > 0 ? subtractWorkingMinutes(succCal, succEf, remDur) : succEf;
+      return {
+        bound: snapForwardToWorkStart(succCal, raw),
+        target: remainingStart,
+        forwardLogic: true,
+      };
+    }
+    return { bound: snapBackwardToWorkFinish(succCal, raw), target: succEf, forwardLogic: true };
+  }
+  if (isFinishMs) {
+    return {
+      bound: rules.finishMilestoneOnPredFinish ? raw : snapBackwardToWorkFinish(succCal, raw),
+      target: succEs,
+      forwardLogic: true,
+    };
+  }
+  if (isStartMs || remDur === 0 || startSide) {
+    return { bound: snapForwardToWorkStart(succCal, raw), target: succEs, forwardLogic: true };
+  }
+  return { bound: snapBackwardToWorkFinish(succCal, raw), target: succEf, forwardLogic: true };
+}
+
 function formatFloatDays(minutes: number, hoursPerDay: number): string {
   const dayMinutes = Math.max(1, hoursPerDay * 60);
   const rounded = Math.round((minutes / dayMinutes) * 10) / 10;
@@ -1042,23 +1110,28 @@ export function computeFloatsAndCriticality(
     const s = graph.edgeSuccIndex[edgeIdx]!;
     const pred = graph.nodes[u]!;
     const succ = graph.nodes[s]!;
-    const lagCal = resolveLagCalendar(
+    const predCal = nodeCalendars[u]!;
+    const succCal = nodeCalendars[s]!;
+    const lagCal = resolveLagCalendar(rel, document.settings, predCal, succCal, defaultCal);
+    const link = forwardLinkBound(
       rel,
-      document.settings,
-      nodeCalendars[u]!,
-      nodeCalendars[s]!,
-      defaultCal,
+      rules,
+      succ,
+      succCal,
+      lagCal,
+      forward.es[u]!,
+      forward.ef[u]!,
+      forward.es[s]!,
+      forward.ef[s]!,
     );
-
-    const predAnchor = rel.type === 'FS' || rel.type === 'FF' ? forward.ef[u]! : forward.es[u]!;
-    const linkBound = addWorkingMinutes(lagCal, predAnchor, rel.lagMinutes);
-    const succAnchor = rel.type === 'FS' || rel.type === 'SS' ? forward.es[s]! : forward.ef[s]!;
-    const relFreeFloat = workingMinutesBetween(lagCal, linkBound, succAnchor);
+    // Measured on the predecessor's calendar, so the activity's free float (the minimum of these)
+    // is in its own calendar's minutes (D12).
+    const relFreeFloat = workingMinutesBetween(predCal, link.bound, link.target);
     const active =
       forward.activeLinkMask[edgeIdx] === 1 &&
       pred.type !== 'level_of_effort' &&
       succ.type !== 'level_of_effort';
-    const isDriving = active && relFreeFloat <= 0;
+    const isDriving = active && link.forwardLogic && relFreeFloat === 0;
 
     edgeFreeFloat[edgeIdx] = relFreeFloat;
     edgeIsDriving[edgeIdx] = isDriving ? 1 : 0;
@@ -1066,11 +1139,13 @@ export function computeFloatsAndCriticality(
   }
 
   // Longest path: iterative backward walk along driving links from terminal non-LOE nodes.
+  // Completed activities are never on it and the walk stops at them (D11).
   const isLongestPath = new Uint8Array(n);
   const stack = new Int32Array(n);
   let stackTop = 0;
   for (let u = 0; u < n; u++) {
-    if (graph.nodes[u]!.type === 'level_of_effort') continue;
+    const node = graph.nodes[u]!;
+    if (node.type === 'level_of_effort' || node.status === 'completed') continue;
     if (forward.ef[u]! === backward.projectFinish) {
       isLongestPath[u] = 1;
       stack[stackTop++] = u;
@@ -1083,7 +1158,9 @@ export function computeFloatsAndCriticality(
       const edgeIdx = inEdges[j]!;
       if (edgeIsDriving[edgeIdx] !== 1) continue;
       const p = graph.edgePredIndex[edgeIdx]!;
-      if (isLongestPath[p] === 0 && graph.nodes[p]!.type !== 'level_of_effort') {
+      const predNode = graph.nodes[p]!;
+      if (predNode.type === 'level_of_effort' || predNode.status === 'completed') continue;
+      if (isLongestPath[p] === 0) {
         isLongestPath[p] = 1;
         stack[stackTop++] = p;
       }
@@ -1116,20 +1193,20 @@ export function computeFloatsAndCriticality(
     ) {
       freeFloat = 0;
     } else {
+      // D12: with no active successor, free float is the working time to the calculated project
+      // finish. That is also its upper bound, as the backward pass bounds every late finish by the
+      // project finish.
+      freeFloat = workingMinutesBetween(cal, actEf, backward.projectFinish);
       const outEdges = graph.outgoingEdgeIndices[u]!;
-      let minFf = Number.POSITIVE_INFINITY;
       for (let j = 0; j < outEdges.length; j++) {
         const edgeIdx = outEdges[j]!;
         if (forward.activeLinkMask[edgeIdx] !== 1) continue;
         const s = graph.edgeSuccIndex[edgeIdx]!;
         if (graph.nodes[s]!.type === 'level_of_effort') continue;
         const ff = edgeFreeFloat[edgeIdx]!;
-        if (ff < minFf) minFf = ff;
+        if (ff < freeFloat) freeFloat = ff;
       }
-      freeFloat = Number.isFinite(minFf) ? minFf : 0;
-      if (rules.freeFloatFloorZero && freeFloat < 0) {
-        freeFloat = 0;
-      }
+      if (rules.freeFloatFloorZero && freeFloat < 0) freeFloat = 0;
     }
 
     if (totalFloat < 0) {
@@ -1141,10 +1218,13 @@ export function computeFloatsAndCriticality(
       });
     }
 
+    // D11: completed work is never critical, near-critical or on the longest path.
     const longest = isLongestPath[u] === 1;
+    const completed = act.status === 'completed';
     const isCritical =
-      criticalDefinition === 'longest_path' ? longest : totalFloat <= criticalThresholdMinutes;
-    const isNearCritical = !isCritical && totalFloat <= nearCriticalThresholdMinutes;
+      !completed &&
+      (criticalDefinition === 'longest_path' ? longest : totalFloat <= criticalThresholdMinutes);
+    const isNearCritical = !completed && !isCritical && totalFloat <= nearCriticalThresholdMinutes;
 
     activities[act.id] = {
       earlyStart: toWallClock(actEs),

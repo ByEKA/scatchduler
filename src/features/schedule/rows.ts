@@ -151,8 +151,14 @@ export function buildVisibleRows(
         act.actualFinish ??
         null;
       totalFloat = act.sourceDates?.totalFloat ?? null;
-      isCritical = totalFloat !== null && totalFloat <= document.settings.criticalThresholdMinutes;
+      // D11: a completed activity is never critical or near-critical.
+      const completed = act.status === 'completed';
+      isCritical =
+        !completed &&
+        totalFloat !== null &&
+        totalFloat <= document.settings.criticalThresholdMinutes;
       isNearCritical =
+        !completed &&
         !isCritical &&
         totalFloat !== null &&
         totalFloat <= document.settings.nearCriticalThresholdMinutes;

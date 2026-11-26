@@ -141,4 +141,48 @@ describe('buildVisibleRows', () => {
     const filtered = buildVisibleRows(doc, null, {}, new Set(), new Set(['a1']));
     expect(filtered.map((r) => r.key)).toEqual(['wbs:w1', 'wbs:w2', 'act:a1']);
   });
+
+  it('never marks a completed activity critical in As imported mode (D11)', () => {
+    const imported = (totalFloat: number) => ({
+      planned: { start: '2026-01-05T08:00', finish: '2026-01-09T17:00' },
+      early: { start: '2026-01-05T08:00', finish: '2026-01-09T17:00' },
+      late: { start: '2026-01-05T08:00', finish: '2026-01-09T17:00' },
+      remaining: { start: null, finish: null },
+      totalFloat,
+      freeFloat: 0,
+    });
+    const doc = makeDocument({
+      settings: {
+        ...makeDocument().settings,
+        displayMode: 'as_imported',
+        criticalThresholdMinutes: 0,
+        nearCriticalThresholdMinutes: 4800,
+      },
+      activities: [
+        makeActivity({
+          id: 'done',
+          code: 'A1000',
+          order: 0,
+          status: 'completed',
+          actualStart: '2026-01-05T08:00',
+          actualFinish: '2026-01-09T17:00',
+          sourceDates: imported(0),
+        }),
+        makeActivity({
+          id: 'late',
+          code: 'A1005',
+          order: 1,
+          status: 'completed',
+          actualStart: '2026-01-05T08:00',
+          actualFinish: '2026-01-09T17:00',
+          sourceDates: imported(2400),
+        }),
+        makeActivity({ id: 'open', code: 'A1010', order: 2, sourceDates: imported(0) }),
+      ],
+    });
+    const byKey = new Map(buildVisibleRows(doc, null, {}, new Set()).map((r) => [r.key, r]));
+    expect(byKey.get('act:done')).toMatchObject({ isCritical: false, isNearCritical: false });
+    expect(byKey.get('act:late')).toMatchObject({ isCritical: false, isNearCritical: false });
+    expect(byKey.get('act:open')).toMatchObject({ isCritical: true, isNearCritical: false });
+  });
 });

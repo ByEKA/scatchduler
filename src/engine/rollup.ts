@@ -143,7 +143,9 @@ export function rollup(
     }
 
     acc.activityCount += 1;
-    if (isCritical) acc.hasCritical = true;
+    // D11: completed work never makes a WBS element critical, in either display mode (this also
+    // covers stored summaries computed before completed activities stopped being critical).
+    if (isCritical && act.status !== 'completed') acc.hasCritical = true;
   }
 
   // Iterative post-order traversal over the WBS forest (cycle-safe via visited array).

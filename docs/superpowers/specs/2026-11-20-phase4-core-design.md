@@ -443,14 +443,17 @@ Every behavioural difference between P6, MS Project and our default profile is e
    - **LOE (`level_of_effort`):** evaluated in topological order from earliest predecessor anchor to latest successor anchor; warns `LOE_UNBOUNDED` if missing start or finish driver.
 4. **Floats, Criticality & Driving Path:**
    - `totalFloat` per `rules.totalFloatFormula` on activity's calendar; warns `NEGATIVE_FLOAT` summary when `< 0`.
-   - `freeFloat`: smallest non-negative (or signed per `rules.freeFloatFloorZero`) working-minute gap to any successor's early bound.
-   - Per-relationship `freeFloat` and `isDriving` (`relFreeFloat === 0` on active forward logic).
-   - `isLongestPath`: backward walk along driving links from activities whose `EF === projectFinish`.
-   - `isCritical`: `criticalDefinition === 'longest_path' ? isLongestPath : totalFloat <= criticalThresholdMinutes`.
-   - `isNearCritical`: `!isCritical && totalFloat <= nearCriticalThresholdMinutes`.
+   - `freeFloat`: smallest working-minute gap, on the activity's calendar, to any active non-LOE successor's early bound (the per-relationship `freeFloat`). It is never more than the working time from its early finish to the calculated project finish (`max EF`, not `mustFinishBy`), and with no active successor it is that time (D12). Floored at 0 when `rules.freeFloatFloorZero`.
+   - Per-relationship `freeFloat` and `isDriving`:
+     - The link's bound is computed exactly as the forward pass computes it: the lag on the resolved lag calendar, then snapped to the successor's calendar by the successor's branch (start/finish milestone, zero duration, FS/SS start bound, FF/SF finish bound, in-progress remaining start). The `TRUNCATED_LEAD` clamp is not applied.
+     - `freeFloat` is the working minutes on the predecessor's calendar from that bound to the successor date it limits.
+     - `isDriving` is `relFreeFloat === 0` on active forward logic. Links into completed or level-of-effort activities never drive.
+   - `isLongestPath`: backward walk along driving links from activities whose `EF === projectFinish`. Completed activities are never on the longest path and the walk stops at them (D11).
+   - `isCritical`: a completed activity is never critical (D11); `criticalDefinition === 'longest_path' ? isLongestPath : totalFloat <= criticalThresholdMinutes`.
+   - `isNearCritical`: a completed activity is never near-critical (D11); `!isCritical && totalFloat <= nearCriticalThresholdMinutes`.
    - `traceDrivingPath(result, activityId)`: walks backward along driving links from `activityId` to root drivers, returning `{ activityIds, relationshipIds, hops }`.
 5. **WBS Rollups (`src/engine/rollup.ts`):**
-   - Bottom-up across the WBS tree (using active display dates: `sourceDates` in `"As imported"` mode, calculated dates in `"Calculated"` mode): earliest start, latest finish, rolled-up working duration on default calendar, duration-weighted `% complete`, total leaf activity count, and `hasCritical`.
+   - Bottom-up across the WBS tree (using active display dates: `sourceDates` in `"As imported"` mode, calculated dates in `"Calculated"` mode): earliest start, latest finish, rolled-up working duration on default calendar, duration-weighted `% complete`, total leaf activity count, and `hasCritical`. `hasCritical` ignores completed activities in both modes (D11).
 
 ### 5.5 Solver warnings catalog (copy pinned)
 

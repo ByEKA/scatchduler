@@ -343,6 +343,98 @@ function withLongerLoes(doc: ScheduleDocument): ScheduleDocument {
   };
 }
 
+const sevenDayCalendar = makeStandardCalendar('cal:7d', {
+  name: 'Seven day',
+  week: Array.from({ length: 7 }, () => [
+    { start: 480, finish: 720 },
+    { start: 780, finish: 1020 },
+  ]),
+  hoursPerWeek: 56,
+});
+
+interface LagDagSpec {
+  durations: number[];
+  sevenDay: boolean[];
+  edges: Array<{
+    u: number;
+    v: number;
+    type: RelationshipType;
+    lagMinutes: number;
+    lagElapsed: boolean;
+  }>;
+  profile: 'p6' | 'msp';
+  lagCalendar: LagCalendarMode;
+}
+
+const lagDagArbitrary: fc.Arbitrary<LagDagSpec> = fc.integer({ min: 2, max: 14 }).chain((n) =>
+  fc.record({
+    durations: fc.array(fc.constantFrom(0, 240, 480, 960, 1440), { minLength: n, maxLength: n }),
+    sevenDay: fc.array(fc.boolean(), { minLength: n, maxLength: n }),
+    edges: fc.array(
+      fc
+        .tuple(
+          fc.integer({ min: 0, max: n - 2 }),
+          fc.integer({ min: 1, max: n - 1 }),
+          fc.constantFrom<RelationshipType>('FS', 'SS', 'FF', 'SF'),
+          fc.constantFrom(-240, 0, 240, 480, 1440),
+          fc.boolean(),
+        )
+        .filter(([u, v]) => u < v)
+        .map(([u, v, type, lagMinutes, lagElapsed]) => ({ u, v, type, lagMinutes, lagElapsed })),
+      { minLength: 0, maxLength: n * 2 },
+    ),
+    profile: fc.constantFrom<'p6' | 'msp'>('p6', 'msp'),
+    lagCalendar: fc.constantFrom<LagCalendarMode>(
+      'predecessor',
+      'successor',
+      'elapsed_24h',
+      'project_default',
+    ),
+  }),
+);
+
+function buildDocFromLagDag(spec: LagDagSpec) {
+  const activities = spec.durations.map((dur, i) =>
+    makeActivity({
+      id: `act:${i}`,
+      code: `A${String(i + 1).padStart(3, '0')}`,
+      type: dur === 0 ? (i % 2 === 0 ? 'start_milestone' : 'finish_milestone') : 'task',
+      originalDuration: dur,
+      remainingDuration: dur,
+      calendarId: spec.sevenDay[i] ? 'cal:7d' : 'cal:standard',
+    }),
+  );
+  const seen = new Set<string>();
+  const relationships: ScheduleRelationship[] = [];
+  for (const e of spec.edges) {
+    const key = `${e.u}:${e.v}:${e.type}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    relationships.push(
+      makeRelationship({
+        id: `rel:${relationships.length}`,
+        predecessorId: `act:${e.u}`,
+        successorId: `act:${e.v}`,
+        type: e.type,
+        lagMinutes: e.lagMinutes,
+        lagElapsed: e.lagElapsed,
+      }),
+    );
+  }
+  return makeDocument({
+    calendars: [makeStandardCalendar('cal:standard'), sevenDayCalendar],
+    settings: {
+      ...makeDocument().settings,
+      profile: spec.profile,
+      lagCalendar: spec.lagCalendar,
+      projectStart: '2026-01-05T08:00',
+      statusDate: '2026-01-05T08:00',
+    },
+    activities,
+    relationships,
+  });
+}
+
 describe('CPM solver algebraic properties', () => {
   it('satisfies date ordering, total float formula, order invariance and monotonicity across 50 random DAGs', () => {
     const compiledCal = compileCalendar(makeStandardCalendar('cal:standard'));
@@ -406,6 +498,48 @@ describe('CPM solver algebraic properties', () => {
         ).toBeGreaterThanOrEqual(toMinutes(res.summary.activities[`act:${vIdx}`]!.earlyStart));
       }),
       { numRuns: 50 },
+    );
+  });
+
+  it('keeps free float between zero and total float on working-calendar lags (p6, D12)', () => {
+    fc.assert(
+      fc.property(dagArbitrary, (spec) => {
+        const doc = buildDocFromDag(spec);
+        const res = solve(doc, { calculatedAt: '2026-01-05T08:00:00.000Z' });
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+        for (const act of doc.activities) {
+          const comp = res.summary.activities[act.id]!;
+          expect(comp.freeFloat, act.id).toBeGreaterThanOrEqual(0);
+          expect(comp.freeFloat, act.id).toBeLessThanOrEqual(comp.totalFloat);
+        }
+      }),
+      { numRuns: 100 },
+    );
+  });
+
+  // FF <= TF is not asserted here. With elapsed lags or mixed calendars the backward pass is not an
+  // exact mirror of the forward pass (it can even give negative TF with no constraint), so the
+  // FF <= TF property is pinned only on working-calendar lags above.
+  it('marks every forward driver link driving and floors p6 free float at zero across elapsed lags, lag calendars and two calendars (PR5-2)', () => {
+    fc.assert(
+      fc.property(lagDagArbitrary, (spec) => {
+        const doc = buildDocFromLagDag(spec);
+        const res = solve(doc, { calculatedAt: '2026-01-05T08:00:00.000Z' });
+        expect(res.ok).toBe(true);
+        if (!res.ok) return;
+        for (const act of doc.activities) {
+          const comp = res.summary.activities[act.id]!;
+          if (spec.profile === 'p6') expect(comp.freeFloat, act.id).toBeGreaterThanOrEqual(0);
+          if (comp.driver.kind === 'predecessor') {
+            expect(
+              res.summary.relationships[comp.driver.relationshipId]!.isDriving,
+              `${act.id} is driven by ${comp.driver.relationshipId}`,
+            ).toBe(true);
+          }
+        }
+      }),
+      { numRuns: 100 },
     );
   });
 });

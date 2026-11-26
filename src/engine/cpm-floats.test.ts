@@ -9,6 +9,7 @@ import type {
   ScheduleProfileId,
   ScheduleRelationship,
   ScheduleSettings,
+  ScheduleWbsNode,
 } from '@/data/schedule-types';
 import { solve } from '@/engine';
 import { compileCalendar, type CompiledCalendar } from '@/engine/calendar';
@@ -31,6 +32,7 @@ import { toMinutes, toWallClock } from '@/engine/time';
 
 interface FloatFixtureSpec {
   settings?: Partial<ScheduleSettings>;
+  wbs?: ScheduleWbsNode[];
   activities: Array<Partial<ScheduleActivity> & { id: string; code: string }>;
   relationships: Array<
     Partial<ScheduleRelationship> & { predecessorId: string; successorId: string }
@@ -86,6 +88,7 @@ function docFromFixture(
       ...spec.settings,
       ...settingsOverride,
     },
+    wbs: spec.wbs ?? [],
     activities: spec.activities.map((a) => makeActivity(a)),
     relationships: spec.relationships.map((r) => makeRelationship(r)),
   });
@@ -342,5 +345,137 @@ describe('CPM floats, criticality, longest path and driving trace', () => {
     expect(trace.activityIds).toHaveLength(50_000);
     expect(trace.relationshipIds).toHaveLength(49_999);
     expect(trace.hops).toBe(49_999);
+  });
+
+  // Before F3: r1 {3780,false} / {3780,false} / {900,false}; a.isLongestPath false; trace ['b'].
+  it.each([
+    'elapsedLagOverWeekend',
+    'elapsedLagCalendarOverWeekend',
+    'elapsedLagThreeDays',
+  ] as const)(
+    'marks a link driving when its successor sits at the calendar-snapped bound (%s)',
+    (key) => {
+      const doc = docFromFixture(key);
+      const summary = runFullCpm(doc);
+      expect(summary.relationships.r1).toEqual({ freeFloat: 0, isDriving: true });
+      expect(summary.activities.a).toMatchObject({
+        totalFloat: 0,
+        freeFloat: 0,
+        isLongestPath: true,
+      });
+      expect(summary.activities.b).toMatchObject({
+        earlyStart: '2026-01-12T08:00',
+        isLongestPath: true,
+      });
+      expect(traceDrivingPath(doc, summary, 'b')).toEqual({
+        activityIds: ['b', 'a'],
+        relationshipIds: ['r1'],
+        hops: 1,
+      });
+    },
+  );
+
+  // Before F3: r1 {-480,true}, a.freeFloat -480 in both documents.
+  it('measures finish-side links and finish milestones from the snapped bound (no false negative free float)', () => {
+    const link = runFullCpm(docFromFixture('elapsedFinishLink'));
+    expect(link.relationships.r1).toEqual({ freeFloat: 0, isDriving: true });
+    expect(link.activities.a!.freeFloat).toBe(0);
+    expect(link.activities.b!.earlyFinish).toBe('2026-01-06T17:00');
+
+    const milestone = runFullCpm(docFromFixture('elapsedFinishMilestone'));
+    expect(milestone.relationships.r1).toEqual({ freeFloat: 0, isDriving: true });
+    expect(milestone.activities.a!.freeFloat).toBe(0);
+    expect(milestone.activities.m!.earlyStart).toBe('2026-01-09T17:00');
+  });
+
+  // Before F3: byLink r1 {-960,true}; byStatus r1 {0,true}, trace ['b','a'].
+  it('measures links into an in-progress activity to its remaining start', () => {
+    const byLink = runFullCpm(docFromFixture('inProgressDrivenByLink'));
+    expect(byLink.activities.b!.driver).toEqual({
+      kind: 'predecessor',
+      relationshipId: 'r1',
+      predecessorId: 'a',
+    });
+    expect(byLink.relationships.r1).toEqual({ freeFloat: 0, isDriving: true });
+
+    const statusDoc = docFromFixture('inProgressDrivenByStatusDate');
+    const byStatus = runFullCpm(statusDoc);
+    expect(byStatus.activities.b!.driver).toEqual({ kind: 'actual' });
+    expect(byStatus.relationships.r1).toEqual({ freeFloat: 480, isDriving: false });
+    expect(traceDrivingPath(statusDoc, byStatus, 'b')).toEqual({
+      activityIds: ['b'],
+      relationshipIds: [],
+      hops: 0,
+    });
+  });
+
+  // Before F3: a {isCritical true}; longest_path a.isNearCritical true; chain a {isCritical true, isLongestPath true}.
+  it('never marks completed work critical, near-critical or on the longest path (D11)', () => {
+    const byFloat = runFullCpm(docFromFixture('completedWork'));
+    expect(byFloat.activities.a).toMatchObject({
+      totalFloat: 0,
+      isCritical: false,
+      isNearCritical: false,
+      isLongestPath: false,
+    });
+    expect(byFloat.activities.c).toMatchObject({
+      totalFloat: 0,
+      isCritical: true,
+      isLongestPath: true,
+    });
+
+    const byPath = runFullCpm(
+      docFromFixture('completedWork', { criticalDefinition: 'longest_path' }),
+    );
+    expect(byPath.activities.a).toMatchObject({
+      isCritical: false,
+      isNearCritical: false,
+      isLongestPath: false,
+    });
+
+    const chainDoc = docFromFixture('completedDrivesLongest');
+    const chain = runFullCpm(chainDoc);
+    expect(chain.activities.a).toMatchObject({ isCritical: false, isLongestPath: false });
+    expect(chain.activities.b).toMatchObject({
+      totalFloat: 0,
+      isCritical: true,
+      isLongestPath: true,
+    });
+    expect(traceDrivingPath(chainDoc, chain, 'b')).toEqual({
+      activityIds: ['b', 'a'],
+      relationshipIds: ['r1'],
+      hops: 1,
+    });
+  });
+
+  // Before F3: w1.hasCritical true.
+  it('never takes a WBS hasCritical from completed work (D11)', () => {
+    const res = solve(docFromFixture('completedWork'), {
+      calculatedAt: '2026-01-05T08:00:00.000Z',
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.summary.wbsRollups.w1!.hasCritical).toBe(false);
+    expect(res.summary.wbsRollups.w2!.hasCritical).toBe(true);
+  });
+
+  // Before F3: b.freeFloat 0 in all three.
+  it('gives an open-ended activity free float up to the calculated project finish (D12)', () => {
+    for (const profile of ['p6', 'msp'] as const) {
+      const summary = runFullCpm(docFromFixture('openEnd', { profile }));
+      expect(summary.activities.b, profile).toMatchObject({ totalFloat: 1440, freeFloat: 1440 });
+      expect(summary.activities.a, profile).toMatchObject({ totalFloat: 0, freeFloat: 0 });
+    }
+    const late = runFullCpm(docFromFixture('openEnd', { mustFinishBy: '2026-01-16T17:00' }));
+    expect(late.activities.b).toMatchObject({ totalFloat: 3840, freeFloat: 1440 });
+    expect(late.activities.a).toMatchObject({ totalFloat: 2400, freeFloat: 0 });
+  });
+
+  // Before F3: a.freeFloat 2400 > totalFloat 1440.
+  it('caps free float at the working time to the project finish when only start-side links follow', () => {
+    const summary = runFullCpm(docFromFixture('startToStartOnly'));
+    expect(summary.relationships.r1).toEqual({ freeFloat: 2400, isDriving: false });
+    expect(summary.activities.a).toMatchObject({ totalFloat: 1440, freeFloat: 1440 });
+    expect(summary.activities.b!.earlyStart).toBe('2026-01-12T08:00');
   });
 });

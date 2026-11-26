@@ -82,5 +82,234 @@
     "relationships": [
       { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
     ]
+  },
+  "elapsedLagOverWeekend": {
+    "settings": {
+      "profile": "p6",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-05T08:00"
+    },
+    "activities": [
+      { "id": "a", "code": "A10", "originalDuration": 2400 },
+      { "id": "b", "code": "B10", "originalDuration": 480 }
+    ],
+    "relationships": [
+      {
+        "id": "r1",
+        "predecessorId": "a",
+        "successorId": "b",
+        "type": "FS",
+        "lagMinutes": 0,
+        "lagElapsed": true
+      }
+    ]
+  },
+  "elapsedLagCalendarOverWeekend": {
+    "settings": {
+      "profile": "p6",
+      "lagCalendar": "elapsed_24h",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-05T08:00"
+    },
+    "activities": [
+      { "id": "a", "code": "A10", "originalDuration": 2400 },
+      { "id": "b", "code": "B10", "originalDuration": 480 }
+    ],
+    "relationships": [
+      { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+    ]
+  },
+  "elapsedLagThreeDays": {
+    "settings": {
+      "profile": "p6",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-05T08:00"
+    },
+    "activities": [
+      { "id": "a", "code": "A10", "originalDuration": 1920 },
+      { "id": "b", "code": "B10", "originalDuration": 480 }
+    ],
+    "relationships": [
+      {
+        "id": "r1",
+        "predecessorId": "a",
+        "successorId": "b",
+        "type": "FS",
+        "lagMinutes": 4320,
+        "lagElapsed": true
+      }
+    ]
+  },
+  "elapsedFinishLink": {
+    "settings": {
+      "profile": "msp",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-05T08:00"
+    },
+    "activities": [
+      { "id": "a", "code": "A10", "originalDuration": 960 },
+      { "id": "b", "code": "B10", "originalDuration": 480 }
+    ],
+    "relationships": [
+      {
+        "id": "r1",
+        "predecessorId": "a",
+        "successorId": "b",
+        "type": "FF",
+        "lagMinutes": 480,
+        "lagElapsed": true
+      }
+    ]
+  },
+  "elapsedFinishMilestone": {
+    "settings": {
+      "profile": "p6",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-05T08:00",
+      "ruleOverrides": { "freeFloatFloorZero": false }
+    },
+    "activities": [
+      { "id": "a", "code": "A10", "originalDuration": 2400 },
+      { "id": "m", "code": "M10", "type": "finish_milestone", "originalDuration": 0 }
+    ],
+    "relationships": [
+      {
+        "id": "r1",
+        "predecessorId": "a",
+        "successorId": "m",
+        "type": "FS",
+        "lagMinutes": 480,
+        "lagElapsed": true
+      }
+    ]
+  },
+  "inProgressDrivenByLink": {
+    "settings": {
+      "profile": "p6",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-05T08:00"
+    },
+    "activities": [
+      { "id": "a", "code": "A10", "originalDuration": 960 },
+      {
+        "id": "b",
+        "code": "B10",
+        "originalDuration": 960,
+        "remainingDuration": 480,
+        "status": "in_progress",
+        "actualStart": "2026-01-05T08:00"
+      }
+    ],
+    "relationships": [
+      { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+    ]
+  },
+  "inProgressDrivenByStatusDate": {
+    "settings": {
+      "profile": "p6",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-08T08:00"
+    },
+    "activities": [
+      {
+        "id": "a",
+        "code": "A10",
+        "originalDuration": 960,
+        "remainingDuration": 0,
+        "status": "completed",
+        "actualStart": "2026-01-05T08:00",
+        "actualFinish": "2026-01-06T17:00"
+      },
+      {
+        "id": "b",
+        "code": "B10",
+        "originalDuration": 960,
+        "remainingDuration": 480,
+        "status": "in_progress",
+        "actualStart": "2026-01-07T08:00"
+      }
+    ],
+    "relationships": [
+      { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+    ]
+  },
+  "completedWork": {
+    "settings": {
+      "profile": "default",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-07T08:00"
+    },
+    "wbs": [
+      { "id": "w1", "parentId": null, "code": "1", "name": "Done", "order": 0 },
+      { "id": "w2", "parentId": null, "code": "2", "name": "Open", "order": 1 }
+    ],
+    "activities": [
+      {
+        "id": "a",
+        "code": "A10",
+        "wbsId": "w1",
+        "originalDuration": 960,
+        "remainingDuration": 0,
+        "status": "completed",
+        "actualStart": "2026-01-05T08:00",
+        "actualFinish": "2026-01-06T17:00"
+      },
+      { "id": "b", "code": "B10", "wbsId": "w2", "originalDuration": 960 },
+      { "id": "c", "code": "C10", "wbsId": "w2", "originalDuration": 4800 }
+    ],
+    "relationships": [
+      { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+    ]
+  },
+  "completedDrivesLongest": {
+    "settings": {
+      "profile": "p6",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-07T08:00"
+    },
+    "activities": [
+      {
+        "id": "a",
+        "code": "A10",
+        "originalDuration": 960,
+        "remainingDuration": 0,
+        "status": "completed",
+        "actualStart": "2026-01-05T08:00",
+        "actualFinish": "2026-01-06T17:00"
+      },
+      { "id": "b", "code": "B10", "originalDuration": 2400 },
+      { "id": "c", "code": "C10", "originalDuration": 480 }
+    ],
+    "relationships": [
+      { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+    ]
+  },
+  "openEnd": {
+    "settings": {
+      "profile": "p6",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-05T08:00"
+    },
+    "activities": [
+      { "id": "a", "code": "A10", "originalDuration": 2400 },
+      { "id": "b", "code": "B10", "originalDuration": 960 }
+    ],
+    "relationships": []
+  },
+  "startToStartOnly": {
+    "settings": {
+      "profile": "p6",
+      "projectStart": "2026-01-05T08:00",
+      "statusDate": "2026-01-05T08:00"
+    },
+    "activities": [
+      { "id": "a", "code": "A10", "originalDuration": 1440 },
+      { "id": "b", "code": "B10", "originalDuration": 480 },
+      { "id": "c", "code": "C10", "originalDuration": 2400 }
+    ],
+    "relationships": [
+      { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "SS", "lagMinutes": 0 },
+      { "id": "r2", "predecessorId": "c", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+    ]
   }
 }
