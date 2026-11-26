@@ -2,8 +2,9 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 import viteConfig from './vite.config.ts';
 
 // Unit tests run in a negative UTC offset so date-only values that get parsed as UTC show up as
-// off-by-one-day failures.
-process.env.TZ = 'America/Los_Angeles';
+// off-by-one-day failures. `npm run test:engine:tz` sets ENGINE_TEST_TZ to run the engine suite in
+// each of its four zones (P4 core spec S4); test workers inherit the TZ set here.
+process.env.TZ = process.env.ENGINE_TEST_TZ ?? 'America/Los_Angeles';
 
 export default mergeConfig(
   viteConfig,
