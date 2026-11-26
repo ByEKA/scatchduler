@@ -93,7 +93,7 @@ select results_eq(
   $$ values (true, true) $$, 'expired lock appears unlocked in schedule_items');
 select throws_ok(
   $$ select * from public.renew_schedule_lock(tests.schedule_id('Current')) $$,
-  '40001', 'Your edit lock expired. Copy your changes or reload the schedule.',
+  '40001', 'Your edit lock expired. Download your changes or reload the schedule.',
   'R2: renewing an expired lock fails with conflict copy');
 
 -- 14–18. Replacement, renew, release, and owner force release.
@@ -140,7 +140,7 @@ select is((select activity_count from public.schedule_items where name = 'Curren
 -- 25–30. Save (R5, R6, R8, R10).
 select throws_ok(
   $$ select * from public.save_schedule_data(tests.schedule_id('Current'), 1, tests.data_path('Current'), 15, 'calculated', '2026-10-15') $$,
-  '40001', 'Your edit lock expired. Copy your changes or reload the schedule.',
+  '40001', 'Your edit lock expired. Download your changes or reload the schedule.',
   'R5: save requires an active lock held by caller');
 select lives_ok($$ select * from public.acquire_schedule_lock(tests.schedule_id('Current')) $$, 'acquire lock before save');
 select throws_ok(

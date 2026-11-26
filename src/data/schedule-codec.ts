@@ -4,6 +4,14 @@ import type { ID } from '@/data/types';
 export const SCHEDULE_DATA_BUCKET = 'schedule-data';
 export const SCHEDULE_DATA_MIME = 'application/gzip';
 export const MAX_SCHEDULE_DATA_BYTES = 20_971_520;
+/**
+ * Largest uncompressed snapshot JSON read or written: 256 MiB. A 50,000-activity, 150,000-link
+ * document (the 50,000-activity limit, P4 core R6) measures 41 MB of JSON, so real snapshots stay far
+ * below it, and it is half of V8's longest string (2^29 − 24 characters), so decoding stays
+ * within engine limits.
+ */
+export const MAX_SCHEDULE_JSON_BYTES = 268_435_456;
+const TOO_LARGE_TO_OPEN = 'This schedule is too large to open.';
 
 export type ScheduleCodecErrorCode = 'corrupt' | 'unsupported_version' | 'too_large';
 
@@ -22,6 +30,9 @@ export class ScheduleCodecError extends Error {
 export async function encodeScheduleDocument(document: ScheduleDocument): Promise<Blob> {
   const { gzipSync } = await import('fflate');
   const utf8 = new TextEncoder().encode(JSON.stringify(document));
+  if (utf8.byteLength > MAX_SCHEDULE_JSON_BYTES) {
+    throw new ScheduleCodecError('too_large', 'This schedule is too large to save.');
+  }
   const compressed = gzipSync(utf8);
   if (compressed.byteLength > MAX_SCHEDULE_DATA_BYTES) {
     throw new ScheduleCodecError('too_large', 'This schedule is too large to save.');
@@ -35,7 +46,21 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 /** Decodes a gzipped `ScheduleDocument` snapshot and validates its schemaVersion and top-level shape. */
 export async function decodeScheduleDocument(data: Blob | Uint8Array): Promise<ScheduleDocument> {
+  const size = data instanceof Uint8Array ? data.byteLength : data.size;
+  if (size > MAX_SCHEDULE_DATA_BYTES) {
+    throw new ScheduleCodecError('too_large', TOO_LARGE_TO_OPEN);
+  }
   const bytes = data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer());
+  if (bytes.byteLength >= 18) {
+    // ISIZE (RFC 1952 §2.3.1) is the uncompressed size mod 2^32; fflate allocates its output from it
+    const isize = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
+      bytes.byteLength - 4,
+      true,
+    );
+    if (isize > MAX_SCHEDULE_JSON_BYTES) {
+      throw new ScheduleCodecError('too_large', TOO_LARGE_TO_OPEN);
+    }
+  }
   let text: string;
   try {
     const { gunzipSync } = await import('fflate');

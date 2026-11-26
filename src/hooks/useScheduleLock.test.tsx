@@ -35,7 +35,7 @@ describe('useScheduleLock', () => {
     renewSpy.mockRejectedValueOnce(
       new RepositoryError(
         'conflict',
-        'Your edit lock expired. Copy your changes or reload the schedule.',
+        'Your edit lock expired. Download your changes or reload the schedule.',
       ),
     );
     await act(async () => {

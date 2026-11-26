@@ -269,7 +269,7 @@ const MAX_SOURCE_FILE_SIZE = 52_428_800;
 const MAX_ACTIVITY_COUNT = 50_000;
 
 const ARCHIVED_EDIT_COPY = 'Restore this schedule before editing it.';
-const LOCK_EXPIRED_COPY = 'Your edit lock expired. Copy your changes or reload the schedule.';
+const LOCK_EXPIRED_COPY = 'Your edit lock expired. Download your changes or reload the schedule.';
 const REVISION_CONFLICT_COPY = 'This schedule was changed elsewhere. Reload and try again.';
 
 function activeLock(lock: ScheduleLock | null, nowMs: number): ScheduleLock | null {
@@ -291,7 +291,21 @@ function displayNameOf(db: MockDb, userId: ID): string {
   const user = db.users.find((u) => u.id === userId);
   if (!user) return 'Another user';
   const full = `${user.firstName} ${user.lastName}`.trim();
-  return full !== '' ? full : user.email || 'Another user';
+  return full !== '' ? full : 'Another user';
+}
+
+/** D5: `{name} (n)` with the lowest n ≥ 2 whose key isn't taken, the name cut so it fits 80 characters. */
+function freeFolderName(name: string, taken: ReadonlySet<string>): string {
+  const base = Array.from(name.trim()); // code points, as Postgres left() counts them
+  for (let n = 2; ; n++) {
+    const suffix = ` (${n})`;
+    const candidate =
+      base
+        .slice(0, 80 - suffix.length)
+        .join('')
+        .trimEnd() + suffix;
+    if (!taken.has(codeKey(candidate))) return candidate;
+  }
 }
 
 /**
@@ -842,10 +856,25 @@ export class MockRepository implements DataRepository {
         if (!hasRole(db, project.workspaceId, 'editor')) {
           throw new RepositoryError('forbidden', NO_PERMISSION);
         }
-        // R4: re-parent child folders and schedules to the deleted folder's parentId without changing updatedAt.
-        for (const child of db.folders) {
-          if (child.parentId === folder.id) child.parentId = folder.parentId;
+        // R4 and D5: children move to the parent; one whose name clashes with a folder at the
+        // parent level (the deleted one included) takes the lowest free "{name} (n)".
+        const children = db.folders.filter((f) => f.parentId === folder.id);
+        const atParent = new Set(
+          db.folders
+            .filter((f) => f.projectId === folder.projectId && f.parentId === folder.parentId)
+            .map((f) => codeKey(f.name)),
+        );
+        const taken = new Set([...atParent, ...children.map((c) => codeKey(c.name))]);
+        const clashing = children
+          .filter((c) => atParent.has(codeKey(c.name)))
+          .sort(
+            (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || compareIds(a.id, b.id),
+          );
+        for (const child of clashing) {
+          child.name = freeFolderName(child.name, taken);
+          taken.add(codeKey(child.name));
         }
+        for (const child of children) child.parentId = folder.parentId;
         for (const schedule of db.schedules) {
           if (schedule.folderId === folder.id) schedule.folderId = folder.parentId;
         }

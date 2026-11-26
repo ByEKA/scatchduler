@@ -402,7 +402,7 @@ function ScheduleEditorWorkspace({
           className="flex items-center gap-2 rounded-md border border-warning-border bg-warning-bg px-3 py-2 text-xs font-medium text-warning-foreground"
         >
           <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
-          <span>Your edit lock expired. Copy your changes or reload the schedule.</span>
+          <span>Your edit lock expired. Download your changes or reload the schedule.</span>
         </div>
       )}
 

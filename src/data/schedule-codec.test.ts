@@ -3,6 +3,7 @@ import {
   decodeScheduleDocument,
   encodeScheduleDocument,
   MAX_SCHEDULE_DATA_BYTES,
+  MAX_SCHEDULE_JSON_BYTES,
   SCHEDULE_DATA_BUCKET,
   SCHEDULE_DATA_MIME,
   ScheduleCodecError,
@@ -34,6 +35,17 @@ const sampleDoc: ScheduleDocument = {
   relationships: [],
   computed: null,
 };
+
+/** A copy of `bytes` whose gzip trailer (ISIZE: last 4 bytes, little-endian) declares `isize`. */
+function withIsize(bytes: Uint8Array, isize: number): Uint8Array {
+  const copy = bytes.slice();
+  new DataView(copy.buffer).setUint32(copy.byteLength - 4, isize, true);
+  return copy;
+}
+
+async function gzippedSample(): Promise<Uint8Array> {
+  return new Uint8Array(await (await encodeScheduleDocument(sampleDoc)).arrayBuffer());
+}
 
 describe('schedule-codec', () => {
   it('round-trips a ScheduleDocument through gzipped JSON', async () => {
@@ -80,5 +92,46 @@ describe('schedule-codec', () => {
       '11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/33333333-3333-4333-8333-333333333333/44444444-4444-4444-8444-444444444444.json.gz',
     );
     expect(new ScheduleCodecError('corrupt', 'bad')).toBeInstanceOf(Error);
+  });
+
+  it('caps the decompressed snapshot at 256 MiB', () => {
+    expect(MAX_SCHEDULE_JSON_BYTES).toBe(268_435_456);
+  });
+
+  it('refuses a snapshot whose gzip trailer declares more than the cap, before decompressing', async () => {
+    const gz = await gzippedSample();
+    for (const isize of [MAX_SCHEDULE_JSON_BYTES + 1, 0xffff_ffff]) {
+      await expect(decodeScheduleDocument(withIsize(gz, isize))).rejects.toMatchObject({
+        name: 'ScheduleCodecError',
+        code: 'too_large',
+        message: 'This schedule is too large to open.',
+      });
+    }
+  });
+
+  it('still reads a snapshot whose trailer declares exactly the cap', async () => {
+    const gz = await gzippedSample();
+    await expect(decodeScheduleDocument(withIsize(gz, MAX_SCHEDULE_JSON_BYTES))).resolves.toEqual(
+      sampleDoc,
+    );
+  });
+
+  it('reads a trailer that understates the size as corrupt, never as a document', async () => {
+    const gz = await gzippedSample();
+    await expect(decodeScheduleDocument(withIsize(gz, 10))).rejects.toMatchObject({
+      name: 'ScheduleCodecError',
+      code: 'corrupt',
+    });
+  });
+
+  it('refuses input larger than the stored snapshot limit before reading it', async () => {
+    const oversized = new Uint8Array(MAX_SCHEDULE_DATA_BYTES + 1);
+    for (const input of [oversized, new Blob([oversized])]) {
+      await expect(decodeScheduleDocument(input)).rejects.toMatchObject({
+        name: 'ScheduleCodecError',
+        code: 'too_large',
+        message: 'This schedule is too large to open.',
+      });
+    }
   });
 });

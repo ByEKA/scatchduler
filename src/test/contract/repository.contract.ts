@@ -1316,7 +1316,7 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         expect((await f.repository.listSchedules(f.projectIds['001']!))[0]!.lock).toBeNull();
         await expect(f.repository.renewScheduleLock(main!.id)).rejects.toMatchObject({
           code: 'conflict',
-          message: 'Your edit lock expired. Copy your changes or reload the schedule.',
+          message: 'Your edit lock expired. Download your changes or reload the schedule.',
         });
 
         const library = await f.repository.listSchedules(f.projectIds['004']!);
@@ -1387,7 +1387,7 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
           }),
         ).rejects.toMatchObject({
           code: 'conflict',
-          message: 'Your edit lock expired. Copy your changes or reload the schedule.',
+          message: 'Your edit lock expired. Download your changes or reload the schedule.',
         });
 
         await f.repository.acquireScheduleLock(imported.id);
@@ -1605,6 +1605,62 @@ export function runRepositoryContract(label: string, makeFixture: MakeRepository
         const afterDeleteSchedule = (await f.repository.listSchedules(riverside))[0]!;
         expect(afterDeleteSchedule.folderId).toBe(root.id);
         expect(afterDeleteSchedule.updatedAt).toBe(beforeUpdated);
+      });
+
+      it('deletes a folder whose moved children clash by name, renaming them "{name} (n)" with the lowest free number (D5)', async () => {
+        const f = await makeFixture();
+        const riverside = f.projectIds['001']!;
+        const create = (name: string, parentId: ID | null = null) =>
+          f.repository.createFolder({ projectId: riverside, parentId, name });
+        const find = async (id: ID) => {
+          const found = (await f.repository.listFolders(riverside)).find((x) => x.id === id);
+          return found && { parentId: found.parentId, name: found.name };
+        };
+
+        // A child named like the deleted folder (ignoring case) is renamed; the others keep their names.
+        const updates = await create('Updates');
+        const sameName = await create('updates', updates.id);
+        const q4 = await create('Q4', updates.id);
+        const week1 = await create('Week 1', q4.id);
+        await f.repository.deleteFolder(updates.id);
+        expect(await find(sameName.id)).toEqual({ parentId: null, name: 'updates (2)' });
+        expect(await find(q4.id)).toEqual({ parentId: null, name: 'Q4' });
+        expect(await find(week1.id)).toEqual({ parentId: q4.id, name: 'Week 1' });
+        expect(await find(updates.id)).toBeUndefined();
+
+        // A nested child clashing with a folder at the parent level.
+        const site = await create('Site');
+        const archive = await create('Archive', site.id);
+        const old = await create('Old', site.id);
+        const archiveChild = await create('archive', old.id);
+        await f.repository.deleteFolder(old.id);
+        expect(await find(archive.id)).toEqual({ parentId: site.id, name: 'Archive' });
+        expect(await find(archiveChild.id)).toEqual({ parentId: site.id, name: 'archive (2)' });
+
+        // Several clashes take the lowest free numbers: 2, and 3 because "Drawings (2)" exists.
+        await create('Drawings');
+        await create('Drawings (2)');
+        const plans = await create('Plans');
+        const plansChild = await create('Plans', plans.id);
+        const drawingsChild = await create('  DRAWINGS ', plans.id);
+        const field = await create('Field', plans.id);
+        await f.repository.deleteFolder(plans.id);
+        expect(await find(plansChild.id)).toEqual({ parentId: null, name: 'Plans (2)' });
+        expect(await find(drawingsChild.id)).toEqual({ parentId: null, name: 'DRAWINGS (3)' });
+        expect(await find(field.id)).toEqual({ parentId: null, name: 'Field' });
+
+        // A renamed 80-character name is cut so the result stays within 80 characters.
+        await create('L'.repeat(80));
+        const long = await create('Long');
+        const longChild = await create('L'.repeat(80), long.id);
+        await f.repository.deleteFolder(long.id);
+        expect(await find(longChild.id)).toEqual({ parentId: null, name: `${'L'.repeat(76)} (2)` });
+
+        // R3 still holds: sibling names are unique ignoring case and surrounding spaces.
+        const keys = (await f.repository.listFolders(riverside)).map(
+          (x) => `${x.parentId ?? 'root'}/${x.name.trim().toLowerCase()}`,
+        );
+        expect(new Set(keys).size).toBe(keys.length);
       });
 
       it('duplicates materialized and imported schedules with independent snapshots and preserved import artifacts (R6)', async () => {

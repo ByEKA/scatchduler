@@ -163,6 +163,11 @@ export interface DataRepository {
   listFolders(projectId: ID): Promise<Folder[]>;
   createFolder(input: { projectId: ID; parentId?: ID | null; name: string }): Promise<Folder>;
   renameFolder(input: { folderId: ID; name: string }): Promise<Folder>;
+  /**
+   * Editors and owners (R3). Always succeeds (D5): child folders and schedules move to the parent
+   * (R4); a moved folder whose name clashes there, or with the deleted folder, becomes
+   * "{name} (2)", "{name} (3)", … the lowest free number.
+   */
   deleteFolder(folderId: ID): Promise<void>;
   moveSchedulesToFolder(input: { scheduleIds: ID[]; folderId: ID | null }): Promise<void>;
 

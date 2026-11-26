@@ -282,4 +282,15 @@ describe('MockRepository', () => {
     await expect(timed.forceReleaseScheduleLock(up1.id)).resolves.toBeUndefined();
     expect((await timed.listSchedules(harborId)).find((s) => s.id === up1.id)!.lock).toBeNull();
   });
+
+  it('names a lock holder without a first or last name "Another user", never by email', async () => {
+    store.write((db) => {
+      const me = db.users.find((u) => u.id === db.currentUserId)!;
+      me.firstName = '';
+      me.lastName = '';
+    });
+    const up1 = (await repo.listSchedules(project('003').id)).find((s) => s.code === 'UP-01')!;
+    const lock = await repo.acquireScheduleLock(up1.id);
+    expect(lock.userName).toBe('Another user');
+  });
 });
