@@ -360,6 +360,75 @@
         "mf": { "es": "2026-01-10T17:00", "ef": "2026-01-10T17:00", "driver": "predecessor" }
       },
       "warnings": []
+    },
+    {
+      "name": "loe-does-not-drive-successors",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "m1", "code": "M1", "type": "start_milestone", "originalDuration": 0 },
+        { "id": "work", "code": "W10", "originalDuration": 2400 },
+        { "id": "m2", "code": "M2", "type": "finish_milestone", "originalDuration": 0 },
+        { "id": "loe", "code": "LOE1", "type": "level_of_effort", "originalDuration": 4800 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "m1", "successorId": "work", "type": "FS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "work", "successorId": "m2", "type": "FS", "lagMinutes": 0 },
+        { "id": "r3", "predecessorId": "m1", "successorId": "loe", "type": "SS", "lagMinutes": 0 },
+        { "id": "r4", "predecessorId": "loe", "successorId": "m2", "type": "FF", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "m1": { "es": "2026-01-05T08:00", "ef": "2026-01-05T08:00", "driver": "project_start" },
+        "work": { "es": "2026-01-05T08:00", "ef": "2026-01-09T17:00", "driver": "predecessor" },
+        "m2": { "es": "2026-01-09T17:00", "ef": "2026-01-09T17:00", "driver": "predecessor" }
+      },
+      "warnings": []
+    },
+    {
+      "name": "loe-predecessor-ignored-with-progress",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-07T08:00" },
+      "activities": [
+        {
+          "id": "a",
+          "code": "A10",
+          "originalDuration": 960,
+          "remainingDuration": 0,
+          "status": "completed",
+          "actualStart": "2026-01-05T08:00",
+          "actualFinish": "2026-01-06T17:00"
+        },
+        { "id": "loe", "code": "LOE1", "type": "level_of_effort", "originalDuration": 9600 },
+        {
+          "id": "b",
+          "code": "B10",
+          "originalDuration": 960,
+          "remainingDuration": 480,
+          "status": "in_progress",
+          "actualStart": "2026-01-07T08:00"
+        },
+        {
+          "id": "c",
+          "code": "C10",
+          "originalDuration": 960,
+          "remainingDuration": 0,
+          "status": "completed",
+          "actualStart": "2026-01-05T08:00",
+          "actualFinish": "2026-01-06T17:00"
+        }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "loe", "type": "SS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "loe", "successorId": "b", "type": "FF", "lagMinutes": 0 },
+        { "id": "r3", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 },
+        { "id": "r4", "predecessorId": "loe", "successorId": "c", "type": "FF", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": { "es": "2026-01-05T08:00", "ef": "2026-01-06T17:00", "driver": "actual" },
+        "b": { "es": "2026-01-07T08:00", "ef": "2026-01-07T17:00", "driver": "actual" },
+        "c": { "es": "2026-01-05T08:00", "ef": "2026-01-06T17:00", "driver": "actual" }
+      },
+      "warnings": []
     }
   ]
 }

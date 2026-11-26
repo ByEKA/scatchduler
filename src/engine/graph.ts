@@ -8,7 +8,7 @@ import type {
 } from '@/data/schedule-types';
 
 export interface ScheduleGraph {
-  readonly activityOrder: readonly number[]; // topological indices into `nodes`
+  readonly activityOrder: readonly number[]; // topological order of non-LOE nodes over non-LOE links, then LOE nodes ordered by LOE→LOE links
   readonly nodes: readonly ScheduleActivity[]; // excludes wbs_summary
   readonly indexById: ReadonlyMap<string, number>;
   readonly incoming: readonly ScheduleRelationship[][];
@@ -40,6 +40,8 @@ function relTypeCode(type: RelationshipType): number {
  * Builds the CPM dependency graph (excluding `wbs_summary`, ignoring dangling/self links,
  * deduplicating identical `(pred, succ, type)` links), runs Kahn topological sort with an
  * integer head-index queue, and falls back to an iterative DFS cycle finder safe at 50k+ depth.
+ * LOE activities and links touching them take no part in the sort or the cycle check; they never
+ * drive other activities.
  */
 export function buildGraph(
   document: ScheduleDocument,
@@ -62,8 +64,21 @@ export function buildGraph(
   const outgoing: ScheduleRelationship[][] = Array.from({ length: n }, () => []);
   const incomingEdgeIndices: number[][] = Array.from({ length: n }, () => []);
   const outgoingEdgeIndices: number[][] = Array.from({ length: n }, () => []);
-  const outgoingTargets: number[][] = Array.from({ length: n }, () => []);
+  // Links between two non-LOE activities drive the sort; links between two LOEs order the LOEs.
+  // A link between an LOE and a non-LOE activity goes in neither list.
+  const isLoe = new Uint8Array(n);
+  let nonLoeCount = 0;
+  for (let i = 0; i < n; i++) {
+    if (nodes[i]!.type === 'level_of_effort') {
+      isLoe[i] = 1;
+    } else {
+      nonLoeCount++;
+    }
+  }
+  const drivingTargets: number[][] = Array.from({ length: n }, () => []);
   const inDegree = new Int32Array(n);
+  const loeTargets: number[][] = Array.from({ length: n }, () => []);
+  const loeInDegree = new Int32Array(n);
 
   const activeRelationships: ScheduleRelationship[] = [];
   const predIndices: number[] = [];
@@ -89,15 +104,20 @@ export function buildGraph(
     incoming[v]!.push(rel);
     outgoingEdgeIndices[u]!.push(edgeIdx);
     incomingEdgeIndices[v]!.push(edgeIdx);
-    outgoingTargets[u]!.push(v);
-    inDegree[v] = inDegree[v]! + 1;
+    if (isLoe[u] === 0 && isLoe[v] === 0) {
+      drivingTargets[u]!.push(v);
+      inDegree[v] = inDegree[v]! + 1;
+    } else if (isLoe[u] === 1 && isLoe[v] === 1) {
+      loeTargets[u]!.push(v);
+      loeInDegree[v] = loeInDegree[v]! + 1;
+    }
   }
 
   // Kahn's topological sort with an integer head-index queue (never Array.shift()).
   const queue = new Int32Array(n);
   let tail = 0;
   for (let i = 0; i < n; i++) {
-    if (inDegree[i] === 0) {
+    if (isLoe[i] === 0 && inDegree[i] === 0) {
       queue[tail++] = i;
     }
   }
@@ -108,7 +128,7 @@ export function buildGraph(
   while (head < tail) {
     const u = queue[head++]!;
     activityOrder[orderedCount++] = u;
-    const targets = outgoingTargets[u]!;
+    const targets = drivingTargets[u]!;
     for (let j = 0; j < targets.length; j++) {
       const v = targets[j]!;
       const nextDeg = inDegree[v]! - 1;
@@ -119,7 +139,32 @@ export function buildGraph(
     }
   }
 
-  if (orderedCount === n) {
+  if (orderedCount === nonLoeCount) {
+    // LOE nodes last: a second Kahn pass over LOE→LOE links, so chained LOEs come in order.
+    for (let i = 0; i < n; i++) {
+      if (isLoe[i] === 1 && loeInDegree[i] === 0) {
+        queue[tail++] = i;
+      }
+    }
+    while (head < tail) {
+      const u = queue[head++]!;
+      activityOrder[orderedCount++] = u;
+      const targets = loeTargets[u]!;
+      for (let j = 0; j < targets.length; j++) {
+        const v = targets[j]!;
+        const nextDeg = loeInDegree[v]! - 1;
+        loeInDegree[v] = nextDeg;
+        if (nextDeg === 0) {
+          queue[tail++] = v;
+        }
+      }
+    }
+    // LOE nodes caught in a loop of LOE→LOE links, in ascending node index.
+    for (let i = 0; i < n; i++) {
+      if (isLoe[i] === 1 && loeInDegree[i]! > 0) {
+        activityOrder[orderedCount++] = i;
+      }
+    }
     return {
       ok: true,
       graph: {
@@ -138,9 +183,12 @@ export function buildGraph(
     };
   }
 
-  // Iterative DFS over only nodes left with inDegree > 0 to extract one clean cycle.
-  // state: 0 = unvisited, 1 = on active path, 2 = finished (including Kahn-ordered nodes)
+  // Iterative DFS over only non-LOE nodes left with inDegree > 0 to extract one clean cycle.
+  // state: 0 = unvisited, 1 = on active path, 2 = finished (including Kahn-ordered and LOE nodes)
   const state = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    if (isLoe[i] === 1) state[i] = 2;
+  }
   for (let i = 0; i < orderedCount; i++) {
     state[activityOrder[i]!] = 2;
   }
@@ -160,7 +208,7 @@ export function buildGraph(
 
     while (stack.length > 0) {
       const frame = stack[stack.length - 1]!;
-      const targets = outgoingTargets[frame.node]!;
+      const targets = drivingTargets[frame.node]!;
       if (frame.edgeIdx < targets.length) {
         const v = targets[frame.edgeIdx++]!;
         if (state[v] === 1) {
@@ -194,7 +242,7 @@ export function buildGraph(
     }
   }
 
-  // Unreachable because orderedCount < n guarantees at least one directed cycle among remaining nodes.
+  // Unreachable: orderedCount < nonLoeCount guarantees a cycle among the remaining non-LOE nodes.
   return {
     ok: false,
     error: {

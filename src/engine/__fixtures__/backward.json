@@ -285,8 +285,8 @@
           "lf": "2026-01-08T17:00"
         },
         "b": {
-          "es": "2026-01-07T08:00",
-          "ef": "2026-01-07T17:00",
+          "es": "2026-01-09T08:00",
+          "ef": "2026-01-09T17:00",
           "ls": "2026-01-09T08:00",
           "lf": "2026-01-09T17:00"
         }
@@ -320,6 +320,339 @@
         }
       },
       "warnings": ["LOE_UNBOUNDED"]
+    },
+    {
+      "name": "loe-stored-duration-longer-than-span",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "m1", "code": "M1", "type": "start_milestone", "originalDuration": 0 },
+        { "id": "work", "code": "W10", "originalDuration": 2400 },
+        { "id": "m2", "code": "M2", "type": "finish_milestone", "originalDuration": 0 },
+        { "id": "loe", "code": "LOE1", "type": "level_of_effort", "originalDuration": 4800 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "m1", "successorId": "work", "type": "FS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "work", "successorId": "m2", "type": "FS", "lagMinutes": 0 },
+        { "id": "r3", "predecessorId": "m1", "successorId": "loe", "type": "SS", "lagMinutes": 0 },
+        { "id": "r4", "predecessorId": "loe", "successorId": "m2", "type": "FF", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "m1": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-05T08:00",
+          "ls": "2026-01-05T08:00",
+          "lf": "2026-01-05T08:00"
+        },
+        "work": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-09T17:00",
+          "ls": "2026-01-05T08:00",
+          "lf": "2026-01-09T17:00"
+        },
+        "m2": {
+          "es": "2026-01-09T17:00",
+          "ef": "2026-01-09T17:00",
+          "ls": "2026-01-09T17:00",
+          "lf": "2026-01-09T17:00"
+        },
+        "loe": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-09T17:00",
+          "ls": "2026-01-05T08:00",
+          "lf": "2026-01-09T17:00"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "name": "loe-in-progress-keeps-actual-start",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-07T08:00" },
+      "activities": [
+        {
+          "id": "a",
+          "code": "A10",
+          "originalDuration": 960,
+          "remainingDuration": 0,
+          "status": "completed",
+          "actualStart": "2026-01-05T08:00",
+          "actualFinish": "2026-01-06T17:00"
+        },
+        {
+          "id": "loe",
+          "code": "LOE1",
+          "type": "level_of_effort",
+          "originalDuration": 960,
+          "remainingDuration": 480,
+          "status": "in_progress",
+          "actualStart": "2026-01-06T08:00"
+        },
+        { "id": "b", "code": "B10", "originalDuration": 960 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "loe", "type": "SS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 },
+        { "id": "r3", "predecessorId": "loe", "successorId": "b", "type": "FF", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "loe": {
+          "es": "2026-01-06T08:00",
+          "ef": "2026-01-08T17:00",
+          "ls": "2026-01-06T08:00",
+          "lf": "2026-01-08T17:00"
+        },
+        "b": {
+          "es": "2026-01-07T08:00",
+          "ef": "2026-01-08T17:00",
+          "ls": "2026-01-07T08:00",
+          "lf": "2026-01-08T17:00"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "name": "loe-link-loop-is-not-a-cycle",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "a", "code": "A10", "originalDuration": 480 },
+        { "id": "l", "code": "L10", "type": "level_of_effort", "originalDuration": 480 },
+        { "id": "b", "code": "B10", "originalDuration": 2400 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "l", "type": "FS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "l", "successorId": "b", "type": "FF", "lagMinutes": 0 },
+        { "id": "r3", "predecessorId": "b", "successorId": "a", "type": "SS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-05T17:00",
+          "ls": "2026-01-09T08:00",
+          "lf": "2026-01-09T17:00"
+        },
+        "l": {
+          "es": "2026-01-06T08:00",
+          "ef": "2026-01-09T17:00",
+          "ls": "2026-01-06T08:00",
+          "lf": "2026-01-09T17:00"
+        },
+        "b": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-09T17:00",
+          "ls": "2026-01-05T08:00",
+          "lf": "2026-01-09T17:00"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "name": "alap-msp-chain-keeps-logic",
+      "profile": "msp",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "crit", "code": "C10", "originalDuration": 2400 },
+        {
+          "id": "a",
+          "code": "A10",
+          "originalDuration": 480,
+          "constraint": { "type": "as_late_as_possible", "date": null }
+        },
+        { "id": "b", "code": "B10", "originalDuration": 480 },
+        { "id": "d", "code": "D10", "originalDuration": 480 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "b", "successorId": "d", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "crit": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-09T17:00",
+          "ls": "2026-01-05T08:00",
+          "lf": "2026-01-09T17:00"
+        },
+        "a": {
+          "es": "2026-01-07T08:00",
+          "ef": "2026-01-07T17:00",
+          "ls": "2026-01-07T08:00",
+          "lf": "2026-01-07T17:00"
+        },
+        "b": {
+          "es": "2026-01-08T08:00",
+          "ef": "2026-01-08T17:00",
+          "ls": "2026-01-08T08:00",
+          "lf": "2026-01-08T17:00"
+        },
+        "d": {
+          "es": "2026-01-09T08:00",
+          "ef": "2026-01-09T17:00",
+          "ls": "2026-01-09T08:00",
+          "lf": "2026-01-09T17:00"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "name": "alap-msp-never-before-early-dates",
+      "profile": "msp",
+      "settings": {
+        "projectStart": "2026-01-05T08:00",
+        "statusDate": "2026-01-05T08:00",
+        "mustFinishBy": "2026-01-06T17:00"
+      },
+      "activities": [
+        {
+          "id": "a",
+          "code": "A10",
+          "originalDuration": 960,
+          "constraint": { "type": "as_late_as_possible", "date": null }
+        },
+        { "id": "b", "code": "B10", "originalDuration": 480 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-06T17:00",
+          "ls": "2026-01-02T08:00",
+          "lf": "2026-01-05T17:00"
+        },
+        "b": {
+          "es": "2026-01-07T08:00",
+          "ef": "2026-01-07T17:00",
+          "ls": "2026-01-06T08:00",
+          "lf": "2026-01-06T17:00"
+        }
+      },
+      "warnings": ["MISSED_MUST_FINISH_BY"]
+    },
+    {
+      "name": "completed-early-finish-msp",
+      "profile": "msp",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-07T08:00" },
+      "activities": [
+        {
+          "id": "a",
+          "code": "A10",
+          "originalDuration": 1440,
+          "remainingDuration": 0,
+          "status": "completed",
+          "actualStart": "2026-01-06T08:00",
+          "actualFinish": "2026-01-06T17:00"
+        },
+        {
+          "id": "b",
+          "code": "B10",
+          "originalDuration": 480,
+          "constraint": { "type": "start_on_or_after", "date": "2026-01-09T08:00" }
+        }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "a": {
+          "es": "2026-01-06T08:00",
+          "ef": "2026-01-06T17:00",
+          "ls": "2026-01-08T08:00",
+          "lf": "2026-01-08T17:00"
+        },
+        "b": {
+          "es": "2026-01-09T08:00",
+          "ef": "2026-01-09T17:00",
+          "ls": "2026-01-09T08:00",
+          "lf": "2026-01-09T17:00"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "name": "alap-rerun-keeps-forward-warnings-once",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-05T08:00" },
+      "activities": [
+        { "id": "crit", "code": "C10", "originalDuration": 2400 },
+        {
+          "id": "a",
+          "code": "A10",
+          "originalDuration": 480,
+          "constraint": { "type": "as_late_as_possible", "date": null }
+        },
+        {
+          "id": "b",
+          "code": "A20",
+          "originalDuration": 480,
+          "constraint": { "type": "start_on_or_after", "date": "2026-01-07T08:00" }
+        },
+        { "id": "e", "code": "E10", "originalDuration": 480 },
+        { "id": "f", "code": "F10", "originalDuration": 480 }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "a", "successorId": "b", "type": "FS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "e", "successorId": "f", "type": "SS", "lagMinutes": -480 }
+      ],
+      "expected": {
+        "a": {
+          "es": "2026-01-06T08:00",
+          "ef": "2026-01-06T17:00",
+          "ls": "2026-01-08T08:00",
+          "lf": "2026-01-08T17:00"
+        },
+        "f": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-05T17:00",
+          "ls": "2026-01-09T08:00",
+          "lf": "2026-01-09T17:00"
+        }
+      },
+      "warnings": ["TRUNCATED_LEAD"]
+    },
+    {
+      "name": "loe-in-progress-keeps-actual-start-before-ss-successor",
+      "profile": "p6",
+      "settings": { "projectStart": "2026-01-05T08:00", "statusDate": "2026-01-07T08:00" },
+      "activities": [
+        {
+          "id": "loe",
+          "code": "LOE1",
+          "type": "level_of_effort",
+          "originalDuration": 960,
+          "remainingDuration": 480,
+          "status": "in_progress",
+          "actualStart": "2026-01-06T08:00"
+        },
+        {
+          "id": "s",
+          "code": "S10",
+          "originalDuration": 1440,
+          "remainingDuration": 480,
+          "status": "in_progress",
+          "actualStart": "2026-01-05T08:00"
+        }
+      ],
+      "relationships": [
+        { "id": "r1", "predecessorId": "loe", "successorId": "s", "type": "SS", "lagMinutes": 0 },
+        { "id": "r2", "predecessorId": "loe", "successorId": "s", "type": "FF", "lagMinutes": 0 }
+      ],
+      "expected": {
+        "loe": {
+          "es": "2026-01-06T08:00",
+          "ef": "2026-01-07T17:00",
+          "ls": "2026-01-06T08:00",
+          "lf": "2026-01-07T17:00"
+        },
+        "s": {
+          "es": "2026-01-05T08:00",
+          "ef": "2026-01-07T17:00",
+          "ls": "2026-01-07T08:00",
+          "lf": "2026-01-07T17:00"
+        }
+      },
+      "warnings": []
     }
   ]
 }

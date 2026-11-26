@@ -211,6 +211,16 @@ function applyInProgressFinishConstraint(
 }
 
 /**
+ * Floors for a forward re-run after ALAP: a not-started node with `mask[u] === 1` keeps `es[u]` /
+ * `ef[u]` when they are later than what logic and constraints give.
+ */
+interface ForwardPins {
+  readonly mask: Uint8Array;
+  readonly es: Int32Array;
+  readonly ef: Int32Array;
+}
+
+/**
  * Forward pass in topological order (spec §5.4 step 1).
  * Reads `rules.*` exclusively without inspecting profile or source format identifiers.
  */
@@ -219,6 +229,20 @@ export function runForwardPass(
   graph: ScheduleGraph,
   calendars: ReadonlyMap<string, CompiledCalendar>,
   rules: ResolvedRules,
+): ForwardState {
+  return forwardPass(document, graph, calendars, rules, null);
+}
+
+/**
+ * Body of the forward pass. LOE predecessors never bound a successor: an LOE's dates come only
+ * from its neighbours (post-pass), so its links set no logic and raise no `OUT_OF_SEQUENCE`.
+ */
+function forwardPass(
+  document: ScheduleDocument,
+  graph: ScheduleGraph,
+  calendars: ReadonlyMap<string, CompiledCalendar>,
+  rules: ResolvedRules,
+  pins: ForwardPins | null,
 ): ForwardState {
   const n = graph.nodes.length;
   const defaultCal = resolveDefaultCalendar(document.settings, calendars);
@@ -272,6 +296,7 @@ export function runForwardPass(
         const rel = graph.activeRelationships[edgeIdx]!;
         const p = graph.edgePredIndex[edgeIdx]!;
         const pred = graph.nodes[p]!;
+        if (pred.type === 'level_of_effort') continue;
         if (isOutOfSequence(rel, pred, es[p]!, ef[p]!, act, actualStartMin, actualFinishMin)) {
           warnings.push({
             code: 'OUT_OF_SEQUENCE',
@@ -323,6 +348,7 @@ export function runForwardPass(
         const rel = graph.activeRelationships[edgeIdx]!;
         const p = graph.edgePredIndex[edgeIdx]!;
         const pred = graph.nodes[p]!;
+        if (pred.type === 'level_of_effort') continue;
         const lagCal = resolveLagCalendar(
           rel,
           document.settings,
@@ -426,6 +452,7 @@ export function runForwardPass(
       const rel = graph.activeRelationships[edgeIdx]!;
       const p = graph.edgePredIndex[edgeIdx]!;
       const pred = graph.nodes[p]!;
+      if (pred.type === 'level_of_effort') continue;
       const lagCal = resolveLagCalendar(rel, document.settings, nodeCalendars[p]!, cal, defaultCal);
 
       const anchor = rel.type === 'FS' || rel.type === 'FF' ? ef[p]! : es[p]!;
@@ -488,8 +515,14 @@ export function runForwardPass(
 
     const finalEs = c2.es;
     const finalEf = isMilestone || remDur === 0 ? finalEs : addWorkingMinutes(cal, finalEs, remDur);
-    es[u] = finalEs;
-    ef[u] = finalEf;
+    if (pins !== null && pins.mask[u] === 1 && pins.es[u]! > finalEs) {
+      // ALAP floor from the post-pass: delayed, never moved earlier than logic allows.
+      es[u] = pins.es[u]!;
+      ef[u] = pins.ef[u]!;
+    } else {
+      es[u] = finalEs;
+      ef[u] = finalEf;
+    }
     drivers[u] = c2.driver;
   }
 
@@ -504,7 +537,8 @@ export function runForwardPass(
 }
 
 export interface BackwardState {
-  readonly projectFinish: number;
+  /** Max non-LOE early finish; `runPostPasses` raises it when the ALAP re-run moves the finish. */
+  projectFinish: number;
   readonly ls: Int32Array;
   readonly lf: Int32Array;
   readonly warnings: SolverWarning[];
@@ -597,6 +631,7 @@ function applyLateConstraint(
 
 /**
  * Backward pass in reverse topological order (spec §5.4 step 2).
+ * Leaves LOE nodes to the post-pass.
  */
 export function runBackwardPass(
   document: ScheduleDocument,
@@ -648,16 +683,23 @@ export function runBackwardPass(
     const isFinishMs = act.type === 'finish_milestone';
     const isMilestone = isStartMs || isFinishMs;
 
-    if (act.status === 'completed' && rules.completedLateDates === 'keep_actuals') {
+    if (
+      act.type === 'level_of_effort' ||
+      (act.status === 'completed' && rules.completedLateDates === 'keep_actuals')
+    ) {
+      // LOE late dates come only from the post-pass (LOE nodes come last in the order, so their
+      // successors' late dates are not known yet here).
       ls[u] = forward.es[u]!;
       lf[u] = forward.ef[u]!;
       continue;
     }
 
+    // A completed activity reaches here only under 'recalculate': its late dates keep the
+    // actual span the forward pass used, not the original duration.
     const backDur = isMilestone
       ? 0
       : act.status === 'completed'
-        ? Math.max(0, act.originalDuration)
+        ? Math.max(0, workingMinutesBetween(cal, forward.es[u]!, forward.ef[u]!))
         : Math.max(0, act.remainingDuration);
 
     let bestLf =
@@ -733,7 +775,9 @@ function hasAlapConstraint(act: ScheduleActivity): boolean {
 
 /**
  * Post-passes for ALAP and LOE activities (spec §5.4 step 3).
- * Mutates `forward.es`, `forward.ef`, `backward.ls`, `backward.lf` and `backward.warnings` in place.
+ * Mutates `forward` (es, ef, drivers, activeLinkMask, warnings) and `backward` (projectFinish, ls,
+ * lf, warnings) in place. The backward pass runs again only when the ALAP re-run moves a non-LOE
+ * early finish past the first-pass project finish.
  */
 export function runPostPasses(
   document: ScheduleDocument,
@@ -746,51 +790,117 @@ export function runPostPasses(
   const defaultCal = resolveDefaultCalendar(document.settings, calendars);
   const nodeCalendars = resolveNodeCalendars(graph.nodes, calendars, defaultCal);
 
-  // 1. ALAP pass (reverse topological order so chained ALAP tasks delay cleanly).
-  for (let ordIdx = graph.activityOrder.length - 1; ordIdx >= 0; ordIdx--) {
-    const u = graph.activityOrder[ordIdx]!;
-    const act = graph.nodes[u]!;
-    if (act.status !== 'not_started' || act.type === 'level_of_effort' || !hasAlapConstraint(act)) {
-      continue;
+  // 1. ALAP (spec §5.4 step 3): find each delayable ALAP task's target dates, then re-run the
+  // forward logic with them as floors, so an ALAP task never starts before its predecessors allow
+  // and everything after it is placed from its new dates.
+  const n = graph.nodes.length;
+  const pins: ForwardPins = {
+    mask: new Uint8Array(n),
+    es: new Int32Array(n),
+    ef: new Int32Array(n),
+  };
+  let pinned = false;
+  if (rules.alapBehavior === 'to_late_dates') {
+    for (let u = 0; u < n; u++) {
+      const act = graph.nodes[u]!;
+      if (
+        act.status !== 'not_started' ||
+        act.type === 'level_of_effort' ||
+        !hasAlapConstraint(act)
+      ) {
+        continue;
+      }
+      if (backward.lf[u]! <= forward.ef[u]!) continue; // delays only, never advances
+      pins.mask[u] = 1;
+      pins.es[u] = backward.ls[u]!;
+      pins.ef[u] = backward.lf[u]!;
+      pinned = true;
     }
-    const cal = nodeCalendars[u]!;
-    const isStartMs = act.type === 'start_milestone';
-    const isMilestone = isStartMs || act.type === 'finish_milestone';
-    const remDur = isMilestone ? 0 : Math.max(0, act.remainingDuration);
+  } else {
+    // within_free_float: reverse topological order so chained ALAP tasks delay cleanly.
+    for (let ordIdx = graph.activityOrder.length - 1; ordIdx >= 0; ordIdx--) {
+      const u = graph.activityOrder[ordIdx]!;
+      const act = graph.nodes[u]!;
+      if (
+        act.status !== 'not_started' ||
+        act.type === 'level_of_effort' ||
+        !hasAlapConstraint(act)
+      ) {
+        continue;
+      }
+      const cal = nodeCalendars[u]!;
+      const isStartMs = act.type === 'start_milestone';
+      const isMilestone = isStartMs || act.type === 'finish_milestone';
+      const remDur = isMilestone ? 0 : Math.max(0, act.remainingDuration);
 
-    if (rules.alapBehavior === 'to_late_dates') {
-      forward.es[u] = backward.ls[u]!;
-      forward.ef[u] = backward.lf[u]!;
-      continue;
-    }
+      // Delay only within free float so no successor's early dates are disturbed.
+      let limitLf = backward.lf[u]!;
+      const outEdges = graph.outgoingEdgeIndices[u]!;
+      for (let j = 0; j < outEdges.length; j++) {
+        const edgeIdx = outEdges[j]!;
+        if (forward.activeLinkMask[edgeIdx] === 0) continue;
+        const rel = graph.activeRelationships[edgeIdx]!;
+        const s = graph.edgeSuccIndex[edgeIdx]!;
+        if (graph.nodes[s]!.type === 'level_of_effort') continue;
+        const lagCal = resolveLagCalendar(
+          rel,
+          document.settings,
+          cal,
+          nodeCalendars[s]!,
+          defaultCal,
+        );
+        const boundLf = reverseLinkFinishBound(
+          rel,
+          cal,
+          lagCal,
+          remDur,
+          isStartMs,
+          forward.es[s]!,
+          forward.ef[s]!,
+        );
+        if (boundLf < limitLf) {
+          limitLf = boundLf;
+        }
+      }
 
-    // Delay only within free float so no successor's early dates are disturbed.
-    let limitLf = backward.lf[u]!;
-    const outEdges = graph.outgoingEdgeIndices[u]!;
-    for (let j = 0; j < outEdges.length; j++) {
-      const edgeIdx = outEdges[j]!;
-      if (forward.activeLinkMask[edgeIdx] === 0) continue;
-      const rel = graph.activeRelationships[edgeIdx]!;
-      const s = graph.edgeSuccIndex[edgeIdx]!;
-      if (graph.nodes[s]!.type === 'level_of_effort') continue;
-      const lagCal = resolveLagCalendar(rel, document.settings, cal, nodeCalendars[s]!, defaultCal);
-      const boundLf = reverseLinkFinishBound(
-        rel,
-        cal,
-        lagCal,
-        remDur,
-        isStartMs,
-        forward.es[s]!,
-        forward.ef[s]!,
-      );
-      if (boundLf < limitLf) {
-        limitLf = boundLf;
+      if (limitLf > forward.ef[u]!) {
+        forward.ef[u] = limitLf;
+        forward.es[u] = remDur > 0 ? subtractWorkingMinutes(cal, limitLf, remDur) : limitLf;
+        pins.mask[u] = 1;
+        pins.es[u] = forward.es[u]!;
+        pins.ef[u] = forward.ef[u]!;
+        pinned = true;
       }
     }
+  }
+  if (pinned) {
+    const rerun = forwardPass(document, graph, calendars, rules, pins);
+    forward.es.set(rerun.es);
+    forward.ef.set(rerun.ef);
+    forward.activeLinkMask.set(rerun.activeLinkMask);
+    for (let u = 0; u < n; u++) forward.drivers[u] = rerun.drivers[u]!;
+    forward.warnings.length = 0;
+    for (let i = 0; i < rerun.warnings.length; i++) forward.warnings.push(rerun.warnings[i]!);
 
-    if (limitLf > forward.ef[u]!) {
-      forward.ef[u] = limitLf;
-      forward.es[u] = remDur > 0 ? subtractWorkingMinutes(cal, limitLf, remDur) : limitLf;
+    // The re-run can move a non-LOE activity past the first-pass finish (the free-float limit
+    // overshoots with elapsed lags or mixed calendars). Then the backward pass runs again from the
+    // final early dates, so the project finish, late dates and backward warnings match them.
+    // ALAP placements stay; the late anchor is still must finish by when it is set.
+    let finalFinish = Number.NEGATIVE_INFINITY;
+    for (let u = 0; u < n; u++) {
+      if (graph.nodes[u]!.type !== 'level_of_effort' && forward.ef[u]! > finalFinish) {
+        finalFinish = forward.ef[u]!;
+      }
+    }
+    if (finalFinish > backward.projectFinish) {
+      const refreshed = runBackwardPass(document, graph, calendars, rules, forward);
+      backward.projectFinish = refreshed.projectFinish;
+      backward.ls.set(refreshed.ls);
+      backward.lf.set(refreshed.lf);
+      backward.warnings.length = 0;
+      for (let i = 0; i < refreshed.warnings.length; i++) {
+        backward.warnings.push(refreshed.warnings[i]!);
+      }
     }
   }
 
@@ -811,8 +921,11 @@ export function runPostPasses(
     let hasStart = false;
     let hasFinish = false;
 
-    if (act.status === 'in_progress' && act.actualStart !== null) {
-      earliestStart = toMinutes(act.actualStart);
+    // An in-progress LOE keeps its actual start; neighbours only set its finish.
+    const actualStartMin =
+      act.status === 'in_progress' && act.actualStart !== null ? toMinutes(act.actualStart) : null;
+    if (actualStartMin !== null) {
+      earliestStart = actualStartMin;
       hasStart = true;
     }
 
@@ -828,7 +941,7 @@ export function runPostPasses(
           cal,
           addWorkingMinutes(lagCal, anchor, rel.lagMinutes),
         );
-        if (!hasStart || candidate < earliestStart) {
+        if (actualStartMin === null && (!hasStart || candidate < earliestStart)) {
           earliestStart = candidate;
           hasStart = true;
         }
@@ -866,7 +979,7 @@ export function runPostPasses(
           cal,
           subtractWorkingMinutes(lagCal, forward.es[s]!, rel.lagMinutes),
         );
-        if (!hasStart || candidate < earliestStart) {
+        if (actualStartMin === null && (!hasStart || candidate < earliestStart)) {
           earliestStart = candidate;
           hasStart = true;
         }
