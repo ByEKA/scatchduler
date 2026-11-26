@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { makeDocument } from '@/engine/testing';
@@ -62,5 +62,35 @@ describe('ScheduleSettingsPopover', () => {
     fireEvent.change(screen.getByLabelText('Status date'), { target: { value: '2026-02-01' } });
     expect(doc.settings.statusDate).toBe('2026-02-01T08:00');
     expect(staleFlags[staleFlags.length - 1]).toBe(true);
+  });
+
+  it('lists the file options calculated differently under From the file (D14)', async () => {
+    const user = userEvent.setup();
+    const onDispatch = vi.fn();
+    const noted = makeDocument({
+      settings: {
+        ...makeDocument().settings,
+        sourceNotes: ['p6_actual_dates', 'p6_open_ends_critical'],
+      },
+    });
+    const view = render(
+      <ScheduleSettingsPopover document={noted} mode="view" onDispatch={onDispatch} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(
+      within(screen.getByRole('list', { name: 'From the file' }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual([
+      "The file uses the Actual dates progress mode, which isn't available. Retained logic is used.",
+      "The file makes open-ended activities critical, which isn't available.",
+    ]);
+    view.unmount();
+
+    render(
+      <ScheduleSettingsPopover document={makeDocument()} mode="view" onDispatch={onDispatch} />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.queryByRole('list', { name: 'From the file' })).toBeNull();
   });
 });

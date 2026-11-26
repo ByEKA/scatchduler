@@ -634,6 +634,7 @@ describe('readXer readings from real exports (D68, D69)', () => {
     expect(model.settings).toEqual([
       { key: 'progress_mode', value: 'progress_override' },
       { key: 'sched_calendar_on_relationship_lag', value: 'rcal_Predecessor' },
+      { key: 'sched_use_expect_end_flag', value: 'Y' },
     ]);
     const [site, crew] = model.calendars;
     expect(site).toMatchObject({
@@ -673,7 +674,35 @@ describe('readXer readings from real exports (D68, D69)', () => {
     expect(readXer(parsed, '201').model.settings).toEqual([
       { key: 'progress_mode', value: 'progress_override' },
       { key: 'sched_calendar_on_relationship_lag', value: 'rcal_Predecessor' },
+      { key: 'sched_use_expect_end_flag', value: 'Y' },
     ]);
+  });
+
+  it('reads the P6 calculation options from SCHEDOPTIONS, else PROJECT, after the existing keys (P4 D14)', () => {
+    const parsed = legacyFile();
+    Object.assign(parsed.tables.get('SCHEDOPTIONS')!.rows[0]!, {
+      sched_float_type: 'FT_FF',
+      sched_open_critical_flag: 'Y',
+      sched_lag_early_start_flag: 'N',
+    });
+    // PROJECT also carries two of them: SCHEDOPTIONS wins. The critical path fields are PROJECT's only.
+    Object.assign(parsed.tables.get('PROJECT')!.rows[0]!, {
+      sched_float_type: 'FT_SS',
+      sched_lag_early_start_flag: 'Y',
+      critical_path_type: 'CT_DrivPath',
+      critical_drtn_hr_cnt: '40',
+    });
+    expect(readXer(parsed, '201').model.settings).toEqual([
+      { key: 'progress_mode', value: 'progress_override' },
+      { key: 'sched_calendar_on_relationship_lag', value: 'rcal_Predecessor' },
+      { key: 'sched_float_type', value: 'FT_FF' },
+      { key: 'sched_open_critical_flag', value: 'Y' },
+      { key: 'sched_lag_early_start_flag', value: 'N' },
+      { key: 'sched_use_expect_end_flag', value: 'Y' },
+      { key: 'critical_path_type', value: 'CT_DrivPath' },
+      { key: 'critical_drtn_hr_cnt', value: '40' },
+    ]);
+    // A file without the fields reads as before (the existing PROJECT-fallback test keeps NTH-A's six entries).
   });
 
   it('falls back to PROJECT for an option SCHEDOPTIONS lacks', () => {

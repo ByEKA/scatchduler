@@ -8,6 +8,8 @@ export type ProgressMode = 'retained_logic' | 'progress_override';
 export type CalculationDisplayMode = 'as_imported' | 'calculated';
 export type LagCalendarMode = 'predecessor' | 'successor' | 'elapsed_24h' | 'project_default';
 export type CriticalDefinition = 'total_float' | 'longest_path';
+/** A P6 scheduling option the engine can't calculate as the file asks, noted at import (P4 core D14). */
+export type ScheduleSourceNote = 'p6_actual_dates' | 'p6_open_ends_critical';
 export type ActivityType =
   'task' | 'start_milestone' | 'finish_milestone' | 'level_of_effort' | 'wbs_summary';
 export type ActivityStatus = 'not_started' | 'in_progress' | 'completed';
@@ -29,7 +31,7 @@ export interface ProfileRuleOverrides {
   completedLateDates?: 'keep_actuals' | 'recalculate';
   ssLagFromInProgress?: 'remaining_from_actual_start' | 'from_start';
   completedPredLag?: 'unelapsed_only' | 'full';
-  totalFloatFormula?: 'finish_float' | 'min_start_finish';
+  totalFloatFormula?: 'finish_float' | 'min_start_finish' | 'start_float';
   freeFloatFloorZero?: boolean;
   finishMilestoneOnPredFinish?: boolean;
   alapBehavior?: 'within_free_float' | 'to_late_dates';
@@ -50,6 +52,8 @@ export interface ScheduleSettings {
   statusDate: WallClock | null;
   defaultCalendarId: string;
   autoCalculate: boolean;
+  /** Source options calculated differently from the file (D14); absent when there are none. */
+  sourceNotes?: ScheduleSourceNote[];
 }
 
 export interface ScheduleCalendarPeriod {

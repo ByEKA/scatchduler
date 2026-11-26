@@ -1,6 +1,8 @@
 import type {
   CalculationDisplayMode,
+  CriticalDefinition,
   LagCalendarMode,
+  ProfileRuleOverrides,
   ProgressMode,
   ScheduleActivity,
   ScheduleCalendar,
@@ -8,6 +10,7 @@ import type {
   ScheduleDocument,
   ScheduleProfileId,
   ScheduleRelationship,
+  ScheduleSourceNote,
   ScheduleWbsNode,
   WallClock,
 } from '@/data/schedule-types';
@@ -63,6 +66,24 @@ function mapLagCalendar(raw: string | undefined): LagCalendarMode {
   }
 }
 
+/** P6 total float type (D14): finish or start float; any other value is not mapped. */
+function mapFloatType(raw: string | undefined): ProfileRuleOverrides['totalFloatFormula'] {
+  switch (raw?.trim()) {
+    case 'FT_FF':
+      return 'finish_float';
+    case 'FT_SS':
+      return 'start_float';
+    default:
+      return undefined;
+  }
+}
+
+/** P6 critical threshold in hours as written (`40`, `1.5`, `0,5`) to minutes; else 0 (D14). */
+function hoursToMinutes(raw: string | undefined): number {
+  if (raw === undefined || !/^\s*-?\d+(?:[.,]\d+)?\s*$/.test(raw)) return 0;
+  return Math.round(Number(raw.trim().replace(',', '.')) * 60);
+}
+
 function resolveStatusDate(
   scheduleStatusDate: ISODate | null,
   sourceStatusDate: WallClock | null,
@@ -95,15 +116,34 @@ function resolveProfileSettings(model: ImportModel): {
   progressMode: ProgressMode;
   lagCalendar: LagCalendarMode;
   displayMode: CalculationDisplayMode;
+  ruleOverrides: ProfileRuleOverrides;
+  criticalDefinition: CriticalDefinition;
+  criticalThresholdMinutes: number;
+  sourceNotes: ScheduleSourceNote[];
 } {
   if (model.format === 'xer') {
     const progressRaw = getSetting(model.settings, 'progress_mode');
     const lagRaw = getSetting(model.settings, 'sched_calendar_on_relationship_lag');
+    // D14: the file's own calculation options. The SS lag and expected finish flags are recorded
+    // only, so they are read nowhere.
+    const formula = mapFloatType(getSetting(model.settings, 'sched_float_type'));
+    const sourceNotes: ScheduleSourceNote[] = [];
+    if (progressRaw === 'actual_dates') sourceNotes.push('p6_actual_dates');
+    if (getSetting(model.settings, 'sched_open_critical_flag')?.trim() === 'Y') {
+      sourceNotes.push('p6_open_ends_critical');
+    }
     return {
       profile: 'p6',
       progressMode: progressRaw === 'progress_override' ? 'progress_override' : 'retained_logic',
       lagCalendar: mapLagCalendar(lagRaw),
       displayMode: 'as_imported',
+      ruleOverrides: formula !== undefined ? { totalFloatFormula: formula } : {},
+      criticalDefinition:
+        getSetting(model.settings, 'critical_path_type')?.trim() === 'CT_DrivPath'
+          ? 'longest_path'
+          : 'total_float',
+      criticalThresholdMinutes: hoursToMinutes(getSetting(model.settings, 'critical_drtn_hr_cnt')),
+      sourceNotes,
     };
   }
   if (model.format === 'mspdi') {
@@ -112,6 +152,10 @@ function resolveProfileSettings(model: ImportModel): {
       progressMode: 'retained_logic',
       lagCalendar: 'successor',
       displayMode: 'as_imported',
+      ruleOverrides: {},
+      criticalDefinition: 'total_float',
+      criticalThresholdMinutes: 0,
+      sourceNotes: [],
     };
   }
   return {
@@ -119,6 +163,10 @@ function resolveProfileSettings(model: ImportModel): {
     progressMode: 'retained_logic',
     lagCalendar: 'predecessor',
     displayMode: hasAnySourceDates(model) ? 'as_imported' : 'calculated',
+    ruleOverrides: {},
+    criticalDefinition: 'total_float',
+    criticalThresholdMinutes: 0,
+    sourceNotes: [],
   };
 }
 
@@ -253,24 +301,26 @@ export function fromImportModel(
   }
 
   const profileSettings = resolveProfileSettings(model);
+  const { sourceNotes } = profileSettings;
 
   return {
     schemaVersion: 1,
     sourceFormat: model.format,
     settings: {
       profile: profileSettings.profile,
-      ruleOverrides: {},
+      ruleOverrides: profileSettings.ruleOverrides,
       progressMode: profileSettings.progressMode,
       displayMode: profileSettings.displayMode,
       lagCalendar: profileSettings.lagCalendar,
-      criticalDefinition: 'total_float',
-      criticalThresholdMinutes: 0,
+      criticalDefinition: profileSettings.criticalDefinition,
+      criticalThresholdMinutes: profileSettings.criticalThresholdMinutes,
       nearCriticalThresholdMinutes: 4800,
       projectStart: model.project.statedStart,
       mustFinishBy: model.project.mustFinishBy,
       statusDate: resolveStatusDate(options.scheduleStatusDate, model.project.statusDate),
       defaultCalendarId,
       autoCalculate: false,
+      ...(sourceNotes.length > 0 ? { sourceNotes } : {}),
     },
     calendars,
     wbs,

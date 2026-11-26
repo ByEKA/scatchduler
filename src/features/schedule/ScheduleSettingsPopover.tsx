@@ -14,6 +14,7 @@ import type {
   ScheduleDocument,
   ScheduleProfileId,
   ScheduleSettings,
+  ScheduleSourceNote,
 } from '@/data/schedule-types';
 import type { CommandResult, ScheduleCommand } from '@/features/schedule/commands';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,13 @@ export interface ScheduleSettingsPopoverProps {
 const SELECT_CLASSES =
   'h-7 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60';
 
+/** P6 options the engine calculates differently from the file, noted at import (D14). */
+const SOURCE_NOTE_COPY: Record<ScheduleSourceNote, string> = {
+  p6_actual_dates:
+    "The file uses the Actual dates progress mode, which isn't available. Retained logic is used.",
+  p6_open_ends_critical: "The file makes open-ended activities critical, which isn't available.",
+};
+
 function toDateInputValue(wc: string | null): string {
   if (wc === null) return '';
   return wc.slice(0, 10);
@@ -35,7 +43,8 @@ function toDateInputValue(wc: string | null): string {
 /**
  * Popover form for schedule calculation settings: profile, progress mode, display mode,
  * lag calendar, critical definition & thresholds, status date, must-finish-by, and
- * auto-calculate (spec §4.1, §7.2).
+ * auto-calculate (spec §4.1, §7.2), with the file's options noted at import under
+ * "From the file" (D14).
  */
 export function ScheduleSettingsPopover({
   document,
@@ -57,6 +66,7 @@ export function ScheduleSettingsPopover({
 
   const critDays = Math.round((settings.criticalThresholdMinutes / dayMinutes) * 10) / 10;
   const nearCritDays = Math.round((settings.nearCriticalThresholdMinutes / dayMinutes) * 10) / 10;
+  const sourceNotes = settings.sourceNotes ?? [];
 
   return (
     <Popover>
@@ -257,6 +267,22 @@ export function ScheduleSettingsPopover({
             </Label>
           </div>
         </div>
+
+        {sourceNotes.length > 0 && (
+          <div className="mt-3 border-t pt-2">
+            <p id={`${baseId}-notes`} className="text-2xs font-medium text-muted-foreground">
+              From the file
+            </p>
+            <ul
+              aria-labelledby={`${baseId}-notes`}
+              className="mt-1 flex flex-col gap-1 text-2xs text-muted-foreground"
+            >
+              {sourceNotes.map((note) => (
+                <li key={note}>{SOURCE_NOTE_COPY[note]}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

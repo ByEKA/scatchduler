@@ -255,6 +255,7 @@
   ],
   "settings": [
     { "key": "progress_mode", "value": "progress_override" },
-    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Predecessor" }
+    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Predecessor" },
+    { "key": "sched_use_expect_end_flag", "value": "Y" }
   ]
 }

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type {
   ComputedScheduleSummary,
+  ProfileRuleOverrides,
   ScheduleActivity,
   ScheduleDocument,
   ScheduleProfileId,
@@ -172,6 +173,93 @@ describe('CPM floats, criticality, longest path and driving trace', () => {
     }
     expect(splitFloatFor('p6').totalFloat).toBe(960);
     expect(splitFloatFor('msp').totalFloat).toBe(0);
+  });
+
+  it('applies totalFloatFormula start_float (P4 D14)', () => {
+    // The plan's splitFloat fixture became completedEarly in F2 and no longer splits the floats,
+    // so the split is set on the pass output as above: finish float 960, start float 0.
+    function splitFloatWith(ruleOverrides: ProfileRuleOverrides, reversed = false) {
+      const doc = makeDocument({
+        settings: { ...makeDocument().settings, profile: 'p6', ruleOverrides },
+        activities: [makeActivity({ id: 'a', code: 'A10', originalDuration: 480 })],
+      });
+      const compiled = new Map<string, CompiledCalendar>();
+      for (const cal of doc.calendars) {
+        const res = compileCalendar(cal);
+        if ('code' in res) throw new Error(res.message);
+        compiled.set(cal.id, res);
+      }
+      const graphRes = buildGraph(doc);
+      if (!graphRes.ok) throw new Error(graphRes.error.message);
+      const rules = resolveRules(doc.settings.profile, doc.settings.ruleOverrides);
+      const forward = runForwardPass(doc, graphRes.graph, compiled, rules); // 05.01 08:00–17:00
+      const backward = runBackwardPass(doc, graphRes.graph, compiled, rules, forward);
+      const a = graphRes.graph.indexById.get('a')!;
+      if (reversed) {
+        backward.ls[a] = toMinutes('2026-01-07T08:00'); // start float 2 d
+        backward.lf[a] = forward.ef[a]!; // finish float 0
+      } else {
+        backward.ls[a] = toMinutes('2026-01-05T08:00'); // start float 0
+        backward.lf[a] = toMinutes('2026-01-07T17:00'); // finish float 2 d
+      }
+      return computeFloatsAndCriticality(doc, graphRes.graph, compiled, rules, forward, backward)
+        .activities.a!;
+    }
+    expect(splitFloatWith({ totalFloatFormula: 'start_float' }).totalFloat).toBe(0);
+    expect(splitFloatWith({}).totalFloat).toBe(960);
+
+    // The reversed split (start float 960, finish float 0) tells start_float from the other two.
+    expect(splitFloatWith({ totalFloatFormula: 'start_float' }, true).totalFloat).toBe(960);
+    expect(splitFloatWith({ totalFloatFormula: 'min_start_finish' }, true).totalFloat).toBe(0);
+    expect(splitFloatWith({ totalFloatFormula: 'finish_float' }, true).totalFloat).toBe(0);
+
+    // A formula this version doesn't know (a document from a later version) falls back to finish
+    // float, the P6 default.
+    const unknown = { totalFloatFormula: 'something_else' as never };
+    expect(splitFloatWith(unknown).totalFloat).toBe(960);
+    expect(splitFloatWith(unknown, true).totalFloat).toBe(0);
+  });
+
+  it('measures start float of an in-progress activity from its remaining early start (P4 D14)', () => {
+    // Started 05.01 08:00, 2 d of 4 d left at the status date 07.01 08:00: remaining early start
+    // 07.01 08:00, early finish 08.01 17:00. Must finish by 13.01 17:00 sets the late finish, so
+    // the late start is 12.01 08:00 (late finish − remaining duration).
+    function inProgressWith(ruleOverrides: ProfileRuleOverrides) {
+      const doc = makeDocument({
+        settings: {
+          ...makeDocument().settings,
+          profile: 'p6',
+          ruleOverrides,
+          statusDate: '2026-01-07T08:00',
+          mustFinishBy: '2026-01-13T17:00',
+        },
+        activities: [
+          makeActivity({
+            id: 'a',
+            code: 'A10',
+            status: 'in_progress',
+            actualStart: '2026-01-05T08:00',
+            originalDuration: 1920,
+            remainingDuration: 960,
+          }),
+        ],
+      });
+      return runFullCpm(doc).activities.a!;
+    }
+
+    const startFloat = inProgressWith({ totalFloatFormula: 'start_float' });
+    expect(startFloat).toMatchObject({
+      earlyStart: '2026-01-05T08:00',
+      earlyFinish: '2026-01-08T17:00',
+      lateStart: '2026-01-12T08:00',
+      lateFinish: '2026-01-13T17:00',
+    });
+    // 07.01 08:00 → 12.01 08:00 is 3 working days. Measured from the actual start it would be
+    // 5 d (2400), the 2 d already worked counted as float.
+    expect(startFloat.totalFloat).toBe(1440);
+    // Finish float 08.01 17:00 → 13.01 17:00 is the same 3 d.
+    expect(inProgressWith({ totalFloatFormula: 'finish_float' }).totalFloat).toBe(1440);
+    expect(inProgressWith({ totalFloatFormula: 'min_start_finish' }).totalFloat).toBe(1440);
   });
 
   it('keeps the float of a completed activity that finished early when late dates are recalculated', () => {

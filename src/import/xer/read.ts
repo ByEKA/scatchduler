@@ -933,11 +933,22 @@ const COVERED_TABLES = new Set([
   'MEMOTYPE',
 ]);
 
+// The P6 calculation options of P4 core D14, in the order they are kept.
+const P6_CALCULATION_OPTIONS = [
+  'sched_float_type',
+  'sched_open_critical_flag',
+  'sched_lag_early_start_flag',
+  'sched_use_expect_end_flag',
+  'critical_path_type',
+  'critical_drtn_hr_cnt',
+] as const;
+
 /**
  * The scheduling options kept for P4, in a fixed order, each when the file has its field. The
  * three scheduling options come from the project's SCHEDOPTIONS row, where P6 writes them, and
  * from PROJECT only when that row is missing or lacks the field; the four calculation flags are
- * PROJECT fields (D68, D69).
+ * PROJECT fields (D68, D69). The six calculation options of P4 core D14 come last, values as
+ * written, from the SCHEDOPTIONS row, else PROJECT.
  */
 function settingsOf(project: Row, options: Row | undefined): Array<{ key: string; value: string }> {
   const has = (row: Row | undefined, field: string): row is Row =>
@@ -968,6 +979,10 @@ function settingsOf(project: Row, options: Row | undefined): Array<{ key: string
     'reset_planned_flag',
   ]) {
     if (has(project, field)) settings.push({ key: field, value: project[field] ?? '' });
+  }
+  for (const field of P6_CALCULATION_OPTIONS) {
+    const row = optionRow(field);
+    if (row !== null) settings.push({ key: field, value: row[field] ?? '' });
   }
   return settings;
 }

@@ -57,7 +57,7 @@ describe('inspect and analyze', () => {
       kind: 'refused',
       fileName: 'x.xer',
       size: 16,
-      parserVersion: '1.0.0',
+      parserVersion: '1.1.0',
       message:
         'This is a database file, not a schedule export. Export the project as XER from P6 or as XML from Microsoft Project.',
     });

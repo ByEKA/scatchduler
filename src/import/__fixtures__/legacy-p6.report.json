@@ -32,7 +32,8 @@
   },
   "settings": [
     { "key": "progress_mode", "value": "progress_override" },
-    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Predecessor" }
+    { "key": "sched_calendar_on_relationship_lag", "value": "rcal_Predecessor" },
+    { "key": "sched_use_expect_end_flag", "value": "Y" }
   ],
   "counts": [
     { "entity": "calendar", "read": 3, "accepted": 3, "adjusted": 0, "skipped": 0 },
@@ -62,7 +63,7 @@
     { "element": "WBS", "outcome": "kept", "items": 1 },
     { "element": "Early and late dates", "outcome": "kept", "items": 4 },
     { "element": "Total and free float", "outcome": "kept", "items": 4 },
-    { "element": "Scheduling settings", "outcome": "kept", "items": 2 },
+    { "element": "Scheduling settings", "outcome": "kept", "items": 3 },
     { "element": "Other tables", "outcome": "not_read", "items": 2 }
   ],
   "checks": [

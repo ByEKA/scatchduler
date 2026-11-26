@@ -1181,10 +1181,33 @@ export function computeFloatsAndCriticality(
     const actLf = backward.lf[u]!;
 
     const finishFloat = workingMinutesBetween(cal, actEf, actLf);
-    const totalFloat =
-      rules.totalFloatFormula === 'finish_float'
-        ? finishFloat
-        : Math.min(workingMinutesBetween(cal, actEs, actLs), finishFloat);
+    // An in-progress activity's late start is its remaining late start (late finish − remaining
+    // duration), so its start float runs from the remaining early start, not the actual start,
+    // as forwardLinkBound measures links into it. Level of effort dates come from the LOE pass.
+    let startFloatFrom = actEs;
+    if (act.status === 'in_progress' && act.type !== 'level_of_effort') {
+      const remDur =
+        act.type === 'start_milestone' || act.type === 'finish_milestone'
+          ? 0
+          : Math.max(0, act.remainingDuration);
+      startFloatFrom = remDur > 0 ? subtractWorkingMinutes(cal, actEf, remDur) : actEf;
+    }
+    const startFloat = workingMinutesBetween(cal, startFloatFrom, actLs);
+    let totalFloat: number;
+    switch (rules.totalFloatFormula) {
+      case 'start_float':
+        // P6 "Start float" (D14): late start − early start on the activity's calendar.
+        totalFloat = startFloat;
+        break;
+      case 'min_start_finish':
+        totalFloat = Math.min(startFloat, finishFloat);
+        break;
+      case 'finish_float':
+      default:
+        // A formula this version doesn't know (a later version's document) falls back to P6's.
+        totalFloat = finishFloat;
+        break;
+    }
 
     let freeFloat: number;
     if (

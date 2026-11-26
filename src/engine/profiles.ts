@@ -14,7 +14,7 @@ export interface ResolvedRules {
   readonly completedLateDates: 'keep_actuals' | 'recalculate';
   readonly ssLagFromInProgress: 'remaining_from_actual_start' | 'from_start';
   readonly completedPredLag: 'unelapsed_only' | 'full';
-  readonly totalFloatFormula: 'finish_float' | 'min_start_finish';
+  readonly totalFloatFormula: 'finish_float' | 'min_start_finish' | 'start_float';
   readonly freeFloatFloorZero: boolean;
   readonly finishMilestoneOnPredFinish: boolean;
   readonly alapBehavior: 'within_free_float' | 'to_late_dates';
