@@ -214,6 +214,9 @@ test('shows Archived · read-only badge and hides Edit on an archived schedule',
 test('supports Ctrl+K command palette activity jump and Gantt canvas bar resize & link drawing with Undo', async ({
   page,
 }) => {
+  // The mock seed dates this schedule two days before today, and the pixel positions below assume
+  // the new 5-day activities start on a Monday and don't cross a weekend: pin "today" to a Wednesday.
+  await page.clock.setFixedTime(new Date('2026-11-25T12:00:00'));
   await openProject(page, 'Riverside Office Tower');
   await page.getByRole('link', { name: 'Open current schedule' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Main schedule' })).toBeVisible();
