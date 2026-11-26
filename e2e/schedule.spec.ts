@@ -241,7 +241,8 @@ test('supports Ctrl+K command palette activity jump and Gantt canvas bar resize 
   await expect(dialog).toHaveCount(0);
   await expect(a1020Row).toHaveAttribute('aria-selected', 'true');
 
-  // Use Zoom to fit to switch to Day zoom (32px/day) and drag A1010 right resize handle (+96px = +3 days -> 8 d)
+  // Use Zoom to fit to switch to Day zoom (32px/day) and drag A1010 right resize handle
+  // (+96 px = Sat 28, Sun 29, Mon 30 → one more working day → 6 d)
   await page.getByRole('button', { name: 'Zoom to fit' }).click();
   await expect(page.getByRole('combobox', { name: 'Zoom level' })).toContainText('Day');
   const canvas = page.getByLabel('Gantt chart', { exact: true });
@@ -254,7 +255,7 @@ test('supports Ctrl+K command palette activity jump and Gantt canvas bar resize 
   await page.mouse.down();
   await page.mouse.move(box.x + 308, box.y + 16, { steps: 5 });
   await page.mouse.up();
-  await expect(a1010Row).toContainText('8 d');
+  await expect(a1010Row).toContainText('6 d');
 
   // Undo resize back to 5 d, then draw a finish-to-start link from A1010 finish port to A1020 start port
   await page.keyboard.press('Control+z');

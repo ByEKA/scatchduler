@@ -1,9 +1,154 @@
-import type { RelationshipType } from '@/data/schedule-types';
+import type {
+  RelationshipType,
+  ScheduleCalendar,
+  ScheduleCalendarPeriod,
+} from '@/data/schedule-types';
 import type { ScheduleCommand } from '@/features/schedule/commands';
 import { getGanttPortCoords, type GanttHitTarget } from '@/features/schedule/gantt/hit-test';
 import { GANTT_ROW_HEIGHT, type GanttRow } from '@/features/schedule/gantt/renderer';
 import type { Timescale } from '@/features/schedule/gantt/timescale';
-import { MINUTES_PER_DAY, ymdFromCivilDays } from '@/lib/civil-date';
+import {
+  dayOfWeekFromDays,
+  MINUTES_PER_DAY,
+  wallClockToCivilMinutes,
+  ymdFromCivilDays,
+} from '@/lib/civil-date';
+
+/** No working-day scan walks more days than this, so a calendar without working days cannot hang a drag. */
+const MAX_SCAN_DAYS = 3660;
+
+/** Minutes after midnight at which the fallback (and the standard) calendar's working day starts. */
+const DEFAULT_DAY_START = 8 * 60;
+
+/** The fallback working day, the same as the standard calendar's: 08:00–12:00 and 13:00–17:00. */
+const DEFAULT_WORKDAY: readonly ScheduleCalendarPeriod[] = [
+  { start: DEFAULT_DAY_START, finish: 12 * 60 },
+  { start: 13 * 60, finish: 17 * 60 },
+];
+
+/**
+ * Working-day view of one activity calendar for Gantt drag snapping (P4 later spec §5.2). `day` is
+ * a civil day index as in `civilDaysFromYmd`. Kept here because `src/features/**` must not import
+ * engine runtime code (CLAUDE.md rule 9).
+ */
+export interface GanttWorkDays {
+  isWorkingDay(day: number): boolean;
+  /** Minutes after midnight at which the day's first working period starts. */
+  dayStartOffset(day: number): number;
+  /** The day's working periods in minutes after midnight, sorted and merged as the engine does. */
+  periods(day: number): readonly ScheduleCalendarPeriod[];
+}
+
+export interface GanttDragOptions {
+  hoursPerDay?: number;
+  /** The activity's own calendar; `null` falls back to Mon–Fri from 08:00. */
+  calendar?: ScheduleCalendar | null;
+  /** The activity's real duration in minutes; the grab badge and a nudge keep it. */
+  durationMinutes?: number | null;
+}
+
+/**
+ * Clips periods to the day, drops empty ones, sorts and merges the rest, as the engine's
+ * normalizePeriods does.
+ */
+function normalizePeriods(
+  raw: readonly ScheduleCalendarPeriod[] | undefined,
+): readonly ScheduleCalendarPeriod[] {
+  const valid: ScheduleCalendarPeriod[] = [];
+  for (const p of raw ?? []) {
+    const start = Math.max(0, Math.min(MINUTES_PER_DAY, Math.round(p.start)));
+    const finish = Math.max(0, Math.min(MINUTES_PER_DAY, Math.round(p.finish)));
+    if (finish > start) valid.push({ start, finish });
+  }
+  valid.sort((a, b) => a.start - b.start || a.finish - b.finish);
+  const merged: ScheduleCalendarPeriod[] = [];
+  for (const p of valid) {
+    const prev = merged[merged.length - 1];
+    if (prev !== undefined && p.start <= prev.finish) prev.finish = Math.max(prev.finish, p.finish);
+    else merged.push(p);
+  }
+  return merged;
+}
+
+/**
+ * Builds the working-day view of `calendar`. Without a calendar, Monday to Friday are working days
+ * from 08:00 to 12:00 and 13:00 to 17:00, the standard calendar and the same weekdays as the
+ * Gantt's weekend shading.
+ */
+export function createGanttWorkDays(calendar: ScheduleCalendar | null): GanttWorkDays {
+  const week = Array.from({ length: 7 }, (_, dow) =>
+    normalizePeriods(
+      calendar === null ? (dow === 0 || dow === 6 ? [] : DEFAULT_WORKDAY) : calendar.week[dow],
+    ),
+  );
+  // When a date repeats, the last entry wins (like compileCalendar).
+  const exceptions = new Map<number, readonly ScheduleCalendarPeriod[]>();
+  for (const e of calendar?.exceptions ?? []) {
+    const minutes = wallClockToCivilMinutes(e.date);
+    if (minutes === null) continue;
+    exceptions.set(Math.floor(minutes / MINUTES_PER_DAY), normalizePeriods(e.periods));
+  }
+
+  const periods = (day: number): readonly ScheduleCalendarPeriod[] =>
+    exceptions.get(day) ?? week[dayOfWeekFromDays(day)] ?? [];
+
+  return {
+    isWorkingDay: (day) => periods(day).length > 0,
+    dayStartOffset: (day) => periods(day)[0]?.start ?? DEFAULT_DAY_START,
+    periods,
+  };
+}
+
+function nextWorkingDay(work: GanttWorkDays, day: number): number {
+  for (let d = day; d < day + MAX_SCAN_DAYS; d++) if (work.isWorkingDay(d)) return d;
+  return day;
+}
+function previousWorkingDay(work: GanttWorkDays, day: number): number {
+  for (let d = day; d > day - MAX_SCAN_DAYS; d--) if (work.isWorkingDay(d)) return d;
+  return day;
+}
+/** Working days d with from <= d < to (0 when to <= from). */
+function countWorkingDays(work: GanttWorkDays, from: number, to: number): number {
+  let n = 0;
+  for (let d = from; d < to && d < from + MAX_SCAN_DAYS; d++) if (work.isWorkingDay(d)) n++;
+  return n;
+}
+function signedWorkingDays(work: GanttWorkDays, from: number, to: number): number {
+  return to >= from ? countWorkingDays(work, from, to) : -countWorkingDays(work, to, from);
+}
+/** Moves a finish instant by n working days, keeping its time of day (a 00:00 finish belongs to the day before). */
+function shiftFinishByWorkingDays(work: GanttWorkDays, finish: number, n: number): number {
+  if (n === 0) return finish;
+  const lastDay = Math.ceil(finish / MINUTES_PER_DAY) - 1;
+  const timeOfDay = finish - lastDay * MINUTES_PER_DAY; // 1..1440
+  let day = previousWorkingDay(work, lastDay);
+  const step = n > 0 ? 1 : -1;
+  for (let left = Math.abs(n), guard = 0; left > 0 && guard < MAX_SCAN_DAYS; guard++) {
+    day += step;
+    if (work.isWorkingDay(day)) left--;
+  }
+  return day * MINUTES_PER_DAY + timeOfDay;
+}
+/**
+ * Advances `minutes` of working time from `start`, ending at the end of the working period where
+ * they run out, as the engine's addWorkingMinutes does for early finish = start + duration.
+ */
+function addWorkMinutes(work: GanttWorkDays, start: number, minutes: number): number {
+  if (minutes <= 0) return start;
+  let left = minutes;
+  const firstDay = Math.floor(start / MINUTES_PER_DAY);
+  for (let day = firstDay; day < firstDay + MAX_SCAN_DAYS; day++) {
+    const base = day * MINUTES_PER_DAY;
+    for (const p of work.periods(day)) {
+      const from = Math.max(base + p.start, start);
+      const available = base + p.finish - from;
+      if (available <= 0) continue;
+      if (left <= available) return from + left;
+      left -= available;
+    }
+  }
+  return start;
+}
 
 export type GanttInteractionOverlay =
   | {
@@ -37,6 +182,12 @@ export interface GanttDragState {
   startY: number;
   moved: boolean;
   hoursPerDay: number;
+  /** Working days of the bar when the drag started (its real duration when the caller knows it). */
+  initialDays: number;
+  /** The bar's real working duration in minutes, or `null` when the caller does not know it. */
+  durationMinutes: number | null;
+  /** Working-day view of the activity's calendar used for snapping. */
+  workDays: GanttWorkDays;
   initialStart: number;
   initialFinish: number;
   snappedStart: number;
@@ -60,9 +211,14 @@ function formatDayDmy(dayIndex: number): string {
   return `${pad2(day)}.${pad2(month)}.${String(year).padStart(4, '0')}`;
 }
 
-function formatDayClock08(dayIndex: number): string {
+/** Formats civil minutes as a `YYYY-MM-DDTHH:mm` wall clock. */
+function formatMinuteClock(minute: number): string {
+  const dayIndex = Math.floor(minute / MINUTES_PER_DAY);
+  const minuteOfDay = minute - dayIndex * MINUTES_PER_DAY;
   const { year, month, day } = ymdFromCivilDays(dayIndex);
-  return `${String(year).padStart(4, '0')}-${pad2(month)}-${pad2(day)}T08:00`;
+  const hh = pad2(Math.floor(minuteOfDay / 60));
+  const mm = pad2(minuteOfDay % 60);
+  return `${String(year).padStart(4, '0')}-${pad2(month)}-${pad2(day)}T${hh}:${mm}`;
 }
 
 export function mapPortsToRelationshipType(
@@ -82,7 +238,7 @@ export function startGanttDrag(
   target: GanttHitTarget,
   pointerX: number,
   pointerY: number,
-  options: { hoursPerDay?: number } = {},
+  options: GanttDragOptions = {},
 ): GanttDragState | null {
   if (target.kind === 'bar-select') return null;
   if (!target.row.key.startsWith('act:')) return null;
@@ -91,11 +247,30 @@ export function startGanttDrag(
   const finishMin = target.row.finish ?? target.row.start;
   if (startMin === null || finishMin === null) return null;
 
-  const hoursPerDay = options.hoursPerDay && options.hoursPerDay > 0 ? options.hoursPerDay : 8;
+  const calendar = options.calendar ?? null;
+  const workDays = createGanttWorkDays(calendar);
+  const hoursPerDay =
+    options.hoursPerDay !== undefined && options.hoursPerDay > 0
+      ? options.hoursPerDay
+      : calendar !== null && calendar.hoursPerDay > 0
+        ? calendar.hoursPerDay
+        : 8;
   const startDay = Math.floor(startMin / MINUTES_PER_DAY);
-  const endDay = Math.max(startDay + 1, Math.round(finishMin / MINUTES_PER_DAY));
-  const initialDays = Math.max(1, endDay - startDay);
-  const initialDuration = initialDays * hoursPerDay * 60;
+  const durationMinutes =
+    typeof options.durationMinutes === 'number' &&
+    Number.isFinite(options.durationMinutes) &&
+    options.durationMinutes >= 0
+      ? options.durationMinutes
+      : null;
+  const initialDays =
+    durationMinutes !== null && durationMinutes > 0
+      ? Math.max(1, Math.round(durationMinutes / (hoursPerDay * 60)))
+      : Math.max(1, countWorkingDays(workDays, startDay, Math.ceil(finishMin / MINUTES_PER_DAY)));
+  // A handle grabbed and released without a working-day change keeps the bar's real duration.
+  const initialDuration =
+    durationMinutes !== null && durationMinutes > 0
+      ? durationMinutes
+      : initialDays * hoursPerDay * 60;
   const span = Math.max(1, finishMin - startMin);
   const initialPct =
     target.row.progressFinish !== null
@@ -118,6 +293,9 @@ export function startGanttDrag(
       startY: pointerY,
       moved: false,
       hoursPerDay,
+      initialDays,
+      durationMinutes,
+      workDays,
       initialStart: startMin,
       initialFinish: finishMin,
       snappedStart: startMin,
@@ -161,6 +339,9 @@ export function startGanttDrag(
     startY: pointerY,
     moved: false,
     hoursPerDay,
+    initialDays,
+    durationMinutes,
+    workDays,
     initialStart: startMin,
     initialFinish: finishMin,
     snappedStart: startMin,
@@ -202,13 +383,26 @@ export function updateGanttDrag(
     const deltaMinutes =
       timescale.minuteAt(scrollLeft + pointerX) - timescale.minuteAt(scrollLeft + state.startX);
     const deltaDays = Math.round(deltaMinutes / MINUTES_PER_DAY);
+    const { workDays } = state;
     const initialStartDay = Math.floor(state.initialStart / MINUTES_PER_DAY);
-    const snappedDay = initialStartDay + deltaDays;
-    const snappedStart = snappedDay * MINUTES_PER_DAY + 8 * 60;
+    // Snaps forward to a working day, even when dragging left, as Calculate does with an SNET.
+    const snappedDay = nextWorkingDay(workDays, initialStartDay + deltaDays);
+    const snappedStart = snappedDay * MINUTES_PER_DAY + workDays.dayStartOffset(snappedDay);
+    // The ghost ends where Calculate puts the early finish: the snapped start plus the bar's
+    // working duration on the activity's calendar. Milestones keep finish = start.
     const span = Math.max(0, state.initialFinish - state.initialStart);
-    const snappedFinish = snappedStart + span;
-    const progressOffset =
-      state.percentComplete > 0 ? Math.round((span * state.percentComplete) / 100) : null;
+    const snappedFinish =
+      span === 0
+        ? snappedStart
+        : addWorkMinutes(
+            workDays,
+            snappedStart,
+            state.durationMinutes ?? state.initialDays * state.hoursPerDay * 60,
+          );
+    const progressMinute =
+      state.percentComplete > 0
+        ? snappedStart + Math.round(((snappedFinish - snappedStart) * state.percentComplete) / 100)
+        : null;
     return {
       ...state,
       moved,
@@ -220,19 +414,30 @@ export function updateGanttDrag(
         rowIndex: state.rowIndex,
         startMinute: snappedStart,
         finishMinute: snappedFinish,
-        progressMinute: progressOffset !== null ? snappedStart + progressOffset : null,
+        progressMinute,
         badgeLabel: formatDayDmy(snappedDay),
       },
     };
   }
 
   if (state.mode === 'bar-resize') {
-    const pointerMinute = timescale.minuteAt(scrollLeft + pointerX);
-    const startDay = Math.floor(state.initialStart / MINUTES_PER_DAY);
-    const endDay = Math.max(startDay + 1, Math.round(pointerMinute / MINUTES_PER_DAY));
-    const workingDays = Math.max(1, endDay - startDay);
-    const newDurationMinutes = workingDays * state.hoursPerDay * 60;
-    const snappedFinish = (startDay + workingDays) * MINUTES_PER_DAY;
+    // Anchored to the grab: only the horizontal movement since pointer-down moves the finish
+    // boundary, so a grab anywhere in the handle and any vertical jitter keep the duration.
+    const deltaMinutes =
+      timescale.minuteAt(scrollLeft + pointerX) - timescale.minuteAt(scrollLeft + state.startX);
+    const finishBoundary = Math.ceil(state.initialFinish / MINUTES_PER_DAY);
+    const pointerBoundary = finishBoundary + Math.round(deltaMinutes / MINUTES_PER_DAY);
+    const addedDays = signedWorkingDays(state.workDays, finishBoundary, pointerBoundary);
+    const workingDays = Math.max(1, state.initialDays + addedDays);
+    const newDurationMinutes =
+      addedDays === 0 && state.durationMinutes !== null && state.durationMinutes > 0
+        ? state.durationMinutes
+        : workingDays * state.hoursPerDay * 60;
+    const snappedFinish = shiftFinishByWorkingDays(
+      state.workDays,
+      state.initialFinish,
+      workingDays - state.initialDays,
+    );
     return {
       ...state,
       moved,
@@ -380,14 +585,13 @@ export function commitGanttDrag(state: GanttDragState): ScheduleCommand | null {
   if (!state.moved) return null;
 
   if (state.mode === 'bar-move') {
-    const startDay = Math.floor(state.snappedStart / MINUTES_PER_DAY);
     return {
       type: 'updateActivity',
       activityId: state.activityId,
       changes: {
         constraint: {
           type: 'start_on_or_after',
-          date: formatDayClock08(startDay),
+          date: formatMinuteClock(state.snappedStart),
         },
       },
     };

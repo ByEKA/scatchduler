@@ -8,7 +8,12 @@ import {
   useState,
 } from 'react';
 import type { PointerEvent, ReactElement, WheelEvent } from 'react';
-import type { ComputedScheduleSummary, DrivingPath, ScheduleDocument } from '@/data/schedule-types';
+import type {
+  ComputedScheduleSummary,
+  DrivingPath,
+  ScheduleCalendar,
+  ScheduleDocument,
+} from '@/data/schedule-types';
 import type { ScheduleCommand } from '@/features/schedule/commands';
 import { formatScheduleDate, formatWorkingDays } from '@/features/schedule/format-schedule';
 import {
@@ -85,6 +90,39 @@ function defaultOriginFromRows(rows: readonly GanttRow[]): number {
 
 function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
+}
+
+/**
+ * Every day from 00:00 to 24:00, 24 h/day: the local equivalent of the engine's elapsed calendar,
+ * on which Calculate schedules `flags.elapsed` activities (feature code imports no engine runtime).
+ */
+const ELAPSED_DRAG_CALENDAR: ScheduleCalendar = {
+  id: 'cal:elapsed_24h',
+  name: '24 Hour Elapsed',
+  kind: 'task',
+  week: Array.from({ length: 7 }, () => [{ start: 0, finish: MINUTES_PER_DAY }]),
+  exceptions: [],
+  hoursPerDay: 24,
+  hoursPerWeek: 168,
+  hoursPerMonth: null,
+  hoursPerYear: null,
+};
+
+/**
+ * The calendar Calculate schedules the activity on, for drag snapping: the elapsed calendar for
+ * `flags.elapsed`, else its own calendar, falling back to the schedule's default calendar, then
+ * the first calendar, then `null` (Mon–Fri from 08:00).
+ */
+function calendarForActivity(doc: ScheduleDocument, activityId: string): ScheduleCalendar | null {
+  const activity = doc.activities.find((a) => a.id === activityId);
+  if (activity?.flags.elapsed) return ELAPSED_DRAG_CALENDAR;
+  const own = activity ? doc.calendars.find((c) => c.id === activity.calendarId) : undefined;
+  return (
+    own ??
+    doc.calendars.find((c) => c.id === doc.settings.defaultCalendarId) ??
+    doc.calendars[0] ??
+    null
+  );
 }
 
 /**
@@ -398,8 +436,15 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
         const target = hitTestGanttTarget(x, y, ganttRows, timescale, scrollLeft, scrollTop, true);
         if (target && target.kind !== 'bar-select') {
           const visRow = rowsByKey.get(target.row.key);
+          const calendar = calendarForActivity(scheduleDoc, target.row.key.slice(4));
           const started = startGanttDrag(target, x, y, {
-            hoursPerDay: visRow?.hoursPerDay ?? 8,
+            // An elapsed duration counts 24-hour days, as the engine and the importers do.
+            hoursPerDay:
+              calendar === ELAPSED_DRAG_CALENDAR
+                ? ELAPSED_DRAG_CALENDAR.hoursPerDay
+                : (visRow?.hoursPerDay ?? 8),
+            durationMinutes: visRow?.durationMinutes ?? null,
+            calendar,
           });
           if (started) {
             setGanttDrag(started);

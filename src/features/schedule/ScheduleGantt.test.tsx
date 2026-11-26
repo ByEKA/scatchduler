@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeActivity, makeDocument } from '@/engine/testing';
+import type { ScheduleDocument, SourceDateRecord, WallClock } from '@/data/schedule-types';
+import { makeActivity, makeDocument, makeStandardCalendar } from '@/engine/testing';
 import { buildVisibleRows } from '@/features/schedule/rows';
 import { ScheduleGantt } from '@/features/schedule/ScheduleGantt';
 
@@ -30,6 +31,51 @@ function makeMockCanvasContext(): CanvasRenderingContext2D {
     textBaseline: 'middle',
     globalAlpha: 1,
   } as unknown as CanvasRenderingContext2D;
+}
+
+/** Imported dates for an as-imported bar. */
+function importedDates(start: WallClock, finish: WallClock): SourceDateRecord {
+  return {
+    planned: { start, finish },
+    early: { start, finish },
+    late: { start, finish },
+    remaining: { start, finish },
+    totalFloat: 0,
+    freeFloat: 0,
+  };
+}
+
+/** Renders `doc` as an as-imported Gantt in Edit mode at Day zoom (32 px/day). */
+function renderEditGantt(doc: ScheduleDocument): {
+  canvas: HTMLElement;
+  onDispatch: ReturnType<typeof vi.fn>;
+} {
+  const onDispatch = vi.fn();
+  render(
+    <ScheduleGantt
+      rows={buildVisibleRows(doc, null, {}, new Set())}
+      document={doc}
+      summary={null}
+      selectedKey="act:a1"
+      showCritical
+      showLinks
+      drivingPath={null}
+      zoom="day"
+      mode="edit"
+      onDispatch={onDispatch}
+      onZoomChange={vi.fn()}
+      onSelectKey={vi.fn()}
+      scrollTop={0}
+      onScrollTopChange={vi.fn()}
+    />,
+  );
+  return { canvas: screen.getByLabelText('Gantt chart'), onDispatch };
+}
+
+function dragOn(canvas: HTMLElement, from: [number, number], to: [number, number]): void {
+  fireEvent.pointerDown(canvas, { clientX: from[0], clientY: from[1], button: 0 });
+  fireEvent.pointerMove(canvas, { clientX: to[0], clientY: to[1] });
+  fireEvent.pointerUp(canvas, { clientX: to[0], clientY: to[1], button: 0 });
 }
 
 beforeEach(() => {
@@ -179,8 +225,8 @@ describe('ScheduleGantt', () => {
         type: 'updateActivity',
         activityId: 'a1',
         changes: expect.objectContaining({
-          originalDuration: expect.any(Number),
-          remainingDuration: expect.any(Number),
+          originalDuration: 2880,
+          remainingDuration: 2880,
         }),
       }),
     );
@@ -195,7 +241,7 @@ describe('ScheduleGantt', () => {
       changes: {
         constraint: {
           type: 'start_on_or_after',
-          date: expect.stringMatching(/^2026-01-\d{2}T08:00$/),
+          date: '2026-01-07T08:00',
         },
       },
     });
@@ -220,5 +266,215 @@ describe('ScheduleGantt', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     fireEvent.pointerUp(bodyCanvas, { clientX: 204, clientY: 16, button: 0 });
     expect(onDispatch).not.toHaveBeenCalled();
+  });
+
+  it("moves a bar to the next working day on the activity's own calendar", () => {
+    const doc = makeDocument({
+      settings: { ...makeDocument().settings, displayMode: 'as_imported' },
+      calendars: [
+        makeStandardCalendar('cal:standard'),
+        makeStandardCalendar('cal:site', { exceptions: [{ date: '2026-01-07', periods: [] }] }),
+      ],
+      activities: [
+        makeActivity({
+          id: 'a1',
+          code: 'A1010',
+          name: 'Excavation',
+          calendarId: 'cal:site',
+          originalDuration: 2400,
+          remainingDuration: 2400,
+          sourceDates: {
+            planned: { start: '2026-01-05T08:00', finish: '2026-01-10T17:00' },
+            early: { start: '2026-01-05T08:00', finish: '2026-01-10T17:00' },
+            late: { start: '2026-01-05T08:00', finish: '2026-01-10T17:00' },
+            remaining: { start: '2026-01-05T08:00', finish: '2026-01-10T17:00' },
+            totalFloat: 0,
+            freeFloat: 0,
+          },
+        }),
+      ],
+    });
+    const rows = buildVisibleRows(doc, null, {}, new Set());
+    const onDispatch = vi.fn();
+
+    render(
+      <ScheduleGantt
+        rows={rows}
+        document={doc}
+        summary={null}
+        selectedKey="act:a1"
+        showCritical
+        showLinks
+        drivingPath={null}
+        zoom="day"
+        mode="edit"
+        onDispatch={onDispatch}
+        onZoomChange={vi.fn()}
+        onSelectKey={vi.fn()}
+        scrollTop={0}
+        onScrollTopChange={vi.fn()}
+      />,
+    );
+
+    const bodyCanvas = screen.getByLabelText('Gantt chart');
+
+    // Wed 07.01 is a holiday on cal:site only, so +64 px from Mon 05.01 lands on Thu 08.01.
+    fireEvent.pointerDown(bodyCanvas, { clientX: 140, clientY: 16, button: 0 });
+    fireEvent.pointerMove(bodyCanvas, { clientX: 204, clientY: 16 });
+    fireEvent.pointerUp(bodyCanvas, { clientX: 204, clientY: 16, button: 0 });
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'updateActivity',
+      activityId: 'a1',
+      changes: { constraint: { type: 'start_on_or_after', date: '2026-01-08T08:00' } },
+    });
+  });
+
+  it('snaps an elapsed activity on the 24-hour calendar the engine schedules it on', () => {
+    const base = makeDocument();
+    const { canvas, onDispatch } = renderEditGantt({
+      ...base,
+      settings: { ...base.settings, displayMode: 'as_imported' },
+      activities: [
+        makeActivity({
+          id: 'a1',
+          code: 'A1010',
+          originalDuration: 4320, // 3 elapsed days
+          flags: { manual: false, elapsed: true, resourceDependent: false },
+          sourceDates: importedDates('2026-01-05T08:00', '2026-01-08T08:00'),
+        }),
+      ],
+    });
+
+    // Origin is Sat 03.01 00:00: a1 runs x1 = 74.67 to x2 = 170.67.
+    // +160 px from Mon 05.01 is Sat 10.01, a day the 24-hour calendar works from 00:00.
+    dragOn(canvas, [120, 16], [280, 16]);
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'updateActivity',
+      activityId: 'a1',
+      changes: { constraint: { type: 'start_on_or_after', date: '2026-01-10T00:00' } },
+    });
+
+    // A vertical jitter on the resize handle keeps the 3 elapsed days.
+    dragOn(canvas, [168, 16], [168, 19]);
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'updateActivity',
+      activityId: 'a1',
+      changes: { originalDuration: 4320, remainingDuration: 4320 },
+    });
+
+    // +32 px adds Fri 09.01, one 24-hour day: 4 d = 5760 minutes.
+    dragOn(canvas, [168, 16], [200, 16]);
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'updateActivity',
+      activityId: 'a1',
+      changes: { originalDuration: 5760, remainingDuration: 5760 },
+    });
+  });
+
+  it("resizes from the activity's duration when its imported dates span more working days", () => {
+    const base = makeDocument();
+    // 5 d whose imported dates ran over a holiday the activity's calendar does not have:
+    // Mon 05.01 08:00 to Mon 12.01 17:00 spans 6 working days on cal:standard.
+    const { canvas, onDispatch } = renderEditGantt({
+      ...base,
+      settings: { ...base.settings, displayMode: 'as_imported' },
+      activities: [
+        makeActivity({
+          id: 'a1',
+          code: 'A1010',
+          originalDuration: 2400,
+          sourceDates: importedDates('2026-01-05T08:00', '2026-01-12T17:00'),
+        }),
+      ],
+    });
+
+    // x2 = 310.67. A vertical jitter on the handle keeps 5 d, not the 6 d span.
+    dragOn(canvas, [308, 16], [308, 19]);
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'updateActivity',
+      activityId: 'a1',
+      changes: { originalDuration: 2400, remainingDuration: 2400 },
+    });
+
+    // +32 px moves the finish boundary from 13.01 to 14.01 and adds Tue 13: 5 + 1 = 6 d.
+    dragOn(canvas, [308, 16], [340, 16]);
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'updateActivity',
+      activityId: 'a1',
+      changes: { originalDuration: 2880, remainingDuration: 2880 },
+    });
+  });
+
+  it("snaps a move to the start of the first working period on the activity's calendar", () => {
+    const early = makeStandardCalendar('cal:early', {
+      week: [
+        [],
+        ...Array.from({ length: 5 }, () => [
+          { start: 420, finish: 720 },
+          { start: 780, finish: 960 },
+        ]),
+        [],
+      ],
+    });
+    const base = makeDocument({ calendars: [makeStandardCalendar('cal:standard'), early] });
+    const { canvas, onDispatch } = renderEditGantt({
+      ...base,
+      settings: { ...base.settings, displayMode: 'as_imported' },
+      activities: [
+        makeActivity({
+          id: 'a1',
+          code: 'A1010',
+          calendarId: 'cal:early',
+          originalDuration: 2400,
+          sourceDates: importedDates('2026-01-05T07:00', '2026-01-09T16:00'),
+        }),
+      ],
+    });
+
+    // +64 px from Mon 05.01 is Wed 07.01, whose working day starts at 07:00 on cal:early.
+    dragOn(canvas, [140, 16], [204, 16]);
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'updateActivity',
+      activityId: 'a1',
+      changes: { constraint: { type: 'start_on_or_after', date: '2026-01-07T07:00' } },
+    });
+  });
+
+  it('keeps a move on a Saturday that a calendar exception makes a working day', () => {
+    const base = makeDocument({
+      calendars: [
+        makeStandardCalendar('cal:standard', {
+          exceptions: [
+            {
+              date: '2026-01-10',
+              periods: [
+                { start: 480, finish: 720 },
+                { start: 780, finish: 1020 },
+              ],
+            },
+          ],
+        }),
+      ],
+    });
+    const { canvas, onDispatch } = renderEditGantt({
+      ...base,
+      settings: { ...base.settings, displayMode: 'as_imported' },
+      activities: [
+        makeActivity({
+          id: 'a1',
+          code: 'A1010',
+          originalDuration: 2400,
+          sourceDates: importedDates('2026-01-05T08:00', '2026-01-09T17:00'),
+        }),
+      ],
+    });
+
+    // +160 px from Mon 05.01 is Sat 10.01, worked on this calendar.
+    dragOn(canvas, [140, 16], [300, 16]);
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'updateActivity',
+      activityId: 'a1',
+      changes: { constraint: { type: 'start_on_or_after', date: '2026-01-10T08:00' } },
+    });
   });
 });
