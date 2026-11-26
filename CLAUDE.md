@@ -2,7 +2,7 @@
 
 Project memory for Claude Code. Read it at the start of every session.
 
-**Status:** Phase 4 core, Phase 4 later and Phase 3 deferred complete. Next: the Phase 5 spec.
+**Status:** Phase 4 core, Phase 4 later and Phase 3 deferred complete. Now: the fixes from the review of PRs #1–#6 (`docs/superpowers/plans/2026-11-26-p4-review-fixes.md`, tasks F1–F10 in its table order). Next: the Phase 5 spec.
 
 Resuming on another computer or in a new session: read `docs/HANDOFF.md` first.
 
