@@ -145,16 +145,11 @@ function generateNextActivityCode(activities: readonly ScheduleActivity[]): stri
   return candidate;
 }
 
-function generateNextWbsCode(
-  wbs: readonly ScheduleWbsNode[],
-  parentId: string | null,
-): string {
+function generateNextWbsCode(wbs: readonly ScheduleWbsNode[], parentId: string | null): string {
   const parent = parentId ? wbs.find((node) => node.id === parentId) : null;
   const prefix = parent ? `${parent.code}.` : '';
   const siblingCodes = new Set(
-    wbs
-      .filter((node) => node.parentId === parentId)
-      .map((node) => node.code.trim().toLowerCase()),
+    wbs.filter((node) => node.parentId === parentId).map((node) => node.code.trim().toLowerCase()),
   );
   let seq = 1;
   let candidate = `${prefix}${seq}`;
@@ -308,9 +303,7 @@ export function applyCommand(
       const forward: Patch[] = [
         { op: 'insert', collection: 'activities', index: insertIndex, value: activity },
       ];
-      const inverse: Patch[] = [
-        { op: 'remove', collection: 'activities', id: activity.id },
-      ];
+      const inverse: Patch[] = [{ op: 'remove', collection: 'activities', id: activity.id }];
 
       return {
         ok: true,
@@ -426,41 +419,38 @@ export function applyCommand(
       const removedRelationships: Array<{ index: number; value: ScheduleRelationship }> = [];
       for (let i = 0; i < document.relationships.length; i++) {
         const rel = document.relationships[i]!;
-        if (
-          removedActivityIds.has(rel.predecessorId) ||
-          removedActivityIds.has(rel.successorId)
-        ) {
+        if (removedActivityIds.has(rel.predecessorId) || removedActivityIds.has(rel.successorId)) {
           removedRelationships.push({ index: i, value: rel });
         }
       }
 
       const forward: Patch[] = [
-        ...removedRelationships.map(
-          ({ value }): Patch => ({ op: 'remove', collection: 'relationships', id: value.id }),
-        ),
-        ...removedActivities.map(
-          ({ value }): Patch => ({ op: 'remove', collection: 'activities', id: value.id }),
-        ),
+        ...removedRelationships.map(({ value }): Patch => ({
+          op: 'remove',
+          collection: 'relationships',
+          id: value.id,
+        })),
+        ...removedActivities.map(({ value }): Patch => ({
+          op: 'remove',
+          collection: 'activities',
+          id: value.id,
+        })),
       ];
 
       // Restore in ascending original index order so every item returns to its exact slot.
       const inverse: Patch[] = [
-        ...removedActivities.map(
-          ({ index, value }): Patch => ({
-            op: 'insert',
-            collection: 'activities',
-            index,
-            value,
-          }),
-        ),
-        ...removedRelationships.map(
-          ({ index, value }): Patch => ({
-            op: 'insert',
-            collection: 'relationships',
-            index,
-            value,
-          }),
-        ),
+        ...removedActivities.map(({ index, value }): Patch => ({
+          op: 'insert',
+          collection: 'activities',
+          index,
+          value,
+        })),
+        ...removedRelationships.map(({ index, value }): Patch => ({
+          op: 'insert',
+          collection: 'relationships',
+          index,
+          value,
+        })),
       ];
 
       return {
@@ -569,12 +559,8 @@ export function applyCommand(
         name: nextName,
       };
 
-      const forward: Patch[] = [
-        { op: 'set', collection: 'wbs', id: existing.id, value: updated },
-      ];
-      const inverse: Patch[] = [
-        { op: 'set', collection: 'wbs', id: existing.id, value: existing },
-      ];
+      const forward: Patch[] = [{ op: 'set', collection: 'wbs', id: existing.id, value: updated }];
+      const inverse: Patch[] = [{ op: 'set', collection: 'wbs', id: existing.id, value: existing }];
 
       return {
         ok: true,
@@ -602,9 +588,7 @@ export function applyCommand(
 
       const existing = document.wbs[index]!;
       const forward: Patch[] = [{ op: 'remove', collection: 'wbs', id: existing.id }];
-      const inverse: Patch[] = [
-        { op: 'insert', collection: 'wbs', index, value: existing },
-      ];
+      const inverse: Patch[] = [{ op: 'insert', collection: 'wbs', index, value: existing }];
 
       return {
         ok: true,
@@ -656,9 +640,7 @@ export function applyCommand(
           value: relationship,
         },
       ];
-      const inverse: Patch[] = [
-        { op: 'remove', collection: 'relationships', id: relationship.id },
-      ];
+      const inverse: Patch[] = [{ op: 'remove', collection: 'relationships', id: relationship.id }];
 
       return {
         ok: true,
@@ -721,9 +703,7 @@ export function applyCommand(
         return { ok: false, error: 'Relationship not found.' };
       }
       const existing = document.relationships[index]!;
-      const forward: Patch[] = [
-        { op: 'remove', collection: 'relationships', id: existing.id },
-      ];
+      const forward: Patch[] = [{ op: 'remove', collection: 'relationships', id: existing.id }];
       const inverse: Patch[] = [
         { op: 'insert', collection: 'relationships', index, value: existing },
       ];

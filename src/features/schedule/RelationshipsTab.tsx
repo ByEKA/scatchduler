@@ -118,8 +118,7 @@ function RelationshipTable({
               </tr>
             ) : (
               relationships.map((rel) => {
-                const otherId =
-                  direction === 'predecessor' ? rel.predecessorId : rel.successorId;
+                const otherId = direction === 'predecessor' ? rel.predecessorId : rel.successorId;
                 const other = activitiesById.get(otherId);
                 const computed = summary?.relationships[rel.id];
                 const lagInDays =
@@ -223,7 +222,10 @@ function RelationshipTable({
                             if (!res.ok) toast.error(res.error);
                           }}
                         >
-                          <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" aria-hidden="true" />
+                          <Trash2
+                            className="size-3.5 text-muted-foreground hover:text-destructive"
+                            aria-hidden="true"
+                          />
                         </Button>
                       </td>
                     )}
@@ -315,8 +317,7 @@ export function RelationshipsTab({
     () => new Map(document.activities.map((a) => [a.id, a])),
     [document.activities],
   );
-  const cal =
-    document.calendars.find((c) => c.id === activity.calendarId) ?? document.calendars[0];
+  const cal = document.calendars.find((c) => c.id === activity.calendarId) ?? document.calendars[0];
   const hoursPerDay = cal?.hoursPerDay ?? 8;
 
   const predecessors = useMemo(

@@ -25,7 +25,9 @@ describe('LibraryPage', () => {
       1,
     );
     expect(within(teamSection).getByText('Tunnel Ventilation Upgrade')).toBeInTheDocument();
-    expect(within(sharedSection).getByRole('table', { name: 'Shared schedules' })).toBeInTheDocument();
+    expect(
+      within(sharedSection).getByRole('table', { name: 'Shared schedules' }),
+    ).toBeInTheDocument();
 
     // Open link points directly to the schedule editor
     const update2Link = within(personalSection).getByRole('link', { name: 'Update 2' });

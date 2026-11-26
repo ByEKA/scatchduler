@@ -177,7 +177,11 @@ export function generateLargeDocument(
     });
   }
 
-  for (let stride = 2; relationships.length < relationshipCount && stride < activityCount; stride++) {
+  for (
+    let stride = 2;
+    relationships.length < relationshipCount && stride < activityCount;
+    stride++
+  ) {
     for (let i = 0; i + stride < activityCount && relationships.length < relationshipCount; i++) {
       relationships.push({
         id: `rel:${String(relationships.length).padStart(6, '0')}`,

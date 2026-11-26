@@ -31,8 +31,20 @@ describe('useScheduleEditor', () => {
     const initialDocument = makeDocument({
       wbs: [{ id: 'w1', parentId: null, code: '1', name: 'Phase 1', order: 0 }],
       activities: [
-        makeActivity({ id: 'a1', code: 'A1010', wbsId: 'w1', originalDuration: 2400, remainingDuration: 2400 }),
-        makeActivity({ id: 'a2', code: 'A1020', wbsId: 'w1', originalDuration: 2400, remainingDuration: 2400 }),
+        makeActivity({
+          id: 'a1',
+          code: 'A1010',
+          wbsId: 'w1',
+          originalDuration: 2400,
+          remainingDuration: 2400,
+        }),
+        makeActivity({
+          id: 'a2',
+          code: 'A1020',
+          wbsId: 'w1',
+          originalDuration: 2400,
+          remainingDuration: 2400,
+        }),
       ],
       relationships: [
         makeRelationship({ id: 'r1', predecessorId: 'a1', successorId: 'a2', type: 'FS' }),

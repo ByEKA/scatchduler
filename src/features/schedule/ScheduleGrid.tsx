@@ -1,18 +1,6 @@
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  type ColumnDef,
-} from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  ChevronDown,
-  ChevronRight,
-  Diamond,
-  Folder,
-  FolderOpen,
-  Repeat,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Diamond, Folder, FolderOpen, Repeat } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, ReactElement, RefObject, UIEvent } from 'react';
 import { toast } from 'sonner';
@@ -230,7 +218,12 @@ export function ScheduleGrid({
         );
         const desired = new Map<
           string,
-          { predecessorId: string; type: 'FS' | 'SS' | 'FF' | 'SF'; lagMinutes: number; lagElapsed: boolean }
+          {
+            predecessorId: string;
+            type: 'FS' | 'SS' | 'FF' | 'SF';
+            lagMinutes: number;
+            lagElapsed: boolean;
+          }
         >();
         for (const item of parsed.items) {
           const pred = byLowerCode.get(item.code.trim().toLowerCase());
@@ -322,7 +315,7 @@ export function ScheduleGrid({
         header: '#',
         meta: { className: COLUMN_WIDTHS.index },
         cell: ({ row }) => (
-          <span className="tabular-nums text-muted-foreground">{row.original.rowIndex}</span>
+          <span className="text-muted-foreground tabular-nums">{row.original.rowIndex}</span>
         ),
       },
       {
@@ -376,10 +369,7 @@ export function ScheduleGrid({
               ) : (
                 <span
                   title={item.name}
-                  className={cn(
-                    'min-w-0 flex-1 truncate',
-                    item.kind === 'wbs' && 'font-semibold',
-                  )}
+                  className={cn('min-w-0 flex-1 truncate', item.kind === 'wbs' && 'font-semibold')}
                 >
                   {item.name}
                 </span>
@@ -446,7 +436,9 @@ export function ScheduleGrid({
         cell: ({ row }) => {
           const editorEl = renderInlineEditor(row.original, 'percent', { align: 'right' });
           if (editorEl !== undefined) return editorEl;
-          return <span className="tabular-nums">{formatPercent(row.original.percentComplete)}</span>;
+          return (
+            <span className="tabular-nums">{formatPercent(row.original.percentComplete)}</span>
+          );
         },
       },
       {

@@ -71,4 +71,3 @@ test('the report downloads as Excel (.xlsx)', async ({ page }) => {
   await page.getByRole('button', { name: 'Download Excel' }).click();
   expect((await download).suggestedFilename()).toBe('North Plant - import report.xlsx');
 });
-

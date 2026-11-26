@@ -133,9 +133,9 @@ describe('Gantt headless renderer (S10, S12)', () => {
       ),
     ).toBe(true);
     // WBS summary bracket end-caps
-    expect(
-      draw.calls.some((c) => c.op === 'fillPolygon' && c.args[1] === TEST_THEME.summary),
-    ).toBe(true);
+    expect(draw.calls.some((c) => c.op === 'fillPolygon' && c.args[1] === TEST_THEME.summary)).toBe(
+      true,
+    );
     // Status line (solid) and today line (dashed)
     expect(draw.calls.some((c) => c.op === 'line' && c.args[4] === TEST_THEME.statusLine)).toBe(
       true,
@@ -155,9 +155,9 @@ describe('Gantt headless renderer (S10, S12)', () => {
     expect(
       nonCritDraw.calls.some((c) => c.op === 'fillRect' && c.args[4] === TEST_THEME.critical),
     ).toBe(false);
-    expect(
-      nonCritDraw.calls.some((c) => c.op === 'fillRect' && c.args[4] === TEST_THEME.bar),
-    ).toBe(true);
+    expect(nonCritDraw.calls.some((c) => c.op === 'fillRect' && c.args[4] === TEST_THEME.bar)).toBe(
+      true,
+    );
 
     // Header renders two tiers cleanly
     const headerDraw = createRecordingDraw2D(640, 44);
@@ -378,9 +378,8 @@ describe('Gantt headless renderer (S10, S12)', () => {
     const portDraw = createRecordingDraw2D(640, 200);
     renderGantt(portDraw, baseScene);
     expect(
-      portDraw.calls.filter(
-        (c) => c.op === 'strokeRect' && c.args[4] === TEST_THEME.linkDriving,
-      ).length,
+      portDraw.calls.filter((c) => c.op === 'strokeRect' && c.args[4] === TEST_THEME.linkDriving)
+        .length,
     ).toBe(4);
 
     // 2. Ghost bar + badge label on bar-ghost overlay

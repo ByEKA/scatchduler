@@ -20,10 +20,7 @@ import { CycleErrorBanner } from '@/features/schedule/CycleErrorBanner';
 import { DirtyLeaveDialog } from '@/features/schedule/DirtyLeaveDialog';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
 import { buildVisibleRows, SCHEDULE_ROW_HEIGHT } from '@/features/schedule/rows';
-import {
-  ScheduleDetailsPanel,
-  type DetailsTab,
-} from '@/features/schedule/ScheduleDetailsPanel';
+import { ScheduleDetailsPanel, type DetailsTab } from '@/features/schedule/ScheduleDetailsPanel';
 import { ScheduleGantt, type ScheduleGanttHandle } from '@/features/schedule/ScheduleGantt';
 import { ScheduleGrid } from '@/features/schedule/ScheduleGrid';
 import { ScheduleSearch } from '@/features/schedule/ScheduleSearch';
@@ -332,7 +329,9 @@ function ScheduleEditorWorkspace({
       const target = event.target as HTMLElement | null;
       const inInput =
         target !== null &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT');
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT');
 
       if (!inInput && editor.mode === 'edit' && mod && key === 'z') {
         event.preventDefault();
@@ -468,7 +467,9 @@ function ScheduleEditorWorkspace({
         profile={editor.document.settings.profile}
         stale={editor.stale}
         totalActivities={editor.document.activities.length}
-        shownActivities={filterActivityIds !== null ? matches.length : editor.document.activities.length}
+        shownActivities={
+          filterActivityIds !== null ? matches.length : editor.document.activities.length
+        }
         isFiltered={filterActivityIds !== null}
         zoom={zoom}
         durationMs={editor.summary?.durationMs ?? null}
@@ -567,7 +568,13 @@ function ScheduleDocumentHost({
   }
 
   if (docState.status === 'error') {
-    return <SectionError error={docState.error} onRetry={() => window.location.reload()} className="py-16" />;
+    return (
+      <SectionError
+        error={docState.error}
+        onRetry={() => window.location.reload()}
+        className="py-16"
+      />
+    );
   }
 
   return (

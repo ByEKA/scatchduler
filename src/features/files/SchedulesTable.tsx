@@ -342,15 +342,7 @@ export function SchedulesTable({
 
   const columns = useMemo(
     () =>
-      scheduleColumns(
-        now,
-        all,
-        workspace.id,
-        project.id,
-        renderMenu,
-        selection,
-        folderNamesById,
-      ),
+      scheduleColumns(now, all, workspace.id, project.id, renderMenu, selection, folderNamesById),
     [now, all, workspace.id, project.id, renderMenu, selection, folderNamesById],
   );
 

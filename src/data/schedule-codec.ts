@@ -1,7 +1,4 @@
-import {
-  SCHEDULE_DOCUMENT_SCHEMA_VERSION,
-  type ScheduleDocument,
-} from '@/data/schedule-types';
+import { SCHEDULE_DOCUMENT_SCHEMA_VERSION, type ScheduleDocument } from '@/data/schedule-types';
 import type { ID } from '@/data/types';
 
 export const SCHEDULE_DATA_BUCKET = 'schedule-data';

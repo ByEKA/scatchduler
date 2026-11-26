@@ -88,11 +88,7 @@ export function LibraryTree({
       {groups.workspaceGroups.map(({ workspace, projects, scheduleCount }) => {
         const isCollapsed = collapsedWorkspaces.has(workspace.id);
         return (
-          <section
-            key={workspace.id}
-            aria-label={workspace.name}
-            className="flex flex-col gap-3"
-          >
+          <section key={workspace.id} aria-label={workspace.name} className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
@@ -117,7 +113,7 @@ export function LibraryTree({
                 <span className="rounded-sm bg-muted px-1.5 py-px text-2xs font-medium text-muted-foreground capitalize">
                   {workspace.kind}
                 </span>
-                <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">
                   {scheduleCount}
                 </span>
               </button>
@@ -170,10 +166,20 @@ export function LibraryTree({
                         <caption className="sr-only">{`Schedules in ${project.name}`}</caption>
                         <thead>
                           <tr className="h-9 border-b bg-muted/20">
-                            <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES, 'w-full')}>
+                            <th
+                              scope="col"
+                              className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES, 'w-full')}
+                            >
                               Name
                             </th>
-                            <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES, 'hidden md:table-cell')}>
+                            <th
+                              scope="col"
+                              className={cn(
+                                TABLE_HEADER_CELL_CLASSES,
+                                CELL_CLASSES,
+                                'hidden md:table-cell',
+                              )}
+                            >
                               Code
                             </th>
                             <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES)}>
@@ -182,13 +188,34 @@ export function LibraryTree({
                             <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES)}>
                               Status date
                             </th>
-                            <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES, 'hidden lg:table-cell')}>
+                            <th
+                              scope="col"
+                              className={cn(
+                                TABLE_HEADER_CELL_CLASSES,
+                                CELL_CLASSES,
+                                'hidden lg:table-cell',
+                              )}
+                            >
                               Activities
                             </th>
-                            <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES, 'hidden lg:table-cell')}>
+                            <th
+                              scope="col"
+                              className={cn(
+                                TABLE_HEADER_CELL_CLASSES,
+                                CELL_CLASSES,
+                                'hidden lg:table-cell',
+                              )}
+                            >
                               Source
                             </th>
-                            <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES, 'hidden md:table-cell')}>
+                            <th
+                              scope="col"
+                              className={cn(
+                                TABLE_HEADER_CELL_CLASSES,
+                                CELL_CLASSES,
+                                'hidden md:table-cell',
+                              )}
+                            >
                               Last modified
                             </th>
                             <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES)}>
@@ -247,7 +274,12 @@ export function LibraryTree({
                                     )}
                                   </div>
                                 </td>
-                                <td className={cn(CELL_CLASSES, 'hidden font-mono text-xs md:table-cell')}>
+                                <td
+                                  className={cn(
+                                    CELL_CLASSES,
+                                    'hidden font-mono text-xs md:table-cell',
+                                  )}
+                                >
                                   {schedule.code ?? '—'}
                                 </td>
                                 <td className={CELL_CLASSES}>
@@ -258,7 +290,9 @@ export function LibraryTree({
                                   )}
                                 </td>
                                 <td className={CELL_CLASSES}>{shortDate(schedule.statusDate)}</td>
-                                <td className={cn(CELL_CLASSES, 'hidden tabular-nums lg:table-cell')}>
+                                <td
+                                  className={cn(CELL_CLASSES, 'hidden tabular-nums lg:table-cell')}
+                                >
                                   {schedule.activityCount.toLocaleString('en-US')}
                                 </td>
                                 <td className={cn(CELL_CLASSES, 'hidden lg:table-cell')}>
@@ -270,7 +304,12 @@ export function LibraryTree({
                                   {relativeTime(schedule.updatedAt, now)}
                                 </td>
                                 <td className={CELL_CLASSES}>
-                                  <Button asChild variant="outline" size="xs" className="border-input bg-card dark:bg-card">
+                                  <Button
+                                    asChild
+                                    variant="outline"
+                                    size="xs"
+                                    className="border-input bg-card dark:bg-card"
+                                  >
                                     <Link to={href}>
                                       Open
                                       <ExternalLink className="size-3" aria-hidden="true" />
@@ -296,7 +335,7 @@ export function LibraryTree({
           <div className="flex items-center gap-2 px-1">
             <Share2 className="size-4 text-muted-foreground" aria-hidden="true" />
             <h2 className="text-sm font-semibold">Shared with me</h2>
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            <span className="font-mono text-xs text-muted-foreground tabular-nums">
               {groups.sharedSchedules.length}
             </span>
           </div>
@@ -315,7 +354,10 @@ export function LibraryTree({
                   <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES)}>
                     Status date
                   </th>
-                  <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES, 'hidden md:table-cell')}>
+                  <th
+                    scope="col"
+                    className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES, 'hidden md:table-cell')}
+                  >
                     Shared by
                   </th>
                   <th scope="col" className={cn(TABLE_HEADER_CELL_CLASSES, CELL_CLASSES)}>
@@ -327,7 +369,10 @@ export function LibraryTree({
                 {groups.sharedSchedules.map((row) => {
                   const href = `/w/${row.workspaceId}/p/${row.projectId}/schedule?scheduleId=${row.scheduleId}`;
                   return (
-                    <tr key={row.shareId} className="border-b text-sm last:border-b-0 hover:bg-accent/30">
+                    <tr
+                      key={row.shareId}
+                      className="border-b text-sm last:border-b-0 hover:bg-accent/30"
+                    >
                       <td className={CELL_CLASSES}>
                         <Link
                           to={href}
@@ -345,7 +390,12 @@ export function LibraryTree({
                         {fullName(row.sharedBy)}
                       </td>
                       <td className={CELL_CLASSES}>
-                        <Button asChild variant="outline" size="xs" className="border-input bg-card dark:bg-card">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="xs"
+                          className="border-input bg-card dark:bg-card"
+                        >
                           <Link to={href}>
                             Open
                             <ExternalLink className="size-3" aria-hidden="true" />

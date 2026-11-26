@@ -36,7 +36,11 @@ const SORT_VALUES = new Set<string>(FILES_SORT_OPTIONS.map((o) => o.value));
 export function readFilesView(searchParams: URLSearchParams): FilesView {
   const folderRaw = searchParams.get('folder')?.trim() ?? '';
   const folder: FilesFolderFilter =
-    folderRaw === '' || folderRaw === 'all' ? 'all' : folderRaw === 'unfiled' ? 'unfiled' : folderRaw;
+    folderRaw === '' || folderRaw === 'all'
+      ? 'all'
+      : folderRaw === 'unfiled'
+        ? 'unfiled'
+        : folderRaw;
 
   const q = searchParams.get('q') ?? '';
 

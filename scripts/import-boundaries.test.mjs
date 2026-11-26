@@ -55,7 +55,11 @@ describe('import boundaries (S7)', () => {
     ['src/hooks/a.ts', "import { solve } from '@/engine/index';", 1],
     ['src/features/schedule/gantt/renderer.ts', "import { useState } from 'react';", 1],
     ['src/features/schedule/gantt/renderer.ts', "import type { GanttScene } from './renderer';", 0],
-    ['src/features/schedule/a.test.tsx', "import { createEngineClient } from '@/engine/client';", 0],
+    [
+      'src/features/schedule/a.test.tsx',
+      "import { createEngineClient } from '@/engine/client';",
+      0,
+    ],
   ])('%s: %s gives %i restricted-import errors', async (filePath, code, errors) => {
     expect(await restrictedImports(filePath, code)).toBe(errors);
   });

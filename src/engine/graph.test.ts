@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildGraph } from '@/engine/graph';
-import { generateLargeDocument, makeActivity, makeDocument, makeRelationship } from '@/engine/testing';
+import {
+  generateLargeDocument,
+  makeActivity,
+  makeDocument,
+  makeRelationship,
+} from '@/engine/testing';
 
 describe('graph', () => {
   it('excludes wbs_summary, ignores self-links, deduplicates links and returns valid topo order', () => {

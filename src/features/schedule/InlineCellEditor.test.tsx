@@ -25,8 +25,20 @@ describe('InlineCellEditor in ScheduleGrid', () => {
     const user = userEvent.setup();
     let doc = makeDocument({
       activities: [
-        makeActivity({ id: 'a1', code: 'A1010', name: 'Excavation', originalDuration: 2400, remainingDuration: 2400 }),
-        makeActivity({ id: 'a2', code: 'A1020', name: 'Concrete', originalDuration: 2400, remainingDuration: 2400 }),
+        makeActivity({
+          id: 'a1',
+          code: 'A1010',
+          name: 'Excavation',
+          originalDuration: 2400,
+          remainingDuration: 2400,
+        }),
+        makeActivity({
+          id: 'a2',
+          code: 'A1020',
+          name: 'Concrete',
+          originalDuration: 2400,
+          remainingDuration: 2400,
+        }),
       ],
       relationships: [],
     });

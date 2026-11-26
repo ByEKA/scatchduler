@@ -111,7 +111,13 @@ describe('schedule commands and Undo/Redo (S12)', () => {
   it('validates updateActivity fields, milestone zero duration, and stale flag semantics', () => {
     const doc = makeDocument({
       activities: [
-        makeActivity({ id: 'a1', code: 'A1010', name: 'Excavation', originalDuration: 2400, remainingDuration: 2400 }),
+        makeActivity({
+          id: 'a1',
+          code: 'A1010',
+          name: 'Excavation',
+          originalDuration: 2400,
+          remainingDuration: 2400,
+        }),
         makeActivity({ id: 'a2', code: 'A1020', name: 'Pour' }),
       ],
     });
@@ -129,7 +135,11 @@ describe('schedule commands and Undo/Redo (S12)', () => {
     ).toEqual({ ok: false, error: 'Enter an activity name.' });
 
     expect(
-      applyCommand(doc, { type: 'updateActivity', activityId: 'a1', changes: { originalDuration: -60 } }),
+      applyCommand(doc, {
+        type: 'updateActivity',
+        activityId: 'a1',
+        changes: { originalDuration: -60 },
+      }),
     ).toEqual({ ok: false, error: "Duration can't be negative." });
 
     const nameOnly = applyCommand(doc, {
@@ -164,7 +174,13 @@ describe('schedule commands and Undo/Redo (S12)', () => {
         makeActivity({ id: 'a2', code: 'A1020', wbsId: 'w1', order: 1 }),
       ],
       relationships: [
-        makeRelationship({ id: 'r1', predecessorId: 'a1', successorId: 'a2', type: 'FS', lagMinutes: 0 }),
+        makeRelationship({
+          id: 'r1',
+          predecessorId: 'a1',
+          successorId: 'a2',
+          type: 'FS',
+          lagMinutes: 0,
+        }),
       ],
     });
 

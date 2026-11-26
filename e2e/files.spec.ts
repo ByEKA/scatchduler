@@ -102,5 +102,3 @@ test('creates a folder, duplicates a schedule into it, and runs bulk Move and Ar
   await expect(row(page, 'Baseline')).toHaveCount(0);
   await expect(row(page, 'Update 1')).toHaveCount(0);
 });
-
-

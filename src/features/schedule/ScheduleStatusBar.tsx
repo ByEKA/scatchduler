@@ -1,9 +1,5 @@
 import type { ReactElement } from 'react';
-import type {
-  CalculationDisplayMode,
-  ScheduleProfileId,
-  WallClock,
-} from '@/data/schedule-types';
+import type { CalculationDisplayMode, ScheduleProfileId, WallClock } from '@/data/schedule-types';
 import { formatScheduleDate } from '@/features/schedule/format-schedule';
 import type { GanttZoom } from '@/features/schedule/gantt/timescale';
 

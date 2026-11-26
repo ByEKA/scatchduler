@@ -4,10 +4,7 @@ import { ScheduleSwitcher } from '@/components/layout/ScheduleSwitcher';
 import { createTestDataLayer, type TestDataLayer } from '@/test/fakes';
 import { renderWithProviders } from '@/test/render';
 
-function renderSwitcher(
-  route: string,
-  options: { dataLayer?: TestDataLayer; path?: string } = {},
-) {
+function renderSwitcher(route: string, options: { dataLayer?: TestDataLayer; path?: string } = {}) {
   const dataLayer = options.dataLayer ?? createTestDataLayer();
   return renderWithProviders(<ScheduleSwitcher />, {
     route,

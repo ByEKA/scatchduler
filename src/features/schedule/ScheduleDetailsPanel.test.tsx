@@ -48,8 +48,20 @@ describe('ScheduleDetailsPanel', () => {
     let doc = makeDocument({
       settings: { ...makeDocument().settings, displayMode: 'calculated' },
       activities: [
-        makeActivity({ id: 'a1', code: 'A1000', name: 'Site prep', originalDuration: 2400, remainingDuration: 2400 }),
-        makeActivity({ id: 'a2', code: 'A1010', name: 'Excavation', originalDuration: 2400, remainingDuration: 2400 }),
+        makeActivity({
+          id: 'a1',
+          code: 'A1000',
+          name: 'Site prep',
+          originalDuration: 2400,
+          remainingDuration: 2400,
+        }),
+        makeActivity({
+          id: 'a2',
+          code: 'A1010',
+          name: 'Excavation',
+          originalDuration: 2400,
+          remainingDuration: 2400,
+        }),
       ],
       relationships: [
         makeRelationship({ id: 'r1', predecessorId: 'a1', successorId: 'a2', type: 'FS' }),

@@ -197,7 +197,7 @@ export function FolderSidebar({
               )}
               <span className="truncate">{folder.name}</span>
             </span>
-            <span className="shrink-0 font-mono text-2xs tabular-nums text-muted-foreground">
+            <span className="shrink-0 font-mono text-2xs text-muted-foreground tabular-nums">
               {count}
             </span>
           </button>
@@ -306,7 +306,7 @@ export function FolderSidebar({
             <Layers className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate">All schedules</span>
           </span>
-          <span className="shrink-0 font-mono text-2xs tabular-nums text-muted-foreground">
+          <span className="shrink-0 font-mono text-2xs text-muted-foreground tabular-nums">
             {counts.all}
           </span>
         </button>
@@ -326,14 +326,17 @@ export function FolderSidebar({
             <Inbox className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate">Unfiled</span>
           </span>
-          <span className="shrink-0 font-mono text-2xs tabular-nums text-muted-foreground">
+          <span className="shrink-0 font-mono text-2xs text-muted-foreground tabular-nums">
             {counts.unfiled}
           </span>
         </button>
       </div>
 
       {tree.length > 0 && (
-        <ul aria-label="Project folders" className="flex flex-col gap-0.5 border-t border-border pt-2">
+        <ul
+          aria-label="Project folders"
+          className="flex flex-col gap-0.5 border-t border-border pt-2"
+        >
           {tree.map(renderNode)}
         </ul>
       )}

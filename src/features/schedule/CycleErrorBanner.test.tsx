@@ -14,7 +14,8 @@ describe('CycleErrorBanner', () => {
           code: 'SCHEDULE_CYCLE',
           cycleIds: ['a2', 'a3', 'a1'],
           cycleCodes: ['A1020', 'A1030', 'A1010', 'A1020'],
-          message: 'Circular logic found: A1020 → A1030 → A1010 → A1020. Break the loop to calculate.',
+          message:
+            'Circular logic found: A1020 → A1030 → A1010 → A1020. Break the loop to calculate.',
         }}
         onJumpToCycleActivity={onJump}
       />,

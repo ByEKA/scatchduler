@@ -6,7 +6,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fromImportModel, solve } from '../src/engine/index';
-import { compareAgainstOracle, type OracleField, type OracleFieldStats } from '../src/engine/oracle';
+import {
+  compareAgainstOracle,
+  type OracleField,
+  type OracleFieldStats,
+} from '../src/engine/oracle';
 import { analyze, inspect } from '../src/import/index';
 
 const ORACLE_EXTENSIONS = new Set(['.xer', '.xml']);

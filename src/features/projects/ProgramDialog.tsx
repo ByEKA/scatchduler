@@ -13,11 +13,7 @@ import { useCreateProgram, useRenameProgram } from '@/hooks/usePrograms';
 import { errorMessage } from '@/lib/format';
 
 const programSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'Enter a program name.')
-    .max(80, 'Use 80 characters or fewer.'),
+  name: z.string().trim().min(1, 'Enter a program name.').max(80, 'Use 80 characters or fewer.'),
 });
 
 type ProgramFormValues = z.output<typeof programSchema>;

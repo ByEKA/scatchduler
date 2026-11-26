@@ -19,9 +19,7 @@ describe('ProgramDialog', () => {
     // Duplicate existing seeded program name triggers inline conflict
     await user.type(input, 'Port & Industrial Program');
     await user.click(screen.getByRole('button', { name: 'Create program' }));
-    expect(
-      await screen.findByText('A program with this name already exists.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('A program with this name already exists.')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
 
     // Valid name succeeds

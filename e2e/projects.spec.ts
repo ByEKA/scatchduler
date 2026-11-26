@@ -79,7 +79,11 @@ test('switches to Map layout with interactive pins, Not on the map panel, and ze
   const externalUrls: string[] = [];
   page.on('request', (req) => {
     const url = req.url();
-    if (!url.startsWith('http://localhost') && !url.startsWith('http://127.0.0.1') && !url.startsWith('data:')) {
+    if (
+      !url.startsWith('http://localhost') &&
+      !url.startsWith('http://127.0.0.1') &&
+      !url.startsWith('data:')
+    ) {
       externalUrls.push(url);
     }
   });
@@ -109,4 +113,3 @@ test('switches to Map layout with interactive pins, Not on the map panel, and ze
   await expect(page.getByRole('img', { name: 'Projects coordinate map' })).toBeVisible();
   expect(externalUrls).toEqual([]);
 });
-

@@ -36,17 +36,17 @@ export function reportToXlsx(report: ImportReport, scheduleName: string): Uint8A
     ['Notes', report.issueTotals.info],
   ];
 
-  const countsRows: Array<[string, string | number, string | number, string | number, string | number]> = [
+  const countsRows: Array<
+    [string, string | number, string | number, string | number, string | number]
+  > = [
     ['Entity', 'Read', 'Accepted', 'Adjusted', 'Skipped'],
-    ...report.counts.map(
-      (c): [string, number, number, number, number] => [
-        escapeFormulaText(c.entity),
-        c.read,
-        c.accepted,
-        c.adjusted,
-        c.skipped,
-      ],
-    ),
+    ...report.counts.map((c): [string, number, number, number, number] => [
+      escapeFormulaText(c.entity),
+      c.read,
+      c.accepted,
+      c.adjusted,
+      c.skipped,
+    ]),
   ];
 
   const checksRows: Array<[string, string | number]> = [

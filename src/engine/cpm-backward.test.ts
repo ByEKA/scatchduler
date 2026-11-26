@@ -13,7 +13,12 @@ import { compileCalendar, type CompiledCalendar } from '@/engine/calendar';
 import { runBackwardPass, runForwardPass, runPostPasses } from '@/engine/cpm';
 import { buildGraph } from '@/engine/graph';
 import { resolveRules } from '@/engine/profiles';
-import { makeActivity, makeDocument, makeRelationship, makeStandardCalendar } from '@/engine/testing';
+import {
+  makeActivity,
+  makeDocument,
+  makeRelationship,
+  makeStandardCalendar,
+} from '@/engine/testing';
 import { toWallClock } from '@/engine/time';
 
 interface BackwardFixtureCase {
@@ -21,7 +26,9 @@ interface BackwardFixtureCase {
   profile: ScheduleProfileId;
   settings?: Partial<ScheduleSettings>;
   activities: Array<Partial<ScheduleActivity> & { id: string; code: string }>;
-  relationships: Array<Partial<ScheduleRelationship> & { predecessorId: string; successorId: string }>;
+  relationships: Array<
+    Partial<ScheduleRelationship> & { predecessorId: string; successorId: string }
+  >;
   expected: Record<string, { es: string; ef: string; ls: string; lf: string }>;
   warnings: Array<SolverWarning['code']>;
 }

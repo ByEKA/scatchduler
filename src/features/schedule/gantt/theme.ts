@@ -43,10 +43,8 @@ const TOKEN_NAMES: Record<keyof GanttTheme, string> = {
  * `document.documentElement`). Contains zero hard-coded hex literals (spec §7.3, S10).
  */
 export function readGanttTheme(root?: Element): GanttTheme {
-  const target =
-    root ?? (typeof document !== 'undefined' ? document.documentElement : undefined);
-  const style =
-    target && typeof getComputedStyle === 'function' ? getComputedStyle(target) : null;
+  const target = root ?? (typeof document !== 'undefined' ? document.documentElement : undefined);
+  const style = target && typeof getComputedStyle === 'function' ? getComputedStyle(target) : null;
 
   const read = (token: string): string => {
     const val = style?.getPropertyValue(token).trim();

@@ -230,7 +230,9 @@ describe('ProjectsPage', () => {
     expect(within(noProgramSection).getByText('Riverside Office Tower')).toBeInTheDocument();
 
     // Delete "Port & Industrial Program" -> Harbor moves into "No program"
-    await user.click(screen.getByRole('button', { name: 'Manage program Port & Industrial Program' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Manage program Port & Industrial Program' }),
+    );
     await user.click(await screen.findByRole('menuitem', { name: 'Delete program…' }));
     const confirm = await screen.findByRole('alertdialog', {
       name: 'Delete Port & Industrial Program?',

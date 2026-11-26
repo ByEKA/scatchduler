@@ -84,14 +84,7 @@ export class CanvasDraw2D implements Draw2D {
     this.ctx.fillRect(x, y, w, h);
   }
 
-  strokeRect(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    color: string,
-    lineWidth = 1,
-  ): void {
+  strokeRect(x: number, y: number, w: number, h: number, color: string, lineWidth = 1): void {
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = lineWidth;
     this.ctx.setLineDash([]);

@@ -81,7 +81,10 @@ export function resolveNodeCalendars(
   return resolved;
 }
 
-function resolveProjectStart(document: ScheduleDocument, nodes: readonly ScheduleActivity[]): number {
+function resolveProjectStart(
+  document: ScheduleDocument,
+  nodes: readonly ScheduleActivity[],
+): number {
   if (document.settings.projectStart !== null) {
     return toMinutes(document.settings.projectStart);
   }
@@ -121,7 +124,9 @@ function isOutOfSequence(
     case 'FS':
       return pred.status !== 'completed' || (succActualStart !== null && predEf > succActualStart);
     case 'SS':
-      return pred.status === 'not_started' || (succActualStart !== null && predEs > succActualStart);
+      return (
+        pred.status === 'not_started' || (succActualStart !== null && predEs > succActualStart)
+      );
     case 'FF':
       return (
         succ.status === 'completed' &&
@@ -318,7 +323,13 @@ export function runForwardPass(
         const rel = graph.activeRelationships[edgeIdx]!;
         const p = graph.edgePredIndex[edgeIdx]!;
         const pred = graph.nodes[p]!;
-        const lagCal = resolveLagCalendar(rel, document.settings, nodeCalendars[p]!, cal, defaultCal);
+        const lagCal = resolveLagCalendar(
+          rel,
+          document.settings,
+          nodeCalendars[p]!,
+          cal,
+          defaultCal,
+        );
 
         if (isOutOfSequence(rel, pred, es[p]!, ef[p]!, act, actualStartMin, null)) {
           warnings.push({
@@ -443,7 +454,8 @@ export function runForwardPass(
         });
       }
 
-      const beatsProjectStartTie = !wasClamped && boundEs === bestEs && driver.kind === 'project_start';
+      const beatsProjectStartTie =
+        !wasClamped && boundEs === bestEs && driver.kind === 'project_start';
       const beatsPredecessorTie =
         !wasClamped &&
         boundEs === bestEs &&
@@ -812,7 +824,10 @@ export function runPostPasses(
       const lagCal = resolveLagCalendar(rel, document.settings, nodeCalendars[p]!, cal, defaultCal);
       if (rel.type === 'SS' || rel.type === 'FS') {
         const anchor = rel.type === 'SS' ? forward.es[p]! : forward.ef[p]!;
-        const candidate = snapForwardToWorkStart(cal, addWorkingMinutes(lagCal, anchor, rel.lagMinutes));
+        const candidate = snapForwardToWorkStart(
+          cal,
+          addWorkingMinutes(lagCal, anchor, rel.lagMinutes),
+        );
         if (!hasStart || candidate < earliestStart) {
           earliestStart = candidate;
           hasStart = true;
@@ -922,11 +937,9 @@ export function computeFloatsAndCriticality(
       defaultCal,
     );
 
-    const predAnchor =
-      rel.type === 'FS' || rel.type === 'FF' ? forward.ef[u]! : forward.es[u]!;
+    const predAnchor = rel.type === 'FS' || rel.type === 'FF' ? forward.ef[u]! : forward.es[u]!;
     const linkBound = addWorkingMinutes(lagCal, predAnchor, rel.lagMinutes);
-    const succAnchor =
-      rel.type === 'FS' || rel.type === 'SS' ? forward.es[s]! : forward.ef[s]!;
+    const succAnchor = rel.type === 'FS' || rel.type === 'SS' ? forward.es[s]! : forward.ef[s]!;
     const relFreeFloat = workingMinutesBetween(lagCal, linkBound, succAnchor);
     const active =
       forward.activeLinkMask[edgeIdx] === 1 &&
@@ -1017,9 +1030,7 @@ export function computeFloatsAndCriticality(
 
     const longest = isLongestPath[u] === 1;
     const isCritical =
-      criticalDefinition === 'longest_path'
-        ? longest
-        : totalFloat <= criticalThresholdMinutes;
+      criticalDefinition === 'longest_path' ? longest : totalFloat <= criticalThresholdMinutes;
     const isNearCritical = !isCritical && totalFloat <= nearCriticalThresholdMinutes;
 
     activities[act.id] = {
@@ -1038,4 +1049,3 @@ export function computeFloatsAndCriticality(
 
   return { activities, relationships, warnings };
 }
-

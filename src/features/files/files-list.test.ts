@@ -155,7 +155,9 @@ describe('files-list', () => {
       filterAndSortSchedules(schedules, { ...DEFAULT_VIEW, sort: 'updatedAt' }).map((s) => s.id),
     ).toEqual(['s3', 's2', 's1']);
     expect(
-      filterAndSortSchedules(schedules, { ...DEFAULT_VIEW, sort: 'activityCount' }).map((s) => s.id),
+      filterAndSortSchedules(schedules, { ...DEFAULT_VIEW, sort: 'activityCount' }).map(
+        (s) => s.id,
+      ),
     ).toEqual(['s3', 's2', 's1']);
   });
 });

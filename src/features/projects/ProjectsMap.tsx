@@ -135,14 +135,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function projectPoint(
-  lat: number,
-  lng: number,
-  viewport: MapViewport,
-): { x: number; y: number } {
+function projectPoint(lat: number, lng: number, viewport: MapViewport): { x: number; y: number } {
   const degreesPerScreenLng = 64 / viewport.zoom;
   const cosLat = Math.max(0.35, Math.cos((viewport.centerLat * Math.PI) / 180));
-  const degreesPerScreenLat = (degreesPerScreenLng * (MAP_HEIGHT / MAP_WIDTH)) * cosLat;
+  const degreesPerScreenLat = degreesPerScreenLng * (MAP_HEIGHT / MAP_WIDTH) * cosLat;
   const x = MAP_WIDTH / 2 + ((lng - viewport.centerLng) / degreesPerScreenLng) * MAP_WIDTH;
   const y = MAP_HEIGHT / 2 - ((lat - viewport.centerLat) / degreesPerScreenLat) * MAP_HEIGHT;
   return { x, y };
@@ -166,14 +162,19 @@ function computeFitViewport(mapped: readonly ProjectSummary[]): MapViewport {
   const centerLng = (minLng + maxLng) / 2;
   const spanLng = Math.max(2.5, (maxLng - minLng) * 1.6);
   const cosLat = Math.max(0.35, Math.cos((centerLat * Math.PI) / 180));
-  const spanLatAsLng = Math.max(2.5, ((maxLat - minLat) * 1.6) / (cosLat * (MAP_HEIGHT / MAP_WIDTH)));
+  const spanLatAsLng = Math.max(
+    2.5,
+    ((maxLat - minLat) * 1.6) / (cosLat * (MAP_HEIGHT / MAP_WIDTH)),
+  );
   const span = Math.max(spanLng, spanLatAsLng);
   const zoom = clamp(Math.round((64 / span) * 10) / 10, MIN_ZOOM, 8);
   return { centerLat, centerLng, zoom };
 }
 
 function pinColorClasses(status: ProjectStatus, selected: boolean): string {
-  const ring = selected ? 'ring-2 ring-ring ring-offset-2 ring-offset-card scale-110' : 'ring-1 ring-card';
+  const ring = selected
+    ? 'ring-2 ring-ring ring-offset-2 ring-offset-card scale-110'
+    : 'ring-1 ring-card';
   switch (status) {
     case 'active':
       return cn('bg-primary text-primary-foreground', ring);
@@ -317,7 +318,7 @@ export function ProjectsMap({
                   <text
                     x={8}
                     y={y - 3}
-                    className="fill-muted-foreground text-[9px] font-mono"
+                    className="fill-muted-foreground font-mono text-[9px]"
                     stroke="none"
                   >
                     {lat >= 0 ? `${lat}°N` : `${Math.abs(lat)}°S`}
@@ -334,7 +335,7 @@ export function ProjectsMap({
                   <text
                     x={x + 3}
                     y={MAP_HEIGHT - 6}
-                    className="fill-muted-foreground text-[9px] font-mono"
+                    className="fill-muted-foreground font-mono text-[9px]"
                     stroke="none"
                   >
                     {lng >= 0 ? `${lng}°E` : `${Math.abs(lng)}°W`}
@@ -410,7 +411,7 @@ export function ProjectsMap({
           </Button>
           <span
             data-testid="map-zoom-level"
-            className="min-w-10 text-center font-mono text-2xs tabular-nums text-muted-foreground"
+            className="min-w-10 text-center font-mono text-2xs text-muted-foreground tabular-nums"
           >
             {viewport.zoom.toFixed(1)}×
           </span>

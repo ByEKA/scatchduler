@@ -22,11 +22,7 @@ const UNFILED_VALUE = '__unfiled__';
 
 function makeCopyScheduleSchema(taken: readonly string[]) {
   return z.object({
-    name: z
-      .string()
-      .trim()
-      .min(1, 'Enter a schedule name')
-      .max(80, 'Use 80 characters or fewer'),
+    name: z.string().trim().min(1, 'Enter a schedule name').max(80, 'Use 80 characters or fewer'),
     code: z
       .string()
       .trim()

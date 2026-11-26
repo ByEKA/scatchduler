@@ -11,7 +11,10 @@ import { useRepository } from '@/data/DataLayerProvider';
 import type { Folder, ID } from '@/data/types';
 import { queryKeys } from '@/hooks/query-keys';
 
-function refreshAfterFolderWrite(queryClient: QueryClient, touchSchedules = false): Promise<unknown> {
+function refreshAfterFolderWrite(
+  queryClient: QueryClient,
+  touchSchedules = false,
+): Promise<unknown> {
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.allFolders() }),
     queryClient.invalidateQueries({ queryKey: queryKeys.library() }),

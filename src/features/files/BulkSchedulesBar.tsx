@@ -63,9 +63,7 @@ export function BulkSchedulesBar({
   const archivableIds = selectedSchedules
     .filter((s) => !s.isCurrent && s.archivedAt === null)
     .map((s) => s.id);
-  const restorableIds = selectedSchedules
-    .filter((s) => s.archivedAt !== null)
-    .map((s) => s.id);
+  const restorableIds = selectedSchedules.filter((s) => s.archivedAt !== null).map((s) => s.id);
 
   // R3: current schedule can only be deleted when deleting all schedules of the project.
   const deletingAll = selectedIds.length >= allProjectSchedules.length;
@@ -112,9 +110,7 @@ export function BulkSchedulesBar({
     try {
       await deleteSchedules.mutateAsync(deletableIds);
       toast.success(
-        deletableIds.length === 1
-          ? 'Schedule deleted'
-          : `Deleted ${deletableIds.length} schedules`,
+        deletableIds.length === 1 ? 'Schedule deleted' : `Deleted ${deletableIds.length} schedules`,
       );
       setDeleteOpen(false);
       onClearSelection();
@@ -215,13 +211,7 @@ export function BulkSchedulesBar({
           </Button>
         )}
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          disabled={busy}
-          onClick={onClearSelection}
-        >
+        <Button type="button" variant="ghost" size="xs" disabled={busy} onClick={onClearSelection}>
           <X className="size-3.5" aria-hidden="true" />
           Clear selection
         </Button>

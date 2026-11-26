@@ -30,37 +30,63 @@ describe('calendar', () => {
       }),
     );
     // 1 day (480 min) ends at 17:00 same day, never next morning 08:00
-    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-05T08:00'), 480))).toBe('2026-01-05T17:00');
+    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-05T08:00'), 480))).toBe(
+      '2026-01-05T17:00',
+    );
     // 4 h ends at 12:00; 5 h crosses lunch to 14:00
-    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-05T08:00'), 240))).toBe('2026-01-05T12:00');
-    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-05T08:00'), 300))).toBe('2026-01-05T14:00');
+    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-05T08:00'), 240))).toBe(
+      '2026-01-05T12:00',
+    );
+    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-05T08:00'), 300))).toBe(
+      '2026-01-05T14:00',
+    );
     // Skips Wed holiday (Jan 7)
-    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-06T08:00'), 960))).toBe('2026-01-08T17:00');
+    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-06T08:00'), 960))).toBe(
+      '2026-01-08T17:00',
+    );
     // Uses Sat half-day (4h) + Mon 4h for 1 day from Fri 17:00
-    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-09T17:00'), 480))).toBe('2026-01-12T12:00');
+    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-09T17:00'), 480))).toBe(
+      '2026-01-12T12:00',
+    );
     // Negative minutes delegate to inverse direction
-    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-08T17:00'), -960))).toBe('2026-01-06T08:00');
-    expect(toWallClock(subtractWorkingMinutes(cal, toMinutes('2026-01-06T08:00'), -960))).toBe('2026-01-08T17:00');
+    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-08T17:00'), -960))).toBe(
+      '2026-01-06T08:00',
+    );
+    expect(toWallClock(subtractWorkingMinutes(cal, toMinutes('2026-01-06T08:00'), -960))).toBe(
+      '2026-01-08T17:00',
+    );
     // Snaps across weekend
-    expect(toWallClock(snapForwardToWorkStart(cal, toMinutes('2026-01-11T10:00')))).toBe('2026-01-12T08:00');
-    expect(toWallClock(snapBackwardToWorkFinish(cal, toMinutes('2026-01-11T10:00')))).toBe('2026-01-10T12:00');
+    expect(toWallClock(snapForwardToWorkStart(cal, toMinutes('2026-01-11T10:00')))).toBe(
+      '2026-01-12T08:00',
+    );
+    expect(toWallClock(snapBackwardToWorkFinish(cal, toMinutes('2026-01-11T10:00')))).toBe(
+      '2026-01-10T12:00',
+    );
     // Non-working day checks (holiday, Sat working exception, Sun weekend, Mon working)
     expect(isNonWorkingDay(cal, toMinutes('2026-01-07T00:00'))).toBe(true);
     expect(isNonWorkingDay(cal, toMinutes('2026-01-10T00:00'))).toBe(false);
     expect(isNonWorkingDay(cal, toMinutes('2026-01-11T00:00'))).toBe(true);
     expect(isNonWorkingDay(cal, toMinutes('2026-01-12T00:00'))).toBe(false);
     // Signed workingMinutesBetween
-    expect(workingMinutesBetween(cal, toMinutes('2026-01-05T08:00'), toMinutes('2026-01-06T17:00'))).toBe(960);
-    expect(workingMinutesBetween(cal, toMinutes('2026-01-06T17:00'), toMinutes('2026-01-05T08:00'))).toBe(-960);
+    expect(
+      workingMinutesBetween(cal, toMinutes('2026-01-05T08:00'), toMinutes('2026-01-06T17:00')),
+    ).toBe(960);
+    expect(
+      workingMinutesBetween(cal, toMinutes('2026-01-06T17:00'), toMinutes('2026-01-05T08:00')),
+    ).toBe(-960);
   });
 
   it('supports elapsed 24h calendar and rejects zero-working-hour calendars', () => {
-    expect(toWallClock(addWorkingMinutes(ELAPSED_CALENDAR, toMinutes('2026-01-09T17:00'), 1440))).toBe(
-      '2026-01-10T17:00',
-    );
+    expect(
+      toWallClock(addWorkingMinutes(ELAPSED_CALENDAR, toMinutes('2026-01-09T17:00'), 1440)),
+    ).toBe('2026-01-10T17:00');
     expect(isNonWorkingDay(ELAPSED_CALENDAR, toMinutes('2026-01-11T00:00'))).toBe(false);
     const empty = compileCalendar(
-      makeStandardCalendar('cal:empty', { name: 'Blank Cal', week: [[], [], [], [], [], [], []], exceptions: [] }),
+      makeStandardCalendar('cal:empty', {
+        name: 'Blank Cal',
+        week: [[], [], [], [], [], [], []],
+        exceptions: [],
+      }),
     );
     expect(empty).toEqual({
       code: 'CALENDAR_NO_WORKING_TIME',
@@ -80,10 +106,18 @@ describe('calendar', () => {
         ],
       }),
     );
-    expect(toWallClock(snapForwardToWorkStart(cal, toMinutes('2026-01-05T08:00')))).toBe('2026-01-10T08:00');
-    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-10T08:00'), 480))).toBe('2026-01-15T12:00');
-    expect(toWallClock(subtractWorkingMinutes(cal, toMinutes('2026-01-15T12:00'), 480))).toBe('2026-01-10T08:00');
-    expect(workingMinutesBetween(cal, toMinutes('2026-01-10T08:00'), toMinutes('2026-01-15T16:00'))).toBe(720);
+    expect(toWallClock(snapForwardToWorkStart(cal, toMinutes('2026-01-05T08:00')))).toBe(
+      '2026-01-10T08:00',
+    );
+    expect(toWallClock(addWorkingMinutes(cal, toMinutes('2026-01-10T08:00'), 480))).toBe(
+      '2026-01-15T12:00',
+    );
+    expect(toWallClock(subtractWorkingMinutes(cal, toMinutes('2026-01-15T12:00'), 480))).toBe(
+      '2026-01-10T08:00',
+    );
+    expect(
+      workingMinutesBetween(cal, toMinutes('2026-01-10T08:00'), toMinutes('2026-01-15T16:00')),
+    ).toBe(720);
     // Asking beyond available working exceptions finishes deterministically without NaN
     const pastEnd = addWorkingMinutes(cal, toMinutes('2026-01-10T08:00'), 10_000);
     expect(Number.isFinite(pastEnd)).toBe(true);
@@ -116,12 +150,16 @@ describe('calendar', () => {
     const cal = mustCompile();
     const base = toMinutes('2026-01-05T08:00');
     fc.assert(
-      fc.property(fc.integer({ min: 0, max: 30_000 }), fc.integer({ min: 1, max: 20_000 }), (offset, dur) => {
-        const start = snapForwardToWorkStart(cal, base + offset);
-        const finish = addWorkingMinutes(cal, start, dur);
-        expect(subtractWorkingMinutes(cal, finish, dur)).toBe(start);
-        expect(workingMinutesBetween(cal, start, finish)).toBe(dur);
-      }),
+      fc.property(
+        fc.integer({ min: 0, max: 30_000 }),
+        fc.integer({ min: 1, max: 20_000 }),
+        (offset, dur) => {
+          const start = snapForwardToWorkStart(cal, base + offset);
+          const finish = addWorkingMinutes(cal, start, dur);
+          expect(subtractWorkingMinutes(cal, finish, dur)).toBe(start);
+          expect(workingMinutesBetween(cal, start, finish)).toBe(dur);
+        },
+      ),
     );
   });
 });

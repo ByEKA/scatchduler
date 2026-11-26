@@ -1,8 +1,4 @@
-import type {
-  ComputedScheduleSummary,
-  ScheduleDocument,
-  SolveResult,
-} from '@/data/schedule-types';
+import type { ComputedScheduleSummary, ScheduleDocument, SolveResult } from '@/data/schedule-types';
 import type { ISODateTime } from '@/data/types';
 import { compileCalendar, type CompiledCalendar } from '@/engine/calendar';
 import {

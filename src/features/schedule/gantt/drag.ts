@@ -1,9 +1,6 @@
 import type { RelationshipType } from '@/data/schedule-types';
 import type { ScheduleCommand } from '@/features/schedule/commands';
-import {
-  getGanttPortCoords,
-  type GanttHitTarget,
-} from '@/features/schedule/gantt/hit-test';
+import { getGanttPortCoords, type GanttHitTarget } from '@/features/schedule/gantt/hit-test';
 import { GANTT_ROW_HEIGHT, type GanttRow } from '@/features/schedule/gantt/renderer';
 import type { Timescale } from '@/features/schedule/gantt/timescale';
 import { MINUTES_PER_DAY, ymdFromCivilDays } from '@/lib/civil-date';
@@ -264,8 +261,7 @@ export function updateGanttDrag(
     const pct = Math.max(0, Math.min(100, Math.round(((pointerX - x1) / barWidth) * 100)));
     const progressMinute =
       pct > 0
-        ? state.initialStart +
-          Math.round(((state.initialFinish - state.initialStart) * pct) / 100)
+        ? state.initialStart + Math.round(((state.initialFinish - state.initialStart) * pct) / 100)
         : null;
     return {
       ...state,

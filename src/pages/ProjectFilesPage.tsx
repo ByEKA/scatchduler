@@ -364,11 +364,7 @@ export function ProjectFilesPage(): ReactElement {
           }}
         />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <FilesToolbar
-            view={view}
-            onUpdateView={updateView}
-            onClearFilters={clearFilters}
-          />
+          <FilesToolbar view={view} onUpdateView={updateView} onClearFilters={clearFilters} />
           {editable && (
             <BulkSchedulesBar
               selectedSchedules={selectedSchedules}

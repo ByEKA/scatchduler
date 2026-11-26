@@ -240,14 +240,10 @@ describe('ScheduleToolbar', () => {
     expect(editor.redo).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: '+ Activity' }));
-    expect(editor.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'addActivity' }),
-    );
+    expect(editor.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'addActivity' }));
 
     await user.click(screen.getByRole('button', { name: '+ WBS' }));
-    expect(editor.dispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'addWbsNode' }),
-    );
+    expect(editor.dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'addWbsNode' }));
 
     await user.click(screen.getByRole('button', { name: 'Delete' }));
     expect(editor.dispatch).toHaveBeenCalledWith({

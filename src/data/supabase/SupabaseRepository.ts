@@ -272,10 +272,7 @@ export class SupabaseRepository implements DataRepository {
     });
   }
 
-  async moveSchedulesToFolder(input: {
-    scheduleIds: ID[];
-    folderId: ID | null;
-  }): Promise<void> {
+  async moveSchedulesToFolder(input: { scheduleIds: ID[]; folderId: ID | null }): Promise<void> {
     return this.run(async () => {
       const folderId = input.folderId === null ? null : asUuid(input.folderId);
       const { error } = await this.client.rpc('move_schedules_to_folder', {

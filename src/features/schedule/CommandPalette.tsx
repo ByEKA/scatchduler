@@ -141,8 +141,9 @@ export function CommandPalette(): ReactElement {
                     key={sched.id}
                     value={`switch schedule ${sched.code ?? ''} ${sched.name}`}
                     onSelect={() =>
-                      runAndClose(() =>
-                        void navigate(`/w/${workspaceId}/p/${projectId}/schedule?s=${sched.id}`),
+                      runAndClose(
+                        () =>
+                          void navigate(`/w/${workspaceId}/p/${projectId}/schedule?s=${sched.id}`),
                       )
                     }
                   >

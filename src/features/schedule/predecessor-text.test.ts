@@ -39,10 +39,35 @@ describe('predecessor-text', () => {
     ];
     const byId = new Map(activities.map((a) => [a.id, a]));
     const rels = [
-      makeRelationship({ id: 'r1', predecessorId: 'a1', successorId: 'a5', type: 'FS', lagMinutes: 0 }),
-      makeRelationship({ id: 'r2', predecessorId: 'a2', successorId: 'a5', type: 'SS', lagMinutes: 960 }),
-      makeRelationship({ id: 'r3', predecessorId: 'a3', successorId: 'a5', type: 'FF', lagMinutes: -240 }),
-      makeRelationship({ id: 'r4', predecessorId: 'a4', successorId: 'a5', type: 'FS', lagMinutes: 2880, lagElapsed: true }),
+      makeRelationship({
+        id: 'r1',
+        predecessorId: 'a1',
+        successorId: 'a5',
+        type: 'FS',
+        lagMinutes: 0,
+      }),
+      makeRelationship({
+        id: 'r2',
+        predecessorId: 'a2',
+        successorId: 'a5',
+        type: 'SS',
+        lagMinutes: 960,
+      }),
+      makeRelationship({
+        id: 'r3',
+        predecessorId: 'a3',
+        successorId: 'a5',
+        type: 'FF',
+        lagMinutes: -240,
+      }),
+      makeRelationship({
+        id: 'r4',
+        predecessorId: 'a4',
+        successorId: 'a5',
+        type: 'FS',
+        lagMinutes: 2880,
+        lagElapsed: true,
+      }),
     ];
     const formatted = formatPredecessorCell(rels, 'a5', byId, 8);
     expect(formatted).toBe('A1000, A1010 SS+2d, A1020 FF-4h, A1030 FS+2ed');
@@ -61,6 +86,9 @@ describe('predecessor-text', () => {
     expect(parseDurationInput('5', 8)).toEqual({ ok: true, minutes: 2400 });
     expect(parseDurationInput('2.5 d', 8)).toEqual({ ok: true, minutes: 1200 });
     expect(parseDurationInput('16h', 8)).toEqual({ ok: true, minutes: 960 });
-    expect(parseDurationInput('-2d', 8)).toEqual({ ok: false, error: "Duration can't be negative." });
+    expect(parseDurationInput('-2d', 8)).toEqual({
+      ok: false,
+      error: "Duration can't be negative.",
+    });
   });
 });

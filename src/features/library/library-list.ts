@@ -101,10 +101,7 @@ export function activeLibraryFilterCount(view: LibraryView): number {
 
 export function hasAnyLibraryFilters(view: LibraryView): boolean {
   return (
-    view.q.trim() !== '' ||
-    activeLibraryFilterCount(view) > 0 ||
-    view.archived ||
-    view.nonEmpty
+    view.q.trim() !== '' || activeLibraryFilterCount(view) > 0 || view.archived || view.nonEmpty
   );
 }
 
@@ -126,8 +123,7 @@ export function libraryFilterChips(
     chips.push({ id: 'tag', label: 'Tag', value: label });
   }
   if (view.source !== 'all') {
-    const label =
-      LIBRARY_SOURCE_OPTIONS.find((o) => o.value === view.source)?.label ?? view.source;
+    const label = LIBRARY_SOURCE_OPTIONS.find((o) => o.value === view.source)?.label ?? view.source;
     chips.push({ id: 'source', label: 'Source', value: label });
   }
   return chips;

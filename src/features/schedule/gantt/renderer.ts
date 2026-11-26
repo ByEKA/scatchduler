@@ -210,10 +210,7 @@ export function renderGantt(draw: Draw2D, scene: GanttScene): void {
         ],
         theme.summary,
       );
-    } else if (
-      row.activityType === 'start_milestone' ||
-      row.activityType === 'finish_milestone'
-    ) {
+    } else if (row.activityType === 'start_milestone' || row.activityType === 'finish_milestone') {
       const cx = row.activityType === 'finish_milestone' ? x2 : x1;
       const cy = y + GANTT_ROW_HEIGHT / 2;
       const color = row.isCritical && show.critical ? theme.critical : theme.milestone;
@@ -282,8 +279,7 @@ export function renderGantt(draw: Draw2D, scene: GanttScene): void {
       const inSpotlight =
         spotlight === null || spotlight.has(`rel:${link.id}`) || spotlight.has(link.id);
       const isDimmed = !inSpotlight;
-      const highlightDriving =
-        link.isDriving || (spotlight !== null && inSpotlight);
+      const highlightDriving = link.isDriving || (spotlight !== null && inSpotlight);
       const color = highlightDriving ? theme.linkDriving : theme.link;
 
       if (isDimmed && draw.setAlpha) {

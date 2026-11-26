@@ -302,8 +302,20 @@
       "settings": { "projectStart": "2026-01-09T08:00", "statusDate": "2026-01-09T08:00" },
       "activities": [
         { "id": "a", "code": "A10", "calendarId": "cal:7day", "originalDuration": 960 },
-        { "id": "ms", "code": "MS1", "type": "start_milestone", "calendarId": "cal:standard", "originalDuration": 0 },
-        { "id": "mf", "code": "MF1", "type": "finish_milestone", "calendarId": "cal:standard", "originalDuration": 0 }
+        {
+          "id": "ms",
+          "code": "MS1",
+          "type": "start_milestone",
+          "calendarId": "cal:standard",
+          "originalDuration": 0
+        },
+        {
+          "id": "mf",
+          "code": "MF1",
+          "type": "finish_milestone",
+          "calendarId": "cal:standard",
+          "originalDuration": 0
+        }
       ],
       "relationships": [
         { "id": "r1", "predecessorId": "a", "successorId": "ms", "type": "FS", "lagMinutes": 0 },
@@ -323,8 +335,20 @@
       "settings": { "projectStart": "2026-01-09T08:00", "statusDate": "2026-01-09T08:00" },
       "activities": [
         { "id": "a", "code": "A10", "calendarId": "cal:7day", "originalDuration": 960 },
-        { "id": "ms", "code": "MS1", "type": "start_milestone", "calendarId": "cal:standard", "originalDuration": 0 },
-        { "id": "mf", "code": "MF1", "type": "finish_milestone", "calendarId": "cal:standard", "originalDuration": 0 }
+        {
+          "id": "ms",
+          "code": "MS1",
+          "type": "start_milestone",
+          "calendarId": "cal:standard",
+          "originalDuration": 0
+        },
+        {
+          "id": "mf",
+          "code": "MF1",
+          "type": "finish_milestone",
+          "calendarId": "cal:standard",
+          "originalDuration": 0
+        }
       ],
       "relationships": [
         { "id": "r1", "predecessorId": "a", "successorId": "ms", "type": "FS", "lagMinutes": 0 },

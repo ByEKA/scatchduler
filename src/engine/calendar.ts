@@ -11,7 +11,9 @@ export interface CompiledCalendar {
 const INITIAL_HALF_SPAN_DAYS = 1825; // ~5 years each side of first query
 const EXPAND_PAD_DAYS = 730; // ~2 years extra buffer on range expansion
 
-function normalizePeriods(raw: readonly ScheduleCalendarPeriod[] | undefined): readonly ScheduleCalendarPeriod[] {
+function normalizePeriods(
+  raw: readonly ScheduleCalendarPeriod[] | undefined,
+): readonly ScheduleCalendarPeriod[] {
   if (!raw || raw.length === 0) return [];
   const valid: ScheduleCalendarPeriod[] = [];
   for (const p of raw) {
@@ -255,7 +257,8 @@ class CompiledCalendarImpl implements CompiledCalendar {
       if (target <= 0) return fallback;
       if (target > total) {
         const lastPeriods = this.exPeriods[k - 1]!;
-        const lastFinish = this.exDays[k - 1]! * MINUTES_PER_DAY + lastPeriods[lastPeriods.length - 1]!.finish;
+        const lastFinish =
+          this.exDays[k - 1]! * MINUTES_PER_DAY + lastPeriods[lastPeriods.length - 1]!.finish;
         return Math.max(fallback, lastFinish);
       }
       let lo = 0;
@@ -265,7 +268,11 @@ class CompiledCalendarImpl implements CompiledCalendar {
         if (this.exPrefix[mid + 1]! < target) lo = mid + 1;
         else hi = mid;
       }
-      return resolveEarliestInDay(this.exDays[lo]!, this.exPeriods[lo]!, target - this.exPrefix[lo]!);
+      return resolveEarliestInDay(
+        this.exDays[lo]!,
+        this.exPeriods[lo]!,
+        target - this.exPrefix[lo]!,
+      );
     }
 
     // Ensure prefix[0] < target <= prefix[len]
@@ -287,7 +294,11 @@ class CompiledCalendarImpl implements CompiledCalendar {
       if (this.prefix[mid + 1]! < target) lo = mid + 1;
       else hi = mid;
     }
-    return resolveEarliestInDay(this.startDay + lo, this.dayPeriods[lo]!, target - this.prefix[lo]!);
+    return resolveEarliestInDay(
+      this.startDay + lo,
+      this.dayPeriods[lo]!,
+      target - this.prefix[lo]!,
+    );
   }
 
   /** Latest instant `u` such that `cumWork(u) === target` (always a period start or interior `[s, f)`). */
@@ -333,7 +344,11 @@ class CompiledCalendarImpl implements CompiledCalendar {
   }
 }
 
-function resolveEarliestInDay(day: number, periods: readonly ScheduleCalendarPeriod[], remInput: number): number {
+function resolveEarliestInDay(
+  day: number,
+  periods: readonly ScheduleCalendarPeriod[],
+  remInput: number,
+): number {
   let rem = remInput;
   for (let i = 0; i < periods.length; i++) {
     const p = periods[i]!;
@@ -347,7 +362,11 @@ function resolveEarliestInDay(day: number, periods: readonly ScheduleCalendarPer
   return day * MINUTES_PER_DAY + last.finish;
 }
 
-function resolveLatestInDay(day: number, periods: readonly ScheduleCalendarPeriod[], remInput: number): number {
+function resolveLatestInDay(
+  day: number,
+  periods: readonly ScheduleCalendarPeriod[],
+  remInput: number,
+): number {
   let rem = remInput;
   for (let i = 0; i < periods.length; i++) {
     const p = periods[i]!;
@@ -456,7 +475,11 @@ export function addWorkingMinutes(cal: CompiledCalendar, start: number, minutes:
 }
 
 /** Rewinds `minutes` of working time from `finish` (positive lands on a work-block start). */
-export function subtractWorkingMinutes(cal: CompiledCalendar, finish: number, minutes: number): number {
+export function subtractWorkingMinutes(
+  cal: CompiledCalendar,
+  finish: number,
+  minutes: number,
+): number {
   const wholeFinish = Math.trunc(finish);
   const wholeMinutes = Math.trunc(minutes);
   if (wholeMinutes === 0) return wholeFinish;

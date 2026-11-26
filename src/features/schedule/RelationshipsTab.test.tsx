@@ -16,8 +16,20 @@ describe('RelationshipsTab', () => {
         makeActivity({ id: 'a3', code: 'A1030', name: 'Concrete' }),
       ],
       relationships: [
-        makeRelationship({ id: 'r1', predecessorId: 'a1', successorId: 'a2', type: 'FS', lagMinutes: 0 }),
-        makeRelationship({ id: 'r2', predecessorId: 'a2', successorId: 'a3', type: 'SS', lagMinutes: 480 }),
+        makeRelationship({
+          id: 'r1',
+          predecessorId: 'a1',
+          successorId: 'a2',
+          type: 'FS',
+          lagMinutes: 0,
+        }),
+        makeRelationship({
+          id: 'r2',
+          predecessorId: 'a2',
+          successorId: 'a3',
+          type: 'SS',
+          lagMinutes: 480,
+        }),
       ],
     });
     const summary: ComputedScheduleSummary = {

@@ -501,9 +501,7 @@ export class MockRepository implements DataRepository {
         }
         const key = codeKey(trimmed);
         if (
-          db.programs.some(
-            (pr) => pr.workspaceId === input.workspaceId && codeKey(pr.name) === key,
-          )
+          db.programs.some((pr) => pr.workspaceId === input.workspaceId && codeKey(pr.name) === key)
         ) {
           throw new RepositoryError('conflict', 'A program with this name already exists.');
         }
@@ -779,8 +777,7 @@ export class MockRepository implements DataRepository {
         const key = codeKey(trimmed);
         if (
           db.folders.some(
-            (f) =>
-              f.projectId === project.id && f.parentId === parentId && codeKey(f.name) === key,
+            (f) => f.projectId === project.id && f.parentId === parentId && codeKey(f.name) === key,
           )
         ) {
           throw new RepositoryError('conflict', 'A folder with this name already exists here.');

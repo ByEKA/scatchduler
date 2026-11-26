@@ -30,7 +30,9 @@ import { toWallClock } from '@/engine/time';
 interface FloatFixtureSpec {
   settings?: Partial<ScheduleSettings>;
   activities: Array<Partial<ScheduleActivity> & { id: string; code: string }>;
-  relationships: Array<Partial<ScheduleRelationship> & { predecessorId: string; successorId: string }>;
+  relationships: Array<
+    Partial<ScheduleRelationship> & { predecessorId: string; successorId: string }
+  >;
 }
 
 const fixtures = JSON.parse(
@@ -50,7 +52,14 @@ function runFullCpm(doc: ScheduleDocument): ComputedScheduleSummary {
   const forward = runForwardPass(doc, graphRes.graph, compiled, rules);
   const backward = runBackwardPass(doc, graphRes.graph, compiled, rules, forward);
   runPostPasses(doc, graphRes.graph, compiled, rules, forward, backward);
-  const floats = computeFloatsAndCriticality(doc, graphRes.graph, compiled, rules, forward, backward);
+  const floats = computeFloatsAndCriticality(
+    doc,
+    graphRes.graph,
+    compiled,
+    rules,
+    forward,
+    backward,
+  );
 
   return {
     calculatedAt: '2026-01-05T08:00:00.000Z',
@@ -64,7 +73,10 @@ function runFullCpm(doc: ScheduleDocument): ComputedScheduleSummary {
   };
 }
 
-function docFromFixture(key: string, settingsOverride?: Partial<ScheduleSettings>): ScheduleDocument {
+function docFromFixture(
+  key: string,
+  settingsOverride?: Partial<ScheduleSettings>,
+): ScheduleDocument {
   const spec = fixtures[key]!;
   return makeDocument({
     settings: {
@@ -116,9 +128,11 @@ describe('CPM floats, criticality, longest path and driving trace', () => {
     expect(byFloat.activities.b!.totalFloat).toBe(-480);
     expect(byFloat.activities.b!.isCritical).toBe(true);
     expect(byFloat.activities.b!.isLongestPath).toBe(false);
-    expect(byFloat.warnings.some((w) => w.code === 'NEGATIVE_FLOAT' && w.message === 'B10 has negative total float (-1 d).')).toBe(
-      true,
-    );
+    expect(
+      byFloat.warnings.some(
+        (w) => w.code === 'NEGATIVE_FLOAT' && w.message === 'B10 has negative total float (-1 d).',
+      ),
+    ).toBe(true);
 
     const byLongest = runFullCpm(
       docFromFixture('constrainedBranch', { criticalDefinition: 'longest_path' }),

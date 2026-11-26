@@ -8,13 +8,7 @@ import { useProjectSchedules } from '@/hooks/useProjectSchedules';
 import { createTestDataLayer } from '@/test/fakes';
 import { renderWithProviders } from '@/test/render';
 
-function Harness({
-  projectId,
-  workspace,
-}: {
-  projectId: string;
-  workspace: WorkspaceSummary;
-}) {
+function Harness({ projectId, workspace }: { projectId: string; workspace: WorkspaceSummary }) {
   const [selectedFolder, setSelectedFolder] = useState<FolderSelection>('all');
   const schedulesQuery = useProjectSchedules(projectId);
   const schedules: readonly Schedule[] = schedulesQuery.data ?? [];

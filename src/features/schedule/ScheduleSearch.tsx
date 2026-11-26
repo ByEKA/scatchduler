@@ -30,7 +30,9 @@ export function ScheduleSearch({
 }: ScheduleSearchProps): ReactElement {
   const hasQuery = query.trim().length > 0;
   const countLabel =
-    matches.length > 0 ? `${Math.min(activeIndex, matches.length - 1) + 1} of ${matches.length}` : '0 of 0';
+    matches.length > 0
+      ? `${Math.min(activeIndex, matches.length - 1) + 1} of ${matches.length}`
+      : '0 of 0';
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
@@ -73,7 +75,7 @@ export function ScheduleSearch({
 
       {hasQuery && (
         <div className="flex items-center gap-0.5">
-          <span className="min-w-12 text-center text-2xs tabular-nums text-muted-foreground">
+          <span className="min-w-12 text-center text-2xs text-muted-foreground tabular-nums">
             {countLabel}
           </span>
           <Button

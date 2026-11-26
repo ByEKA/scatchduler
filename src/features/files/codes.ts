@@ -96,4 +96,3 @@ export function suggestCopyCode(taken: readonly string[], sourceCode: string | n
     if (!isCodeTaken(taken, candidate)) return candidate;
   }
 }
-

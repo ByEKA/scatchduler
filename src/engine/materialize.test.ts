@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { createBlankDocument, fromImportModel, type ImportModel } from '@/engine/materialize';
 
 const loadModel = (name: string) =>
-  JSON.parse(readFileSync(join(process.cwd(), 'src/import/__fixtures__', name), 'utf8')) as ImportModel;
+  JSON.parse(
+    readFileSync(join(process.cwd(), 'src/import/__fixtures__', name), 'utf8'),
+  ) as ImportModel;
 
 describe('materialize', () => {
   it('materializes XER models with P6 profile, progress mode, lag calendar and verbatim sourceDates', () => {
@@ -85,7 +87,13 @@ describe('materialize', () => {
         early: { start: null, finish: null },
       })),
       relationships: [
-        { predecessorCode: 'm1', successorCode: 'a1', type: 'FS', lagMinutes: 0, lagElapsed: false },
+        {
+          predecessorCode: 'm1',
+          successorCode: 'a1',
+          type: 'FS',
+          lagMinutes: 0,
+          lagElapsed: false,
+        },
         {
           predecessorCode: 'UNKNOWN',
           successorCode: 'A1',

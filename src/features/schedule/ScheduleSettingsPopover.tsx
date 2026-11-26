@@ -141,9 +141,7 @@ export function ScheduleSettingsPopover({
               id={`${baseId}-lagcal`}
               disabled={readOnly}
               value={settings.lagCalendar}
-              onChange={(event) =>
-                update({ lagCalendar: event.target.value as LagCalendarMode })
-              }
+              onChange={(event) => update({ lagCalendar: event.target.value as LagCalendarMode })}
               className={SELECT_CLASSES}
             >
               <option value="predecessor">Predecessor</option>

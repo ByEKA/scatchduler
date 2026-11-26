@@ -8,7 +8,12 @@ import type {
 } from '@/data/schedule-types';
 import { solve } from '@/engine';
 import { compileCalendar, workingMinutesBetween } from '@/engine/calendar';
-import { makeActivity, makeDocument, makeRelationship, makeStandardCalendar } from '@/engine/testing';
+import {
+  makeActivity,
+  makeDocument,
+  makeRelationship,
+  makeStandardCalendar,
+} from '@/engine/testing';
 import { toMinutes } from '@/engine/time';
 
 interface DagSpec {
@@ -17,26 +22,24 @@ interface DagSpec {
   seed: number;
 }
 
-const dagArbitrary: fc.Arbitrary<DagSpec> = fc
-  .integer({ min: 2, max: 18 })
-  .chain((n) =>
-    fc.record({
-      durations: fc.array(fc.constantFrom(0, 240, 480, 960, 1440), { minLength: n, maxLength: n }),
-      edges: fc.array(
-        fc
-          .tuple(
-            fc.integer({ min: 0, max: n - 2 }),
-            fc.integer({ min: 1, max: n - 1 }),
-            fc.constantFrom<RelationshipType>('FS', 'SS', 'FF', 'SF'),
-            fc.constantFrom(-240, 0, 240, 480),
-          )
-          .filter(([u, v]) => u < v)
-          .map(([u, v, type, lagMinutes]) => ({ u, v, type, lagMinutes })),
-        { minLength: 0, maxLength: n * 2 },
-      ),
-      seed: fc.integer({ min: 1, max: 1_000_000 }),
-    }),
-  );
+const dagArbitrary: fc.Arbitrary<DagSpec> = fc.integer({ min: 2, max: 18 }).chain((n) =>
+  fc.record({
+    durations: fc.array(fc.constantFrom(0, 240, 480, 960, 1440), { minLength: n, maxLength: n }),
+    edges: fc.array(
+      fc
+        .tuple(
+          fc.integer({ min: 0, max: n - 2 }),
+          fc.integer({ min: 1, max: n - 1 }),
+          fc.constantFrom<RelationshipType>('FS', 'SS', 'FF', 'SF'),
+          fc.constantFrom(-240, 0, 240, 480),
+        )
+        .filter(([u, v]) => u < v)
+        .map(([u, v, type, lagMinutes]) => ({ u, v, type, lagMinutes })),
+      { minLength: 0, maxLength: n * 2 },
+    ),
+    seed: fc.integer({ min: 1, max: 1_000_000 }),
+  }),
+);
 
 function deterministicShuffle<T>(items: readonly T[], seed: number): T[] {
   const copy = [...items];
@@ -151,9 +154,9 @@ describe('CPM solver algebraic properties', () => {
         const monoRes = solve(withExtraEdge, { calculatedAt: '2026-01-05T08:00:00.000Z' });
         expect(monoRes.ok).toBe(true);
         if (!monoRes.ok) return;
-        expect(toMinutes(monoRes.summary.activities[`act:${vIdx}`]!.earlyStart)).toBeGreaterThanOrEqual(
-          toMinutes(res.summary.activities[`act:${vIdx}`]!.earlyStart),
-        );
+        expect(
+          toMinutes(monoRes.summary.activities[`act:${vIdx}`]!.earlyStart),
+        ).toBeGreaterThanOrEqual(toMinutes(res.summary.activities[`act:${vIdx}`]!.earlyStart));
       }),
       { numRuns: 50 },
     );

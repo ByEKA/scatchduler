@@ -38,7 +38,7 @@ export function WarningsPopover({
             aria-hidden="true"
           />
           <span>Warnings</span>
-          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm bg-muted px-1 text-2xs font-medium tabular-nums text-foreground">
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-sm bg-muted px-1 text-2xs font-medium text-foreground tabular-nums">
             {warnings.length}
           </span>
         </Button>

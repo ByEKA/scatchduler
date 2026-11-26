@@ -48,9 +48,9 @@ describe('useFolders and schedule folder/copy hooks', () => {
       name: '2026 Q4',
     });
     await waitFor(() =>
-      expect(
-        foldersHook.result.current.data?.find((f) => f.id === childFolder.id)?.name,
-      ).toBe('2026 Q4'),
+      expect(foldersHook.result.current.data?.find((f) => f.id === childFolder.id)?.name).toBe(
+        '2026 Q4',
+      ),
     );
 
     const up2 = schedulesHook.result.current.data!.find((s) => s.code === 'UP-02')!;
@@ -67,9 +67,9 @@ describe('useFolders and schedule folder/copy hooks', () => {
 
     await deleteFolderHook.result.current.mutateAsync(childFolder.id);
     await waitFor(() =>
-      expect(
-        schedulesHook.result.current.data?.find((s) => s.id === duplicate.id)?.folderId,
-      ).toBe(updatesFolder.id),
+      expect(schedulesHook.result.current.data?.find((s) => s.id === duplicate.id)?.folderId).toBe(
+        updatesFolder.id,
+      ),
     );
 
     await moveHook.result.current.mutateAsync({

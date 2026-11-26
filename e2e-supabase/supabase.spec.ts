@@ -233,9 +233,9 @@ test('imports XER, opens As imported, edits, calculates, saves to schedule-data 
     await detailsBtn.click();
   }
   await page.getByRole('tab', { name: 'Relationships' }).click();
-  await expect(
-    page.getByRole('region', { name: 'Predecessors' }).getByRole('table'),
-  ).toContainText('Kazı işleri');
+  await expect(page.getByRole('region', { name: 'Predecessors' }).getByRole('table')).toContainText(
+    'Kazı işleri',
+  );
 });
 
 test('shows edit lock across users, supports owner Force Unlock and keeps viewer read-only', async ({
@@ -258,9 +258,7 @@ test('shows edit lock across users, supports owner Force Unlock and keeps viewer
     const ownerPage = await ownerContext.newPage();
     await signIn(ownerPage, 'deniz.kaya@example.com');
     await openSiteOpsTunnelProject(ownerPage);
-    await expect(
-      ownerPage.getByRole('img', { name: 'Being edited by Mert Demir' }),
-    ).toBeVisible();
+    await expect(ownerPage.getByRole('img', { name: 'Being edited by Mert Demir' })).toBeVisible();
 
     await ownerPage.getByRole('link', { name: 'Look-ahead W42' }).click();
     await expect(
@@ -289,9 +287,9 @@ test('shows edit lock across users, supports owner Force Unlock and keeps viewer
     await expect(
       viewerPage.getByRole('heading', { level: 1, name: 'Look-ahead W42' }),
     ).toBeVisible();
-    await expect(
-      viewerPage.getByRole('treegrid', { name: 'Schedule activities' }),
-    ).toContainText('Site mobilization');
+    await expect(viewerPage.getByRole('treegrid', { name: 'Schedule activities' })).toContainText(
+      'Site mobilization',
+    );
     await expect(viewerPage.getByRole('button', { name: 'Edit' })).toHaveAttribute(
       'aria-disabled',
       'true',
@@ -345,9 +343,9 @@ test('creates a folder, duplicates a materialized schedule into it, verifies cop
 
   // Verify copied gzipped snapshot from schedule-data loads its activities
   await expect(page.getByRole('heading', { level: 1, name: 'Update 2 (copy)' })).toBeVisible();
-  await expect(
-    page.getByRole('treegrid', { name: 'Schedule activities' }),
-  ).toContainText('Site mobilization');
+  await expect(page.getByRole('treegrid', { name: 'Schedule activities' })).toContainText(
+    'Site mobilization',
+  );
 
   // Verify it appears in /library with its folder badge
   await page
@@ -360,4 +358,3 @@ test('creates a folder, duplicates a materialized schedule into it, verifies cop
   await expect(personalSection).toContainText('Update 2 (copy)');
   await expect(personalSection).toContainText(folderName);
 });
-

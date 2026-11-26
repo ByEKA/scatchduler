@@ -107,7 +107,13 @@ const ENGINE_HOOKS_ONLY_PATTERN = {
 };
 const PURE_GANTT_MESSAGE =
   'Pure Gantt modules import no React or hooks so they can run headless and in PDF export.';
-const ENGINE_RESTRICTED_GLOBALS = ['error', 'document', 'window', 'HTMLCanvasElement', 'OffscreenCanvas'];
+const ENGINE_RESTRICTED_GLOBALS = [
+  'error',
+  'document',
+  'window',
+  'HTMLCanvasElement',
+  'OffscreenCanvas',
+];
 
 export default defineConfig([
   globalIgnores([

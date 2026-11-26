@@ -43,7 +43,9 @@ describe('ProjectsMap', () => {
 
     // "Not on the map (2)" lists Campus Library Retrofit and Old Mill Housing with Edit location
     const sidePanel = screen.getByRole('complementary', { name: 'Not on the map' });
-    expect(within(sidePanel).getByRole('heading', { name: 'Not on the map (2)' })).toBeInTheDocument();
+    expect(
+      within(sidePanel).getByRole('heading', { name: 'Not on the map (2)' }),
+    ).toBeInTheDocument();
     expect(within(sidePanel).getByText('Campus Library Retrofit')).toBeInTheDocument();
     expect(within(sidePanel).getByText('Old Mill Housing')).toBeInTheDocument();
 

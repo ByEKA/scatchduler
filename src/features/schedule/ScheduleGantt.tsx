@@ -8,11 +8,7 @@ import {
   useState,
 } from 'react';
 import type { PointerEvent, ReactElement, WheelEvent } from 'react';
-import type {
-  ComputedScheduleSummary,
-  DrivingPath,
-  ScheduleDocument,
-} from '@/data/schedule-types';
+import type { ComputedScheduleSummary, DrivingPath, ScheduleDocument } from '@/data/schedule-types';
 import type { ScheduleCommand } from '@/features/schedule/commands';
 import { formatScheduleDate, formatWorkingDays } from '@/features/schedule/format-schedule';
 import {
@@ -162,7 +158,8 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
           r.percentComplete > 0
         ) {
           progressFinish =
-            startMin + Math.round(((finishMin - startMin) * Math.min(100, r.percentComplete)) / 100);
+            startMin +
+            Math.round(((finishMin - startMin) * Math.min(100, r.percentComplete)) / 100);
         }
 
         mapped.push({
@@ -470,11 +467,7 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
       if (cursorStyle !== nextCursor) setCursorStyle(nextCursor);
 
       const visRow = rowsByKey.get(target.row.key);
-      if (
-        visRow &&
-        target.kind !== 'link-port-start' &&
-        target.kind !== 'link-port-finish'
-      ) {
+      if (visRow && target.kind !== 'link-port-start' && target.kind !== 'link-port-finish') {
         setHover({ row: visRow, x, y });
       } else if (hover !== null) {
         setHover(null);
@@ -525,9 +518,7 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
         event.preventDefault();
         const idx = ZOOM_STEPS.indexOf(zoom);
         const nextIdx =
-          event.deltaY > 0
-            ? Math.min(ZOOM_STEPS.length - 1, idx + 1)
-            : Math.max(0, idx - 1);
+          event.deltaY > 0 ? Math.min(ZOOM_STEPS.length - 1, idx + 1) : Math.max(0, idx - 1);
         const nextZoom = ZOOM_STEPS[nextIdx]!;
         if (nextZoom !== zoom) {
           const { x } = getCanvasCoords(event.clientX, event.clientY);
@@ -591,13 +582,11 @@ export const ScheduleGantt = forwardRef<ScheduleGanttHandle, ScheduleGanttProps>
               <div className="truncate font-medium">
                 {hover.row.code} · {hover.row.name}
               </div>
-              <div className="mt-0.5 text-2xs tabular-nums text-muted-foreground">
+              <div className="mt-0.5 text-2xs text-muted-foreground tabular-nums">
                 {formatScheduleDate(hover.row.start)} → {formatScheduleDate(hover.row.finish)}
               </div>
-              <div className="mt-0.5 flex items-center gap-2 text-2xs tabular-nums text-muted-foreground">
-                <span>
-                  {formatWorkingDays(hover.row.durationMinutes, hover.row.hoursPerDay)}
-                </span>
+              <div className="mt-0.5 flex items-center gap-2 text-2xs text-muted-foreground tabular-nums">
+                <span>{formatWorkingDays(hover.row.durationMinutes, hover.row.hoursPerDay)}</span>
                 {hover.row.totalFloat !== null && (
                   <span>
                     Float{' '}

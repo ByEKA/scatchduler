@@ -151,8 +151,7 @@ export function buildVisibleRows(
         act.actualFinish ??
         null;
       totalFloat = act.sourceDates?.totalFloat ?? null;
-      isCritical =
-        totalFloat !== null && totalFloat <= document.settings.criticalThresholdMinutes;
+      isCritical = totalFloat !== null && totalFloat <= document.settings.criticalThresholdMinutes;
       isNearCritical =
         !isCritical &&
         totalFloat !== null &&

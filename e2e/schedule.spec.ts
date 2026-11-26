@@ -4,9 +4,14 @@ const XER_FIXTURE = 'src/import/__fixtures__/two-projects.xer';
 
 async function openProject(page: Page, projectName: string) {
   await page.goto('/home');
-  await page.getByRole('navigation', { name: 'Primary' }).getByRole('link', { name: 'Projects' }).click();
+  await page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('link', { name: 'Projects' })
+    .click();
   await page.getByRole('link', { name: projectName }).first().click();
-  await expect(page.getByRole('heading', { level: 1, name: new RegExp(projectName) })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: new RegExp(projectName) }),
+  ).toBeVisible();
 }
 
 test('imports XER, opens As imported, edits duration & link, calculates (F5), toggles paths, Undo/Redo, saves and reloads', async ({
@@ -49,7 +54,9 @@ test('imports XER, opens As imported, edits duration & link, calculates (F5), to
   await page.getByRole('tab', { name: 'Relationships' }).click();
   const predSection = page.getByRole('region', { name: 'Predecessors' });
   const predTable = predSection.getByRole('table');
-  await predSection.getByLabel('Predecessor activity').selectOption({ label: 'A1010 · Kazı işleri' });
+  await predSection
+    .getByLabel('Predecessor activity')
+    .selectOption({ label: 'A1010 · Kazı işleri' });
   await predSection.getByLabel('Predecessor link type').selectOption('SS');
   await predSection.getByRole('button', { name: 'Add predecessor' }).click();
   await expect(predTable).toContainText('Kazı işleri');
@@ -261,4 +268,3 @@ test('supports Ctrl+K command palette activity jump and Gantt canvas bar resize 
   await page.keyboard.press('Control+z');
   await expect(a1020Row).not.toContainText('A1010');
 });
-

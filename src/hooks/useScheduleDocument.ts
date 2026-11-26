@@ -79,8 +79,7 @@ export function useScheduleDocument(
     schedule.source === 'import' &&
     schedule.hasImportMapping;
   const shouldPersistImport = isP3Import && (role === 'editor' || role === 'owner');
-  const shouldPrepare =
-    isUnmaterializedBlank || (isP3Import && role !== 'share');
+  const shouldPrepare = isUnmaterializedBlank || (isP3Import && role !== 'share');
 
   const persistedQuery = useQuery({
     queryKey: queryKeys.scheduleDocument(schedule?.id, schedule?.dataRevision),

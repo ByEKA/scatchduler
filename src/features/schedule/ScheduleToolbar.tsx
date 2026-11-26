@@ -295,8 +295,7 @@ export function ScheduleToolbar({
               className={OUTLINE_CLASSES}
               onClick={handleAddActivity}
             >
-              <Plus className="size-3.5" aria-hidden="true" />
-              + Activity
+              <Plus className="size-3.5" aria-hidden="true" />+ Activity
             </Button>
             <Button
               type="button"
@@ -305,8 +304,7 @@ export function ScheduleToolbar({
               className={OUTLINE_CLASSES}
               onClick={handleAddWbs}
             >
-              <FolderPlus className="size-3.5" aria-hidden="true" />
-              + WBS
+              <FolderPlus className="size-3.5" aria-hidden="true" />+ WBS
             </Button>
             <Button
               type="button"

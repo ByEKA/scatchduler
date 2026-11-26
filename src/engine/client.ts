@@ -7,12 +7,7 @@ import type {
 } from '@/data/schedule-types';
 import type { ISODate, ISODateTime } from '@/data/types';
 import type { ImportModel } from './materialize';
-import type {
-  EngineRequest,
-  EngineResponse,
-  EngineSession,
-  MaterializeOptions,
-} from './protocol';
+import type { EngineRequest, EngineResponse, EngineSession, MaterializeOptions } from './protocol';
 
 export type { EngineRequest, EngineResponse, EngineSession, MaterializeOptions } from './protocol';
 
@@ -79,8 +74,7 @@ type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
 type Outgoing = WithoutId<EngineRequest>;
 
 type Transport =
-  | { kind: 'worker'; worker: WorkerLike }
-  | { kind: 'thread'; session: Promise<EngineSession> };
+  { kind: 'worker'; worker: WorkerLike } | { kind: 'thread'; session: Promise<EngineSession> };
 
 interface Pending {
   resolve(value: unknown): void;
@@ -247,10 +241,7 @@ export function createEngineClient(
       })) as SolveResult;
     },
     async rollup(document, summary) {
-      return (await send({ op: 'rollup', document, summary })) as Record<
-        string,
-        ComputedWbsRollup
-      >;
+      return (await send({ op: 'rollup', document, summary })) as Record<string, ComputedWbsRollup>;
     },
     async traceDrivingPath(activityId) {
       return (await send({ op: 'traceDrivingPath', activityId })) as DrivingPath;

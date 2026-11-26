@@ -9,11 +9,7 @@ export type CalculationDisplayMode = 'as_imported' | 'calculated';
 export type LagCalendarMode = 'predecessor' | 'successor' | 'elapsed_24h' | 'project_default';
 export type CriticalDefinition = 'total_float' | 'longest_path';
 export type ActivityType =
-  | 'task'
-  | 'start_milestone'
-  | 'finish_milestone'
-  | 'level_of_effort'
-  | 'wbs_summary';
+  'task' | 'start_milestone' | 'finish_milestone' | 'level_of_effort' | 'wbs_summary';
 export type ActivityStatus = 'not_started' | 'in_progress' | 'completed';
 export type ConstraintType =
   | 'start_on'
@@ -203,8 +199,7 @@ export type SolverError =
   | { code: 'CALENDAR_NO_WORKING_TIME'; calendarId: string; message: string };
 
 export type SolveResult =
-  | { ok: true; summary: ComputedScheduleSummary }
-  | { ok: false; error: SolverError };
+  { ok: true; summary: ComputedScheduleSummary } | { ok: false; error: SolverError };
 
 export interface DrivingPath {
   activityIds: string[];

@@ -119,7 +119,8 @@ export function ScheduleDetailsPanel({
   };
 
   const useCalculated = document.settings.displayMode === 'calculated' && summary !== null;
-  const computed = selectedActivity && useCalculated ? summary.activities[selectedActivity.id] : undefined;
+  const computed =
+    selectedActivity && useCalculated ? summary.activities[selectedActivity.id] : undefined;
 
   const earlyStart =
     computed?.earlyStart ??
@@ -143,8 +144,7 @@ export function ScheduleDetailsPanel({
       : null;
 
   const isMilestone =
-    selectedActivity?.type === 'start_milestone' ||
-    selectedActivity?.type === 'finish_milestone';
+    selectedActivity?.type === 'start_milestone' || selectedActivity?.type === 'finish_milestone';
 
   const currentPercent = selectedActivity
     ? selectedActivity.percent.type === 'physical'
@@ -260,7 +260,7 @@ export function ScheduleDetailsPanel({
             </div>
           </div>
         ) : activeTab === 'relationships' ? (
-          relationshipsSlot ?? (
+          (relationshipsSlot ?? (
             <RelationshipsTab
               document={document}
               summary={summary}
@@ -269,7 +269,7 @@ export function ScheduleDetailsPanel({
               onJumpToActivity={onJumpToActivity}
               onDispatch={onDispatch}
             />
-          )
+          ))
         ) : (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             {/* Column 1: Status, Actuals, Progress & Durations */}
@@ -453,37 +453,37 @@ export function ScheduleDetailsPanel({
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-md bg-muted/40 p-2">
                 <div>
                   <div className="text-2xs text-muted-foreground">Early start</div>
-                  <div className="tabular-nums font-medium">
+                  <div className="font-medium tabular-nums">
                     {formatScheduleDateTime(earlyStart)}
                   </div>
                 </div>
                 <div>
                   <div className="text-2xs text-muted-foreground">Early finish</div>
-                  <div className="tabular-nums font-medium">
+                  <div className="font-medium tabular-nums">
                     {formatScheduleDateTime(earlyFinish)}
                   </div>
                 </div>
                 <div>
                   <div className="text-2xs text-muted-foreground">Late start</div>
-                  <div className="tabular-nums font-medium">
+                  <div className="font-medium tabular-nums">
                     {formatScheduleDateTime(lateStart)}
                   </div>
                 </div>
                 <div>
                   <div className="text-2xs text-muted-foreground">Late finish</div>
-                  <div className="tabular-nums font-medium">
+                  <div className="font-medium tabular-nums">
                     {formatScheduleDateTime(lateFinish)}
                   </div>
                 </div>
                 <div>
                   <div className="text-2xs text-muted-foreground">Total float</div>
-                  <div className="tabular-nums font-medium">
+                  <div className="font-medium tabular-nums">
                     {formatWorkingDays(totalFloat, hoursPerDay, { signed: true })}
                   </div>
                 </div>
                 <div>
                   <div className="text-2xs text-muted-foreground">Free float</div>
-                  <div className="tabular-nums font-medium">
+                  <div className="font-medium tabular-nums">
                     {formatWorkingDays(freeFloat, hoursPerDay, { signed: true })}
                   </div>
                 </div>
@@ -646,7 +646,7 @@ export function ScheduleDetailsPanel({
                 <Label htmlFor={`${baseId}-notes`} className="text-2xs text-muted-foreground">
                   Notes
                 </Label>
-                <span className="text-2xs tabular-nums text-muted-foreground">
+                <span className="text-2xs text-muted-foreground tabular-nums">
                   {(selectedActivity!.notes ?? '').length} / {MAX_NOTES_LENGTH}
                 </span>
               </div>

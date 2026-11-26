@@ -1,9 +1,4 @@
-import {
-  makeSeedScheduleDocument,
-  seed,
-  type MockDb,
-  type Scenario,
-} from '@/data/mock/seed';
+import { makeSeedScheduleDocument, seed, type MockDb, type Scenario } from '@/data/mock/seed';
 import type { ScheduleDocument } from '@/data/schedule-types';
 import type { Role } from '@/data/types';
 import { readKey, removeKey, writeKey, type StorageLike } from '@/lib/storage';

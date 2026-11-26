@@ -382,7 +382,12 @@ function GroupedByProgram({
     projectsByProgram.set(project.programId, bucket);
   }
 
-  const sections: Array<{ key: string; program: Program | null; label: string; projects: ProjectSummary[] }> = [];
+  const sections: Array<{
+    key: string;
+    program: Program | null;
+    label: string;
+    projects: ProjectSummary[];
+  }> = [];
   for (const program of programs) {
     const list = projectsByProgram.get(program.id) ?? [];
     if (list.length > 0 || !hasActiveFilters) {
@@ -411,9 +416,7 @@ function GroupedByProgram({
           kind: 'ready',
           workspace: state.workspace,
           projects: sectionProjects,
-          empty: (
-            <p className="text-sm text-muted-foreground">No projects in this program yet.</p>
-          ),
+          empty: <p className="text-sm text-muted-foreground">No projects in this program yet.</p>,
         };
         return (
           <section key={key} aria-label={label} className="flex flex-col gap-3">
@@ -617,10 +620,7 @@ export function ProjectsPage(): ReactElement {
       )}
 
       {programDialogTarget !== null && (
-        <ProgramDialog
-          target={programDialogTarget}
-          onClose={() => setProgramDialogTarget(null)}
-        />
+        <ProgramDialog target={programDialogTarget} onClose={() => setProgramDialogTarget(null)} />
       )}
 
       <AlertDialog

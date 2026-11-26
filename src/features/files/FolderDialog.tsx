@@ -13,11 +13,7 @@ import { useCreateFolder, useRenameFolder } from '@/hooks/useFolders';
 import { errorMessage } from '@/lib/format';
 
 const folderSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'Enter a folder name.')
-    .max(80, 'Use 80 characters or fewer.'),
+  name: z.string().trim().min(1, 'Enter a folder name.').max(80, 'Use 80 characters or fewer.'),
 });
 
 type FolderFormValues = z.output<typeof folderSchema>;
