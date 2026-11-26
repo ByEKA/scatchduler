@@ -1,5 +1,5 @@
 import { ArrowUpRight, X } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -67,6 +67,70 @@ function minutesToDays(minutes: number, hoursPerDay: number): string {
   return String(days === 0 ? 0 : days);
 }
 
+interface PercentCompleteInputProps {
+  id: string;
+  activityId: string;
+  value: number;
+  disabled: boolean;
+  onCommit(percentComplete: number): void;
+}
+
+/**
+ * The Details `% complete` field (P4 core D13). What the user types stays a local draft, and one
+ * `setPercentComplete` is sent on Enter or blur, and only when the value differs from the stored
+ * percent. The progress helper never sees the in-between keystrokes, which would clear or refill
+ * actual dates. Escape, or an empty or out-of-range draft, restores the stored value.
+ */
+function PercentCompleteInput({
+  id,
+  activityId,
+  value,
+  disabled,
+  onCommit,
+}: PercentCompleteInputProps): ReactElement {
+  const [draft, setDraft] = useState<string | null>(null);
+  // Another activity, or a new stored percent (an undo, a grid or Gantt edit), replaces the draft.
+  const storedKey = `${activityId}:${value}`;
+  const [seenKey, setSeenKey] = useState(storedKey);
+  if (seenKey !== storedKey) {
+    setSeenKey(storedKey);
+    setDraft(null);
+  }
+
+  const commit = () => {
+    if (draft === null) return;
+    setDraft(null);
+    const num = Number.parseFloat(draft);
+    if (!Number.isFinite(num) || num < 0 || num > 100) return;
+    const percentComplete = Math.round(num * 10) / 10;
+    if (percentComplete === Math.round(value * 10) / 10) return;
+    onCommit(percentComplete);
+  };
+
+  return (
+    <input
+      id={id}
+      type="number"
+      min={0}
+      max={100}
+      disabled={disabled}
+      value={draft ?? Math.round(value)}
+      onChange={(event) => setDraft(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          commit();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          setDraft(null);
+        }
+      }}
+      onBlur={commit}
+      className={FIELD_CLASSES}
+    />
+  );
+}
+
 /**
  * Collapsible bottom inspector docked beneath the split pane (spec §7.2, D6).
  * Hosts the `Details` tab (status, actuals, durations, calendar, constraints, metrics, driver jump,
@@ -114,6 +178,16 @@ export function ScheduleDetailsPanel({
       type: 'updateActivity',
       activityId: selectedActivity.id,
       changes,
+    });
+    if (!res.ok) toast.error(res.error);
+  };
+
+  const setPercentComplete = (percentComplete: number) => {
+    if (readOnly || !selectedActivity) return;
+    const res = onDispatch({
+      type: 'setPercentComplete',
+      activityId: selectedActivity.id,
+      percentComplete,
     });
     if (!res.ok) toast.error(res.error);
   };
@@ -400,26 +474,12 @@ export function ScheduleDetailsPanel({
                 <Label htmlFor={`${baseId}-pct`} className="text-2xs text-muted-foreground">
                   % complete
                 </Label>
-                <input
+                <PercentCompleteInput
                   id={`${baseId}-pct`}
-                  type="number"
-                  min={0}
-                  max={100}
+                  activityId={selectedActivity!.id}
+                  value={currentPercent}
                   disabled={readOnly}
-                  value={Math.round(currentPercent)}
-                  onChange={(event) => {
-                    const num = Number.parseFloat(event.target.value);
-                    if (Number.isFinite(num) && num >= 0 && num <= 100) {
-                      updateActivity({
-                        percent: {
-                          ...selectedActivity!.percent,
-                          duration: num,
-                          physical: num,
-                        },
-                      });
-                    }
-                  }}
-                  className={FIELD_CLASSES}
+                  onCommit={setPercentComplete}
                 />
               </div>
 

@@ -8,6 +8,7 @@ import {
   type ScheduleSettings,
   type ScheduleWbsNode,
 } from '@/data/schedule-types';
+import { activityDisplayDates, progressChanges } from '@/features/schedule/progress';
 
 export type ActivityChanges = Partial<
   Pick<
@@ -31,6 +32,7 @@ export type ActivityChanges = Partial<
 export type ScheduleCommand =
   | { type: 'addActivity'; wbsId: string | null; afterActivityId: string | null }
   | { type: 'updateActivity'; activityId: string; changes: ActivityChanges }
+  | { type: 'setPercentComplete'; activityId: string; percentComplete: number }
   | { type: 'deleteActivities'; activityIds: string[] }
   | { type: 'moveActivity'; activityId: string; wbsId: string | null; order: number }
   | { type: 'addWbsNode'; parentId: string | null; afterWbsId: string | null }
@@ -400,6 +402,32 @@ export function applyCommand(
         stale,
         selectId: existing.id,
       };
+    }
+
+    case 'setPercentComplete': {
+      // P4 core D13: every % complete edit keeps status and actual dates consistent.
+      const existing = document.activities.find((a) => a.id === command.activityId);
+      if (!existing) {
+        return { ok: false, error: 'Activity not found.' };
+      }
+      const { percentComplete } = command;
+      if (!Number.isFinite(percentComplete) || percentComplete < 0 || percentComplete > 100) {
+        return { ok: false, error: 'Percent complete must be between 0 and 100.' };
+      }
+      return applyCommand(
+        document,
+        {
+          type: 'updateActivity',
+          activityId: existing.id,
+          changes: progressChanges(
+            existing,
+            percentComplete,
+            activityDisplayDates(document, existing),
+            document.settings.statusDate,
+          ),
+        },
+        newId,
+      );
     }
 
     case 'deleteActivities': {

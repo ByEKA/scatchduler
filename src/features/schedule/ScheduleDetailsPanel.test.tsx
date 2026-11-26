@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import type { ComputedScheduleSummary } from '@/data/schedule-types';
+import type { ComputedScheduleSummary, ScheduleDocument } from '@/data/schedule-types';
 import { makeActivity, makeDocument, makeRelationship } from '@/engine/testing';
 import { applyCommand, type ScheduleCommand } from '@/features/schedule/commands';
 import { ScheduleDetailsPanel } from '@/features/schedule/ScheduleDetailsPanel';
@@ -147,5 +147,192 @@ describe('ScheduleDetailsPanel', () => {
 
     fireEvent.change(screen.getByLabelText('Notes'), { target: { value: 'Check rebar' } });
     expect(doc.activities[1]?.notes).toBe('Check rebar');
+  });
+
+  it('sets status and actual dates from % complete through the progress helper (D13)', () => {
+    let doc: ScheduleDocument = {
+      ...makeDocument({
+        settings: {
+          ...makeDocument().settings,
+          displayMode: 'calculated',
+          statusDate: '2026-01-14T08:00',
+        },
+        activities: [
+          makeActivity({
+            id: 'a1',
+            code: 'A1000',
+            name: 'Site prep',
+            originalDuration: 2400,
+            remainingDuration: 2400,
+          }),
+          makeActivity({
+            id: 'a2',
+            code: 'A1010',
+            name: 'Excavation',
+            originalDuration: 2400,
+            remainingDuration: 2400,
+          }),
+        ],
+        relationships: [
+          makeRelationship({ id: 'r1', predecessorId: 'a1', successorId: 'a2', type: 'FS' }),
+        ],
+      }),
+      computed: baseSummary,
+    };
+    const onDispatch = vi.fn((cmd: ScheduleCommand) => {
+      const res = applyCommand(doc, cmd);
+      if (res.ok) doc = res.document;
+      return res;
+    });
+    const panel = () => (
+      <ScheduleDetailsPanel
+        document={doc}
+        summary={doc.computed}
+        rollups={{}}
+        selectedKey="act:a2"
+        mode="edit"
+        activeTab="details"
+        onTabChange={vi.fn()}
+        onClose={vi.fn()}
+        onJumpToActivity={vi.fn()}
+        onDispatch={onDispatch}
+      />
+    );
+    const { rerender } = render(panel());
+
+    fireEvent.change(screen.getByLabelText('% complete'), { target: { value: '40' } });
+    fireEvent.keyDown(screen.getByLabelText('% complete'), { key: 'Enter' });
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'setPercentComplete',
+      activityId: 'a2',
+      percentComplete: 40,
+    });
+    expect(doc.activities[1]).toMatchObject({
+      status: 'in_progress',
+      actualStart: '2026-01-12T08:00',
+      actualFinish: null,
+      remainingDuration: 1440,
+      percent: { duration: 40, physical: 40, type: 'duration' },
+    });
+    rerender(panel());
+    expect(screen.getByLabelText('Status')).toHaveValue('in_progress');
+    expect(screen.getByLabelText('Actual start')).toHaveValue('2026-01-12');
+
+    fireEvent.change(screen.getByLabelText('% complete'), { target: { value: '100' } });
+    fireEvent.keyDown(screen.getByLabelText('% complete'), { key: 'Enter' });
+    expect(doc.activities[1]).toMatchObject({
+      status: 'completed',
+      actualStart: '2026-01-12T08:00',
+      actualFinish: '2026-01-14T08:00',
+      remainingDuration: 0,
+    });
+    rerender(panel());
+    expect(screen.getByLabelText('Actual finish')).toHaveValue('2026-01-14');
+
+    fireEvent.change(screen.getByLabelText('% complete'), { target: { value: '0' } });
+    fireEvent.keyDown(screen.getByLabelText('% complete'), { key: 'Enter' });
+    expect(doc.activities[1]).toMatchObject({
+      status: 'not_started',
+      actualStart: null,
+      actualFinish: null,
+      remainingDuration: 2400,
+    });
+  });
+
+  it('commits % complete once on Enter or blur, not on every keystroke (D13)', async () => {
+    const user = userEvent.setup();
+    let doc: ScheduleDocument = {
+      ...makeDocument({
+        settings: {
+          ...makeDocument().settings,
+          displayMode: 'calculated',
+          statusDate: '2026-01-14T08:00',
+        },
+        activities: [
+          makeActivity({
+            id: 'a1',
+            code: 'A1000',
+            name: 'Site prep',
+            originalDuration: 2400,
+            remainingDuration: 2400,
+          }),
+          makeActivity({
+            id: 'a2',
+            code: 'A1010',
+            name: 'Excavation',
+            originalDuration: 2400,
+            remainingDuration: 2400,
+          }),
+        ],
+        relationships: [
+          makeRelationship({ id: 'r1', predecessorId: 'a1', successorId: 'a2', type: 'FS' }),
+        ],
+      }),
+      computed: baseSummary,
+    };
+    const onDispatch = vi.fn((cmd: ScheduleCommand) => {
+      const res = applyCommand(doc, cmd);
+      if (res.ok) doc = res.document;
+      return res;
+    });
+    const panel = () => (
+      <ScheduleDetailsPanel
+        document={doc}
+        summary={doc.computed}
+        rollups={{}}
+        selectedKey="act:a2"
+        mode="edit"
+        activeTab="details"
+        onTabChange={vi.fn()}
+        onClose={vi.fn()}
+        onJumpToActivity={vi.fn()}
+        onDispatch={onDispatch}
+      />
+    );
+    const { rerender } = render(panel());
+    const field = () => screen.getByLabelText('% complete');
+
+    // Typing '100' dispatches nothing until Enter, then exactly one command.
+    await user.clear(field());
+    await user.type(field(), '100');
+    expect(onDispatch).not.toHaveBeenCalled();
+    await user.keyboard('{Enter}');
+    expect(onDispatch).toHaveBeenCalledTimes(1);
+    expect(onDispatch).toHaveBeenCalledWith({
+      type: 'setPercentComplete',
+      activityId: 'a2',
+      percentComplete: 100,
+    });
+    rerender(panel());
+    expect(field()).toHaveValue(100);
+
+    // Typing a value and leaving the field dispatches one command.
+    await user.clear(field());
+    await user.type(field(), '40');
+    expect(onDispatch).toHaveBeenCalledTimes(1);
+    await user.tab();
+    expect(onDispatch).toHaveBeenCalledTimes(2);
+    expect(onDispatch).toHaveBeenLastCalledWith({
+      type: 'setPercentComplete',
+      activityId: 'a2',
+      percentComplete: 40,
+    });
+    rerender(panel());
+    expect(field()).toHaveValue(40);
+
+    // Typing the stored value again and leaving the field dispatches nothing.
+    await user.clear(field());
+    await user.type(field(), '40');
+    await user.tab();
+    expect(onDispatch).toHaveBeenCalledTimes(2);
+
+    // Escape restores the stored value without dispatching.
+    await user.clear(field());
+    await user.type(field(), '75');
+    expect(field()).toHaveValue(75);
+    await user.keyboard('{Escape}');
+    expect(field()).toHaveValue(40);
+    await user.tab();
+    expect(onDispatch).toHaveBeenCalledTimes(2);
   });
 });

@@ -187,21 +187,10 @@ export function ScheduleGrid({
           toast.error('Percent complete must be between 0 and 100.');
           return;
         }
-        const pct = Math.round(num * 10) / 10;
-        const nextStatus = pct <= 0 ? 'not_started' : pct >= 100 ? 'completed' : 'in_progress';
-        const nextRemaining = Math.round(activity.originalDuration * (1 - pct / 100));
         const result = onDispatch({
-          type: 'updateActivity',
+          type: 'setPercentComplete',
           activityId: row.id,
-          changes: {
-            status: nextStatus,
-            remainingDuration: nextRemaining,
-            percent: {
-              ...activity.percent,
-              duration: pct,
-              physical: pct,
-            },
-          },
+          percentComplete: num,
         });
         if (!result.ok) toast.error(result.error);
         return;

@@ -320,4 +320,18 @@ describe('schedule commands and Undo/Redo (S12)', () => {
     const inverseJson = JSON.parse(JSON.stringify(deleted.inverse));
     expect(applyPatches(deleted.document, inverseJson)).toEqual(doc);
   });
+
+  it('validates setPercentComplete (D13)', () => {
+    const doc = makeDocument({
+      activities: [makeActivity({ id: 'b', code: 'B', originalDuration: 2400 })],
+    });
+    for (const percentComplete of [-1, 101, Number.NaN]) {
+      expect(
+        applyCommand(doc, { type: 'setPercentComplete', activityId: 'b', percentComplete }),
+      ).toEqual({ ok: false, error: 'Percent complete must be between 0 and 100.' });
+    }
+    expect(
+      applyCommand(doc, { type: 'setPercentComplete', activityId: 'zz', percentComplete: 50 }),
+    ).toEqual({ ok: false, error: 'Activity not found.' });
+  });
 });

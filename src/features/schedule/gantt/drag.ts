@@ -373,6 +373,8 @@ export function updateGanttDrag(
 /**
  * Commits an active Gantt drag state into a single undoable {@link ScheduleCommand}, or `null` if
  * the drag did not move or was dropped on an invalid target (spec §5.2, S4, V3).
+ * A progress drop commits `setPercentComplete`, so it follows the one progress helper that keeps
+ * status and actual dates consistent and keeps the activity's % type (P4 core D13).
  */
 export function commitGanttDrag(state: GanttDragState): ScheduleCommand | null {
   if (!state.moved) return null;
@@ -403,14 +405,10 @@ export function commitGanttDrag(state: GanttDragState): ScheduleCommand | null {
   }
 
   if (state.mode === 'bar-progress') {
-    const pct = state.percentComplete;
     return {
-      type: 'updateActivity',
+      type: 'setPercentComplete',
       activityId: state.activityId,
-      changes: {
-        percent: { duration: pct, physical: pct, type: 'duration' },
-        status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'not_started',
-      },
+      percentComplete: state.percentComplete,
     };
   }
 

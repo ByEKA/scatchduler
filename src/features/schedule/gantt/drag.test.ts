@@ -97,7 +97,7 @@ describe('Gantt drag state machine', () => {
     });
   });
 
-  it('clamps bar-progress between 0 and 100% and commits percent and status', () => {
+  it('clamps bar-progress between 0 and 100% and commits a setPercentComplete command (D13)', () => {
     const hit = hitTestGanttTarget(128, 22, rows, ts, 0, 0, true)!;
     expect(hit.kind).toBe('bar-progress');
     const started = startGanttDrag(hit, 128, 22)!;
@@ -109,21 +109,25 @@ describe('Gantt drag state machine', () => {
       badgeLabel: '50%',
     });
     expect(commitGanttDrag(half)).toEqual({
-      type: 'updateActivity',
+      type: 'setPercentComplete',
       activityId: 'a1',
-      changes: {
-        percent: { duration: 50, physical: 50, type: 'duration' },
-        status: 'in_progress',
-      },
+      percentComplete: 50,
     });
 
-    // Drag past right edge -> 100% completed
+    // Drag past right edge -> 100 %
     const full = updateGanttDrag(started, 300, 22, rows, ts, 0, 0);
-    expect(commitGanttDrag(full)).toMatchObject({
-      changes: {
-        percent: { duration: 100, physical: 100, type: 'duration' },
-        status: 'completed',
-      },
+    expect(commitGanttDrag(full)).toEqual({
+      type: 'setPercentComplete',
+      activityId: 'a1',
+      percentComplete: 100,
+    });
+
+    // Drag past left edge (x1 = 64) -> 0 %
+    const none = updateGanttDrag(started, 10, 22, rows, ts, 0, 0);
+    expect(commitGanttDrag(none)).toEqual({
+      type: 'setPercentComplete',
+      activityId: 'a1',
+      percentComplete: 0,
     });
   });
 
