@@ -82,9 +82,12 @@ After F9 the controller reruns every suite and the oracle check below. It record
 | 50 to 90 % | 10 |
 | below 50 % | 12 |
 
-F10's checks rerun the command. Two outcomes count as a regression:
-- any solver error left;
-- any of es/ef/ls/lf/tf more than 1 point below this baseline.
+F10's checks rerun the command and compare file by file on the 67 files solved at baseline. Any of es/ef/ls/lf/tf more than 1 point below the baseline on those files counts as a regression. Files that newly solve are reported separately: they add many activities, so the plain aggregate is not comparable.
+
+**After F2 (0c36747, controller run 2026-11-26):**
+- The 67 baseline files give exactly the baseline figures.
+- Five of the six LOE-loop files now solve. They add 42,663 activities, and their es match is low (a 23,457-activity file matches 2 %), so the plain aggregate reads es 60.5 %.
+- The sixth file has a real loop of three FS-linked tasks with no LOE, which P6 would refuse too; it stays `SCHEDULE_CYCLE`.
 
 Diagnosing the low-match files is not in this plan; it is a follow-up in `docs/HANDOFF.md`.
 
@@ -1625,7 +1628,7 @@ Expected: FAIL.
 3. `npm run check` → exit 0.
 4. `npm run test:engine:tz` → `materialize.test.ts` passes in all 4 time zones.
 5. `npm run build` → exit 0.
-6. `npx tsx scripts/check-cpm-oracle.ts` (owner machine, real exports present) → the last line reads `Aggregate (73 solved, 0 solver errors)`, and none of es/ef/ls/lf/tf is more than 1 point below the plan's baseline (75.3 / 75.7 / 73.7 / 73.8 / 81.5 %). Copy only the aggregate line into the task's report; never a file's position or anything from its content. On a machine without `real-exports/` the script prints that it is skipping: note that and go on.
+6. `npx tsx scripts/check-cpm-oracle.ts` (owner machine, real exports present) → the last line reads `Aggregate (72 solved, 1 solver errors)` (the remaining error is the real FS loop the header describes), and on the 67 files solved at baseline none of es/ef/ls/lf/tf is more than 1 point below the baseline (75.3 / 75.7 / 73.7 / 73.8 / 81.5 %); the controller compares the per-file lines. Copy only the aggregate line into the task's report; never a file's position or anything from its content. On a machine without `real-exports/` the script prints that it is skipping: note that and go on.
 
 - [ ] **Step 5: Commit**
 
